@@ -1,8 +1,8 @@
 # Auth, RBAC, Sharing, And Tokens
 
-## Authentication
+> **Note:** Implementation detail for the auth, RBAC, sharing, and token stack choices in this section (library versions, class names, provider configuration, JWKS endpoint wiring) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2 and §5. This document captures the functional requirements and wire-protocol shape; the spec is the source of truth for which packages implement them.
 
-> **Note:** Implementation detail for the auth stack choices below (library versions, class names, provider configuration) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2. This section captures the functional requirements and wire-protocol shape; the spec is the source of truth for which packages implement them.
+## Authentication
 
 RackLab must support auth modes ranging from tiny labs to enterprise SSO:
 
@@ -135,13 +135,14 @@ Guest links can grant console, view, or temporary lab access without creating a 
 
 RackLab issues tokens on two tracks with different lifetimes and different shapes. See [Public API, OpenAPI, And SSE](07-api-openapi-sse.md) for the wire-protocol details.
 
-**Track A — Short-lived signed JWTs** (browser session, console grant, share/guest link, short-lived deployment token). RS256-signed via `firebase/php-jwt` (`^6.10`); issued by `App\Auth\Jwt\TrackAIssuer`; verifying public key exposed at `/.well-known/jwks.json` via `App\Http\Controllers\JwksController`. Tokens carry standard `iss`/`aud`/`sub`/`exp`/`iat`/`nbf`/`jti` claims plus RackLab-specific grant id, scope, tenant, project/course constraints, and permission set.
+**Track A — Short-lived signed JWTs** (console grant, share/guest link, short-lived deployment token; optionally also for stateless browser-session bearers in place of a session cookie). RS256-signed via `firebase/php-jwt` (`^6.10`); issued by `App\Auth\Jwt\TrackAIssuer`; verifying public key exposed at `/.well-known/jwks.json` via `App\Http\Controllers\JwksController`. Sidecar services — noVNC websockify proxy, SSH-plugin gateway, the `ProviderConsoleProxy` localhost service — verify Track A JWTs against this JWKS endpoint without holding the signing key. Tokens carry standard `iss`/`aud`/`sub`/`exp`/`iat`/`nbf`/`jti` claims plus RackLab-specific grant id, scope, tenant, project/course constraints, and permission set.
 
 Track A JWTs are **required** for the following consumers — they cannot be replaced by opaque PATs here because the verifier must authenticate without a database call:
 
 - **Console grants**: the `ProviderConsoleProxy` unix-socket process holds Proxmox API credentials; it authenticates incoming requests from console-script containers by verifying a narrow Track A JWT (`(tenant, deployment_resource, op_set, expiry)` tuple) against the JWKS. The container holds only this JWT, never Proxmox credentials. See spec §7 for the `RunConsoleScript` container manifest and `via-console-proxy` network mode.
 - **Share/guest links**: guest-link tokens are Track A JWTs issued at link creation time; they are verified at access time without a DB round-trip against a PAT table.
 - **Short-lived deployment tokens**: automation flows (Ansible playbooks, user scripts) that must call back into RackLab APIs within a single job execution receive a narrow-scope Track A JWT injected as `RACKLAB_TRACK_A_JWT` in the container environment.
+- **Browser sessions (optional)**: web clients may carry a Track A JWT in place of a Sanctum session cookie when a stateless bearer is preferred (e.g. some vanilla JS islands that need to verify identity without an extra round-trip to the app server). This is not load-bearing — the default is the Sanctum cookie — but the same verifier path is available.
 
 Blacklist by `jti` for early revocation; expiry is short (minutes to hours).
 
