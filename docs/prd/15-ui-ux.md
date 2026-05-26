@@ -1,66 +1,67 @@
 # UI And UX
 
-RackLab uses **Django + React islands via django-vite**: Django renders server-side HTML for layout, auth, CSRF, and SSO; React mounts on specific component roots via Vite chunks. Component library is **Mantine** (pin latest stable at M0 ship; currently 9.2.1) with **Radix UI primitives** as the ARIA-fallback. Vanilla JS exceptions (`@xterm/xterm`, `@novnc/novnc`) mount inside React via `useEffect`/`useRef`. Server-rendered Django chrome (login, error pages, plugin-shipped server forms) may still use Bootstrap 5 CSS for the chrome — that's fine and doesn't conflict with the React-island styling.
+> **Note:** Implementation detail for the UI stack choices in this section (Livewire/Filament/Tailwind versions, daisyUI integration, vanilla JS island compilation, accessibility tooling) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2 and §4. This document captures the UX requirements and accessibility/i18n commitments; the spec is the source of truth for the libraries that implement them.
+
+RackLab uses **Blade + Livewire 4 components** for the public UI (server-rendered, reactive over the wire) and **Filament 5** for the admin panel. Tailwind v4 + daisyUI 5 handle public-facing styles; Filament 5 ships its own Tailwind v4-based vendor styles for the admin panel. Vanilla JS islands (`@xterm/xterm`, `@novnc/novnc`, Chart.js, FilePond, TipTap) are mounted by Livewire components via `wire:ignore` + `@push('scripts')` — no React.
 
 ## UI Architecture
 
-The frontend pivoted from "Django templates + Bootstrap 5 + jQuery 3" (the original PRD direction) to **Django + React islands** during the 2026-05-25 library survey. The change resolves several issues: it gives RackLab modern accessibility primitives (Mantine + Radix), shares translation catalogs cleanly with Django via `.po` files (LinguiJS v6), and removes the dead-end on the jQuery plugin slate (DataTables / Select2 / Flatpickr / jQuery Validate / SortableJS / jstree / Toastr / bootbox / blueimp — several of which are abandoned).
+The frontend uses **Blade + Livewire 4** for all public-facing interactive surfaces. Livewire handles server state over the wire; Alpine.js (bundled with Livewire) handles lightweight client-side behavior. The admin panel is **Filament 5** from day one — there is no stock admin phase.
 
 Requirements:
 
-- **No SPA as the default**; islands architecture. Each interactive component is a small React mount on a Django-rendered page.
-- **Django templates for full pages.** Pages include layout, auth chrome, navigation, and React-island mount points.
-- **Vite 8 + `@vitejs/plugin-react-swc` + django-vite 3.1** for the React build pipeline. Vite manifest discovery via `{% vite_asset %}` template tag; HMR in dev; manifest-driven prod.
-- **Mantine** as the primary component library (`@mantine/core`, `@mantine/hooks`, `@mantine/dates`, `@mantine/form`, `@mantine/notifications`, `@mantine/modals`, `@mantine/dropzone`, `@mantine/spotlight`, `@mantine/tiptap`, `@mantine/code-highlight`). LLM-friendly docs index at <https://mantine.dev/llms.txt>.
-- **Radix UI primitives** (`@radix-ui/react-*`) as the ARIA-fallback when axe-core / pa11y / Storybook a11y addon flag a Mantine component as insufficient.
-- **TypeScript 5.5+ strict** is mandatory for the React tree.
-- **React 19+** for concurrent features and Mantine 9 support.
-- **State**: `@tanstack/react-query` v5 for server state against DRF endpoints (pairs with drf-spectacular generated types); Zustand v5 for client UI state.
-- **Forms**: `@mantine/form` for simple/medium; `react-hook-form` + Zod resolver for complex (catalog editor, deployment wizard, plugin config).
-- **Tables**: `@tanstack/react-table` v8 (headless) + Mantine `<Table>` markup. `mantine-react-table` is **not** a drop-in option today — its current npm release peers `@mantine/core ^6.0`, which is incompatible with the Mantine 9.x pin; re-evaluate when a 9.x-compatible release exists.
-- **Schema validation**: Zod v4.
-- **Routing**: server-driven by Django (full-page navigation); no React Router. Intra-page navigation (tabs, modals) via Mantine + Zustand state.
-- **HTMX is explicitly out.** No Alpine. No Tailwind in user-facing pages (Mantine's CSS-in-JS handles styling). No Vue/Svelte/Solid.
+- **No SPA as the default**; Livewire component architecture. Each interactive surface is a Livewire 4 single-file component on a Blade-rendered page.
+- **Blade templates for full pages.** Pages include layout, auth chrome, navigation, and Livewire component mount points.
+- **Vite** compiles two separate CSS entries: `resources/css/app.css` (Tailwind v4 + `@plugin "daisyui"`, public UI) and `resources/css/filament.css` (Filament 5 vendor CSS, admin). Vanilla JS islands compile from `resources/js/islands/`.
+- **Tailwind v4 + daisyUI 5** as the public component layer. Semantic tokens from daisyUI's theme system drive branding overrides.
+- **Filament 5** as the admin panel. Filament Resources, Pages, Widgets, and Plugin panels replace any bespoke admin UI. Filament's built-in `RichEditor` (TipTap-based) is used for the docs plugin admin surfaces.
+- **TypeScript only for vanilla JS islands** (`xterm-console.ts`, `novnc-viewer.ts`, `chart-board.ts`, `filepond-uploader.ts`, `tiptap-editor.ts`). No TypeScript outside of islands. No React anywhere in the stack.
+- **Server state**: Livewire 4 handles all reactive server state over WebSocket/HTTP. No separate client-side query library.
+- **Client state**: Alpine.js (bundled) for lightweight UI state (toggle panels, transient form state, dropdown open/close).
+- **Forms**: Laravel `FormRequest` classes for validation; `spatie/laravel-data` for server-side typed payloads. Livewire form objects for the component-layer form binding.
+- **Tables**: Filament `Table` component (admin); daisyUI + Livewire components for public-facing tables.
+- **Routing**: server-driven by Laravel (full-page navigation via `wire:navigate` for SPA-feel transitions). Intra-page navigation (tabs, modals) via Livewire + Alpine.js.
+- **HTMX is out.** No Vue/Svelte/Solid. No React. No separate SPA framework.
 
 ## Operator admin UI
 
-Stock Django admin until **M10a** lands a React-based custom operator UI shell. No admin theme — django-unfold bundles HTMX/Tailwind/Alpine which conflict with the binding constraints; django-jazzmin is Bootstrap-4-mismatched; django-grappelli is dated. Stock Django admin has gettext i18n built in and is ARIA-compliant by default. Accept the visual cost as the price of constraint compliance.
+**Filament 5** is the admin panel from day one. It replaces the Django admin pattern entirely. Filament Resources, Pages, and custom Widgets cover all admin screens listed under Key Screens below. The **M10a milestone** — equivalent to the original custom shell milestone — instead rewrites the **public** UI component library on top of daisyUI 5, not the admin panel.
 
-## Surviving vanilla libraries (mounted inside React via `useEffect`/`useRef`)
+## Vanilla JS islands (mounted via `wire:ignore`)
 
-| Library | React integration |
+Islands are compiled TypeScript files under `resources/js/islands/`. Each island is mounted by its wrapping Livewire component via `wire:ignore` on the container element and `@push('scripts')` for the compiled bundle. Livewire dispatches browser events into and out of the island for integration.
+
+| Library | Island file | Mount strategy |
+|---|---|---|
+| Chart.js 4.x | `chart-board.ts` | `wire:ignore` container; accessibility lives in a Livewire `<AccessibleChart>` Blade component that wraps the canvas with `aria-label` + an offscreen `<table>` summary. |
+| Cytoscape.js | `cytoscape-graph.ts` | `wire:ignore` container |
+| `@xterm/xterm` 6.0.0 + `@xterm/addon-fit` | `xterm-console.ts` | `wire:ignore` container; `terminal.dispose()` on Livewire component destroy. |
+| `@novnc/novnc` 1.7.0 | `novnc-viewer.ts` | Same pattern; `RFB.disconnect()` on destroy. |
+| `@tiptap/core` (vanilla) | `tiptap-editor.ts` | `wire:ignore` on the editor container in public Livewire components. Filament admin uses Filament's built-in `RichEditor`. |
+| FilePond 4.x | `filepond-uploader.ts` | `spatie/livewire-filepond` bridge; see "File uploads" below. |
+
+## jQuery-plugin → Livewire/daisyUI/Filament replacement map (historical)
+
+The original PRD §15 jQuery slate was replaced first by React equivalents, and now by Livewire + daisyUI + Filament equivalents:
+
+| Old jQuery plugin (out) | New replacement |
 |---|---|
-| Chart.js | `react-chartjs-2` 5.3.1. Wrap once in a RackLab `<AccessibleChart>` HOC that adds `aria-label` on the `<canvas>` + an offscreen `<table>` summary for screen readers. |
-| Cytoscape.js | `react-cytoscapejs` wrapper. |
-| Prism.js | Replaced by `react-syntax-highlighter` (wraps Prism / highlight.js). |
-| clipboard.js | Replaced by `navigator.clipboard.writeText()` + `@mantine/notifications` confirm toast. |
-| marked + DOMPurify | Replaced by `react-markdown` 10 + `remark-gfm` + `nh3` (server-side sanitisation). `react-markdown` is safe by default — no `dangerouslySetInnerHTML`. |
-| `@xterm/xterm` 6.0.0 (renamed from `xterm`) + `@xterm/addon-fit` | `useRef` + `useEffect` mount; `terminal.dispose()` in cleanup. |
-| `@novnc/novnc` 1.7.0 | Same pattern; `RFB.disconnect()` in cleanup. |
-| TipTap | `@tiptap/react` + `@mantine/tiptap` (M8 docs plugin). |
-
-## jQuery-plugin → React-equivalent map (historical)
-
-The original PRD §15 jQuery slate is replaced by:
-
-| Old jQuery plugin (out) | React replacement |
-|---|---|
-| DataTables | `@tanstack/react-table` v8 + Mantine `<Table>` |
-| Select2 | Mantine `Select` / `MultiSelect` / `Combobox` |
-| Flatpickr | `@mantine/dates` |
-| jQuery Validate | Zod v4 schemas via `@mantine/form` or React Hook Form |
-| SortableJS | `dnd-kit` |
-| jstree | Mantine `Tree` (spike first); fallback `react-arborist` |
-| Toastr | `@mantine/notifications` |
-| bootbox | `@mantine/modals` |
-| blueimp jQuery File Upload | `react-filepond` 7.1.3 with `chunkUploads: true` — see "File uploads" below |
+| DataTables | Filament `Table` (admin); Livewire + daisyUI `table` component (public) |
+| Select2 | daisyUI `select` + Livewire `wire:model` (public); Filament `Select` (admin) |
+| Flatpickr | daisyUI `input[type=date]` + browser native or a lightweight vanilla date picker island (public); Filament `DatePicker` (admin) |
+| jQuery Validate | Laravel `FormRequest` + `spatie/laravel-data` (server); Alpine.js + Livewire errors (client) |
+| SortableJS | SortableJS vanilla island or `wire:sortable` (Livewire community package) |
+| jstree | Filament `Tree` resource (admin); Livewire component with daisyUI `menu` tree markup (public) |
+| Toastr | daisyUI `toast` + Alpine.js (public); Filament notifications (admin) |
+| bootbox | daisyUI `modal` + Alpine.js (public); Filament action modals (admin) |
+| blueimp jQuery File Upload | `filepond` 4.x via `spatie/livewire-filepond` — see "File uploads" below |
 
 ## File uploads
 
-Multi-GB ISOs / OVAs / stack tarballs cannot go through Django multipart — Django never handles those bytes in production. Two-tier protocol:
+Multi-GB ISOs / OVAs / stack tarballs cannot go through standard multipart — the application server never handles those bytes in production. Two-tier protocol:
 
-- **Small / medium files (≤ 50 MB)**: standard Django multipart via FilePond into the artifact backend.
-- **Large files (≥ 1 GB)**: FilePond chunked upload protocol (`chunkUploads: true` core option; HEAD + PATCH with `Upload-Offset`/`Upload-Length` headers, tus-style — *not* the S3 multipart protocol; single presigned PUT direct-to-S3 caps at 5 GB). Django is the upload coordinator for every backend: filesystem backend streams chunks via `HttpRequest.read()` (never `request.body` which loads everything into memory) under a per-`UploadSession` advisory lock; S3-compatible backend initialises an `S3 CreateMultipartUpload` on first chunk, calls `UploadPart` per FilePond chunk, and `CompleteMultipartUpload` on finalisation. sha256 is computed during streaming for filesystem; post-upload via `GetObject` for S3.
+- **Small / medium files (≤ 50 MB)**: standard multipart via FilePond into the artifact backend.
+- **Large files (≥ 1 GB)**: FilePond chunked upload protocol (`chunkUploads: true` core option; HEAD + PATCH with `Upload-Offset`/`Upload-Length` headers, tus-style — *not* the S3 multipart protocol; single presigned PUT direct-to-S3 caps at 5 GB). Laravel is the upload coordinator for every backend: filesystem backend streams chunks via `fread()` on the incoming stream (never buffering the entire body) under a per-`UploadSession` advisory lock; S3-compatible backend initialises an `S3 CreateMultipartUpload` on first chunk, calls `UploadPart` per FilePond chunk, and `CompleteMultipartUpload` on finalisation. sha256 is computed during streaming for filesystem; post-upload via `GetObject` for S3.
 
 Upload session invariants:
 
@@ -70,10 +71,10 @@ Upload session invariants:
 - TTL cleanup reaper aborts abandoned sessions; for S3 the reaper calls `AbortMultipartUpload`.
 - `Artifact.quarantined = true` on insert; scanner pipeline (no-op in M0; ClamAV / `qemu-img info` / format validator from M1+) clears the flag on OK.
 - Filename + path sanitisation; storage key derived from `transfer_id`, original filename kept as metadata.
-- MIME magic sniffing via `python-magic`; reject mismatches.
+- MIME magic sniffing; reject mismatches.
 - Archive / zip-bomb limits enforced before processing.
 
-Frontend: FilePond via `react-filepond` 7.1.3 (or mount FilePond core directly via `useRef`/`useEffect` if the wrapper hits a React 19 issue) paired with `@mantine/dropzone` for surface chrome.
+Frontend: `filepond` 4.x via `spatie/livewire-filepond` bridge. The FilePond surface chrome uses daisyUI styling via the custom CSS class API. Admin upload surfaces use Filament's `FileUpload` field (which wraps FilePond).
 
 ## Product Style
 
@@ -96,7 +97,7 @@ RackLab supports operator-configurable branding and theming from day one. The go
 Requirements:
 
 - Logo (light and dark variants), favicon, product name, and login-screen banner/message are operator-configurable via an admin GUI.
-- Primary brand color and semantic accents (success/warning/danger/info) are configurable with live preview.
+- Primary brand color and semantic accents (success/warning/danger/info) are configurable with live preview. daisyUI 5 theme tokens are the mechanism for public UI; Filament panel colors are configured via `$panel->colors([...])` for the admin panel.
 - Light and dark themes ship by default. Per-user toggle plus per-deployment default.
 - Email template branding (sender display name, header logo) follows the same configuration.
 - "Reset to defaults" is a single action.
@@ -127,7 +128,7 @@ Instructor:
 - Student deployment management.
 - Script approval.
 
-Admin:
+Admin (Filament 5 panel):
 
 - Provider inventory.
 - Network offerings.
@@ -140,7 +141,7 @@ Admin:
 
 ## Live Updates
 
-SSE powers live status for deployment timelines, scripts, worker health, provider health, approvals, and quotas. React islands consume SSE via the browser-native `EventSource` API wrapped in a TanStack Query subscription; SSE persistence + `Last-Event-ID` replay semantics per PRD §7. Per-stream RBAC scope check applies before any event is sent.
+Laravel Reverb (WebSockets, Pusher protocol) + Laravel Echo client + Livewire 4 broadcasting power live status for deployment timelines, scripts, worker health, provider health, approvals, and quotas. Livewire components subscribe to broadcast channels via `#[On('deployment.{id}.updated')]` listeners; Echo handles the WebSocket transport. Replay semantics (`Last-Event-ID` equivalent) are backed by the `broadcast_event_log` Postgres table — see the spec §7 and PRD §7. Per-channel RBAC scope check applies (channel auth in `channels.php`) before any event is sent.
 
 ## Accessibility
 
@@ -148,8 +149,8 @@ WCAG 2.2 AA across the platform; AAA on critical flows (deployment status, conso
 
 Implementation:
 
-- **Mantine ARIA strategy**: Mantine is *generally* WAI-ARIA-compliant but is not "accessible by default" the way Radix is — usage discipline plus CI a11y gates verify per-component compliance. When axe-core / pa11y / Storybook a11y addon flags a Mantine component, drop in the equivalent `@radix-ui/react-*` primitive styled with Mantine.
-- **CI gates**: axe-core in Playwright E2E + `vitest-axe` in unit tests + Storybook a11y addon in component dev + pa11y on critical flows. Build fails on any new violation.
+- **daisyUI + Livewire accessibility strategy**: daisyUI components are semantic HTML with ARIA baked in. Livewire's reactive rendering must not break focus — `wire:key` discipline ensures stable DOM identity across re-renders. CI a11y gates verify per-component compliance. Where daisyUI components are insufficient, drop to a lightweight headless component or manually authored ARIA markup.
+- **CI gates**: axe-core in Laravel Dusk E2E + `eslint-plugin-jsx-a11y` on island TypeScript + pa11y on critical flows. Build fails on any new violation.
 - **Manual screen-reader pass**: NVDA, VoiceOver, Orca before promotion.
 - **Semantic HTML first**; ARIA only where semantic HTML cannot express intent.
 - **All interactive elements keyboard-reachable**; visible focus indicators per WCAG 2.4.7.
@@ -158,41 +159,41 @@ Implementation:
 - **200% browser zoom** reflows without horizontal scrolling on the main flow.
 - **High-contrast theme** variant beyond light/dark.
 - **Form inputs** all have associated `<label>`; errors via `aria-describedby` + submit-time error summaries in a single live region.
-- **SSE live updates** use ARIA live regions (`polite` for status changes, `assertive` only for failures requiring action).
+- **Live updates** use ARIA live regions (`polite` for status changes, `assertive` only for failures requiring action).
 - **Console embedding**: keyboard shortcut to release focus, screen-reader announcement of session state, text-mode fallback documented.
 - **Skip links** to main content, primary nav, and any in-page filter region.
 - **Modals trap focus**, return focus on close, escape-dismissable.
-- **Page titles update** on island navigation via `document.title` + `history.pushState`; `aria-current` reflects active navigation.
+- **Page titles update** on `wire:navigate` transitions via `<title>` in Blade layouts; `aria-current` reflects active navigation.
 - **Animations respect `prefers-reduced-motion`**.
 - **Accessibility statement** is a first-class admin page.
 
 ## Internationalization
 
-RackLab is internationalized from day one. **LinguiJS v6** is the canonical catalog tool — its native PO format is shared with Django's `gettext`.
+RackLab is internationalized from day one. **Laravel's built-in i18n** (`resources/lang/*`) is the canonical catalog tool; `php artisan lang:check` flags catalog drift in CI.
 
 Requirements:
 
-- All user-facing strings (Django templates, React components, API error messages, audit-event human descriptions, email templates, console UI, admin pages) are wrapped in translation calls. No bare user-facing English literals in templates, views, serializers, React components, or worker outputs.
-- Translation catalogs live in `locale/<lang>/LC_MESSAGES/`. Django uses `django.po`; React uses `react.po`. The two `domain`s prevent extract-pass collision; both are real gettext `.po` files Lingui and Django read directly.
-- `@lingui/vite-plugin` integrates the React extract/compile pass into the Vite build.
-- Each user has a per-account locale preference; falls back to `Accept-Language`, then to the deployment-default locale.
-- Date, time, number, and currency formatting respect the active locale.
-- CLDR plural forms via Django gettext + Lingui (singular/plural at minimum). Full ICU MessageFormat is **not** in scope for v1.
+- All user-facing strings (Blade templates, Livewire components, API error messages, audit-event human descriptions, email templates, console UI, admin pages) are wrapped in translation calls (`__(...)`, `trans(...)`, `@lang(...)`). No bare user-facing English literals in templates, controllers, Livewire components, or worker outputs.
+- Translation catalogs live in `resources/lang/<lang>/`. Laravel's PHP-array format is the primary form; JSON catalogs for front-end strings passed to Alpine.js islands or JS config. Plugin authors ship their own `resources/lang/` catalogs within their package.
+- `php artisan lang:check` (or equivalent) runs in CI to detect missing keys. Catalog drift breaks the build.
+- Each user has a per-account locale preference; falls back to `Accept-Language`, then to the deployment-default locale (`APP_LOCALE`).
+- Date, time, number, and currency formatting respect the active locale via Laravel's locale-aware helpers and JavaScript `Intl` in islands.
+- CLDR plural forms via Laravel's pluralization. Full ICU MessageFormat is **not** in scope for v1.
 - RTL languages (Arabic, Hebrew) supported end-to-end: layout flips, bidi-aware text rendering, mirrored icons where directional.
 - Default ships with en-US populated; additional locales community-contributable.
 - Translatable strings include extractor comments where context is non-obvious.
-- Plugin authors ship their own React + Django catalogs; RackLab merges them on plugin install/enable.
+- Plugin authors ship their own language files; RackLab merges them on plugin install/enable via the plugin service provider.
 - Translation-coverage admin page shows per-locale stats.
 
 ## Asset pipeline + linting + CSP
 
-- Vite manifest discovery via `django-vite` 3.1.
-- CSP `script-src 'nonce-...'` policy; Vite chunks load via `<script type="module">` with the nonce.
-- `style-src` allowance for Mantine's CSS-in-JS injected `<style>` tags (`'nonce-...'` or hash-based).
+- Vite compiles `resources/css/app.css` (public Tailwind v4 + daisyUI) and `resources/css/filament.css` (Filament vendor) as separate bundles. Island TypeScript compiles from `resources/js/islands/`.
+- CSP `script-src 'nonce-...'` policy; Vite chunks load via `<script type="module">` with the nonce injected by Laravel's middleware.
+- `style-src` allowance for compiled CSS served from the Vite manifest.
 - HMR `connect-src` allowance in dev only.
-- ESLint + `eslint-plugin-jsx-a11y` + `eslint-plugin-react` + `eslint-plugin-react-hooks` + Prettier as a pre-commit hook for the React tree.
-- Stylelint for any CSS authored by hand.
+- ESLint + `eslint-plugin-jsx-a11y` + Prettier as a pre-commit hook for the island TypeScript files.
+- Stylelint for any CSS authored by hand outside of Tailwind/daisyUI utilities.
 
-## Plugin-shipped React islands
+## Plugin-shipped UI contributions
 
-Plugins that contribute UI ship their own Vite-built bundles registered into the central Vite manifest. Per-plugin CI hooks: ESLint a11y plugin, axe-core in Storybook, Vitest + RTL. Plugin islands enforce tenant-aware data fetches and never render cross-tenant data unless the actor's binding scope explicitly allows it.
+Plugins that contribute UI ship their own Livewire components, Blade views, Filament Resources/Pages/Widgets, and vanilla JS island files. Per-plugin CI hooks: ESLint a11y plugin, axe-core in Dusk, Pest browser tests. Plugin components enforce tenant-aware data access and never render cross-tenant data unless the actor's binding scope explicitly allows it.
