@@ -1,5 +1,7 @@
 # Data Model Outline
 
+> **Note:** Implementation detail for the data model stack (Eloquent model class definitions, $casts/$fillable, migration syntax, polymorphic-relation wiring, PHP 8 enum for state machines, JSONB column conventions) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §4. This document captures the data model contract — what columns exist, what they store, the three-tenant AuditEvent schema, the scope_type/tenant_set columns on RoleBinding and TokenGrant; the spec is the source of truth for the framework idioms that implement them.
+
 This is a high-level model outline, not a final migration design. Three cross-cutting abstractions are load-bearing and called out first: **multi-tenancy** (every tenant-scoped row carries a tenant FK, with denormalized `tenant_id` columns on hot tables), the **universal `Job` ledger** that every queued or worker-executed unit of work lives in, and the **generic `Artifact` store** that every binary or large-blob output lives in. Provider-specific, script-specific, console-specific, and docs-specific details are subtypes of these abstractions, not parallel tables.
 
 ## Multi-tenancy
@@ -21,7 +23,7 @@ Every cross-tenant access emits a `tenant.cross_access` audit event, regardless 
 
 See PRD §14 audit catalog for the full event schema and the bidirectional surfacing rule (both the actor's tenant and the owner's tenant see the event).
 
-Tenant context propagates via Python `contextvars` (not thread-locals) so it carries correctly through ASGI views, Channels consumers, and async hooks. Background NATS workers and scheduled commands do **not** inherit request context — every NATS message envelope and `Job` row must carry an explicit `tenant_id` field, and worker handlers re-establish the tenant context at the start of each message.
+Tenant context propagates via Laravel's per-request middleware context (not a global static) so it carries correctly through Octane worker requests, Livewire 4 components, and Reverb WebSocket handlers. Background Horizon jobs do **not** inherit request context — every queued job payload and `Job` row must carry an explicit `tenant_id` field, and Horizon job handlers re-establish the tenant context via `BindTenantContext` job middleware at the start of each job (see spec §5 for the middleware chain).
 
 ## Universal Job ledger
 
@@ -37,7 +39,7 @@ Fields:
 - `result_summary`, `error_kind`, `error_detail` (sanitized for UI; verbatim in audit row).
 - `last_progress_at` for liveness detection.
 
-Subtypes (Django multi-table inheritance: each subtype has its own table linked back to `Job` via a one-to-one parent link, so a reconciler query against `Job` hits one table but typed access to provider-specific UPID or script-specific runner-profile traverses to the subtype):
+Subtypes (Eloquent single-table or polymorphic pattern: a `type` discriminator column on the `jobs` table routes each row to its typed Eloquent model; a reconciler query against `Job` hits one table, but typed access to provider-specific UPID or script-specific runner-profile is via a `morphTo`/`morphMany` relation or a typed scope resolving to the subtype row):
 
 - `ProviderTask` — Proxmox UPID, target node, decoded `(node, pid, starttime, type, id, user)` UPID parts, provider-task-id for non-Proxmox providers.
 - `ScriptRun` — script id + version, runner-profile reference, exit status, asciinema-cast artifact ref, log artifact ref, screenshot artifact refs.
