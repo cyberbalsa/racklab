@@ -128,7 +128,7 @@ The Echo client abstracts the Pusher framing; application code subscribes with `
 Reverb provides reconnection but not durable replay. RackLab adds a dedicated replay endpoint that preserves the Last-Event-ID semantics from the prior SSE transport, now backed by a Postgres `broadcast_event_log` table instead of the SSE `id:` field.
 
 ```http
-GET /api/v1/replay?channel=private-tenant.42.job.5001&since=01HXAB…
+GET /api/v1/replay?channel=private-tenant.42.job.5001&since=ev_01HXAB…
 ```
 
 The endpoint reads:
@@ -150,7 +150,7 @@ The client merges replay results with live Reverb messages (dedup by ULID, monot
 
 **Scope check:** the replay endpoint uses the same `AccessResolver` for visibility checks as the WebSocket channel auth. Requesting a replay for a channel the caller cannot authorize returns `403`.
 
-**Postgres schema** (from spec §7):
+**Postgres schema** — canonical in spec §7; update both this section and the spec together if the schema changes:
 
 ```sql
 CREATE TABLE broadcast_event_log (

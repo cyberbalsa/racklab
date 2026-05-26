@@ -492,7 +492,7 @@ CREATE TABLE broadcast_event_log (
   channel       TEXT  NOT NULL,              -- e.g. private-tenant.42.job.5001
   event_class   TEXT  NOT NULL,              -- e.g. App\Events\JobOutputChunk
   payload       JSONB NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
   -- BRIN index on created_at (sweep efficiency), btree on (channel, id) for replay
   -- GIN on tenant_id for cross-tenant audit query joins
 );
