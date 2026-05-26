@@ -8,7 +8,7 @@
 - Let instructors publish stacks, deploy stacks for rosters, and manage student deployments created in a course context.
 - Support project isolation, sharing, and self-service RBAC.
 - Support strong audit logging for all meaningful user, system, provider, token, network, script, and admin actions.
-- Use Django, PostgreSQL, NATS JetStream, Proxmox, and `uv`.
+- Use Laravel, PostgreSQL, NATS JetStream, Proxmox, and Composer.
 - Make Proxmox the first provider while keeping the provider model replaceable.
 - Support multiple Proxmox servers or clusters and spread load across them.
 - Support Neutron-inspired networking concepts without requiring OpenStack.
@@ -16,7 +16,7 @@
 - Run untrusted student automation in isolated script worker pools.
 - Provide a public API that can automate everything the UI can do.
 - Provide SSE for live deployment, worker, script, quota, and provider status.
-- Use strong typing, strong linting, strict CI, and Django-aware type checking.
+- Use strong typing, strong linting, strict CI, and Laravel-aware static analysis.
 - Make Docker/Podman Compose the first-class operational model.
 
 ## Non-Goals

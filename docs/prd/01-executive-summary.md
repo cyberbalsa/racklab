@@ -6,7 +6,7 @@ The original RLES workflow is lightweight: users log in, choose a VM from a cata
 
 RackLab is built around:
 
-- Django as the product control plane.
+- Laravel as the product control plane.
 - PostgreSQL as the system of record.
 - NATS JetStream as the durable job and event bus.
 - Separate worker pools for provider actions, scripting, console automation, reconciliation, and notifications.

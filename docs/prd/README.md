@@ -1,6 +1,6 @@
 # RackLab PRD
 
-RackLab is a full target product specification for a Django-based replacement for RLES. It is designed as a self-service lab platform for students, instructors, and administrators, with Proxmox as the first provider backend and a plugin system for future backends.
+RackLab is a full target product specification for a Laravel-based replacement for RLES. It is designed as a self-service lab platform for students, instructors, and administrators, with Proxmox as the first provider backend and a plugin system for future backends.
 
 This PRD is split into focused files so each section can be reviewed independently.
 
