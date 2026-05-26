@@ -7,13 +7,13 @@
 
 ## Goal
 
-Get the end-to-end deployment loop running against a **fake provider** so every piece of the control plane is exercised before real provider integration in M3. After M2, a logged-in user clicks "Deploy" on a catalog item, an HTTP request becomes a durable NATS message, a `provider-worker` picks it up, advances the deployment state machine, emits SSE events the browser sees in real time, and the deployment lands in a `running` state. The fake provider is a Python in-process implementation that simulates clone latency, occasional failures, and the task-id model — enough to prove the loop without depending on Proxmox.
+Get the end-to-end deployment loop running against a **fake provider** so every piece of the control plane is exercised before real provider integration in M3. After M2, a logged-in user clicks "Deploy" on a catalog item, an HTTP request becomes a durable NATS message, a `provider-worker` picks it up, advances the deployment state machine, broadcasts real-time progress via Reverb, and the deployment lands in a `running` state. The fake provider is a PHP in-process implementation that simulates clone latency, occasional failures, and the task-id model — enough to prove the loop without depending on Proxmox.
 
 ## In scope
 
 - PRD §04 product requirements (the deployment-lifecycle slice).
 - PRD §05 architecture (the web + provider-worker + NATS + scheduler-reconciler flow).
-- PRD §07 API + OpenAPI + SSE (the `Last-Event-ID` replay landed in PRD; M2 implements it end-to-end).
+- PRD §07 API + OpenAPI + broadcasting (the `since=<ULID>` replay landed in PRD; M2 implements it end-to-end via Reverb + `broadcast_event_log`).
 - PRD §08 catalog, stacks, and deployments.
 - PRD §14 audit + observability (the deployment-domain events).
 - PRD §19 data model (the catalog and deployment tables; the `Job` model becomes load-bearing here).
@@ -28,21 +28,21 @@ Get the end-to-end deployment loop running against a **fake provider** so every 
 
 ## Deliverables
 
-- `racklab.catalog` Django app: `CatalogItem`, `CatalogVersion`, `StackDefinition`, `StackComponent`, `ConsoleInstructionPanel`, `CatalogApproval`. The catalog model supports singleton VMs and multi-VM stacks per PRD §08.
-- `racklab.deployments` Django app: `Deployment`, `DeploymentResource`, `DeploymentStateTransition`, `DeploymentEvent` (with the `id` field for `Last-Event-ID` replay), `Snapshot`, `Lease` (basic model + expiry sweep only; quota-coupled lease limits land in M6).
-- `Job` subtypes wired: `ProviderTask` model (no Proxmox-specific fields yet; M3 fills them in).
-- `provider-worker` pool process: NATS JetStream consumer, dispatches to provider plugins via the `racklab_provider_*` hookspecs, persists state to the `Job` ledger.
-- `scheduler-reconciler` worker: polls `Job` rows in `pending` state past their deadline, resumes polling for stuck tasks, repairs orphaned deployments.
+- `app/Domain/Catalog/` Laravel module: `CatalogItem`, `CatalogVersion`, `StackDefinition`, `StackComponent`, `ConsoleInstructionPanel`, `CatalogApproval`. The catalog model supports singleton VMs and multi-VM stacks per PRD §08.
+- `app/Domain/Deployments/` Laravel module: `Deployment`, `DeploymentResource`, `DeploymentStateTransition`, `DeploymentEvent` (with the `ulid` field for `since=<ULID>` replay), `Snapshot`, `Lease` (basic model + expiry sweep only; quota-coupled lease limits land in M6).
+- `Job` subtypes wired (`app/Domain/Jobs/`): `ProviderTask` model (no Proxmox-specific fields yet; M3 fills them in).
+- `provider-worker` pool process: NATS JetStream consumer, dispatches to provider plugins via typed hookspec event classes (`app/Events/Hookspecs/Provider/`), persists state to the `Job` ledger. Worker pool managed by **Horizon** (Redis-backed); pcntl/posix required.
+- `scheduler-reconciler` worker: polls `Job` rows in `pending` state past their deadline, resumes polling for stuck tasks, repairs orphaned deployments. Runs as a Horizon worker queue.
 - `racklab-provider-fake` plugin: implements the full Provider Protocol with configurable latency, jitter, and failure injection. Lives in the main repo so test infrastructure has access; ships as an installable plugin so dev deployments can use it.
 - `QuadletWorkerRuntime` concrete implementation: writes Quadlet files to `/etc/containers/systemd/`, calls `systemctl daemon-reload` and `systemctl start/stop` via the D-Bus API.
-- DRF endpoints: `/api/v1/catalog/items`, `/api/v1/catalog/items/{id}/versions/{ver}`, `/api/v1/deployments` (POST creates, GET lists), `/api/v1/deployments/{id}` (GET retrieves), `/api/v1/deployments/{id}/events` (SSE with `Last-Event-ID` replay).
-- Mantine React-island dashboard (mounted via django-vite per PRD §15): a logged-in user sees their projects, can browse the catalog, click Deploy, watch the deployment progress live via SSE (`EventSource` wrapped in a TanStack Query subscription), see state transitions and audit-visible events.
+- Laravel controller endpoints (under `app/Http/Controllers`): `/api/v1/catalog/items`, `/api/v1/catalog/items/{id}/versions/{ver}`, `/api/v1/deployments` (POST creates, GET lists), `/api/v1/deployments/{id}` (GET retrieves), `/api/v1/replay` (`GET ?channel=…&since=<ULID>` — replays missed broadcast events from the Postgres `broadcast_event_log` table; uses `ShouldBroadcastAfterCommit` discipline). OpenAPI docs generated by **Scribe** (knuckleswtf/scribe).
+- Livewire 4 deployment-dashboard component: a logged-in user sees their projects, can browse the catalog, click Deploy, watch deployment progress live via **Laravel Echo** (Reverb/Pusher protocol), see state transitions and audit-visible events. xterm and noVNC islands (if referenced) are vanilla JS mounted via `wire:ignore`.
 - Idempotency-key handling on the `POST /api/v1/deployments` endpoint per PRD §07.
 
 ## Acceptance criteria
 
-- [ ] A user creates a deployment from a fake-provider catalog item; the deployment state machine progresses `pending → running` in under 30 seconds (fake provider's simulated clone latency); SSE events stream live to the browser.
-- [ ] Browser disconnects mid-stream and reconnects with `Last-Event-ID = N`; replay resumes from `N+1`; events outside the 24-hour retention window produce the documented sentinel.
+- [ ] A user creates a deployment from a fake-provider catalog item; the deployment state machine progresses `pending → running` in under 30 seconds (fake provider's simulated clone latency); Reverb broadcast events stream live to the browser via Laravel Echo.
+- [ ] Browser reconnects after a disconnect and calls `GET /api/v1/replay?channel=…&since=<ULID>`; replay resumes from the next event; events outside the 24-hour retention window produce the documented sentinel.
 - [ ] The fake provider can be configured to fail a deployment; the deployment state machine transitions to `failed`, the audit event includes the error reason, and the user sees the failure in the UI.
 - [ ] A user retries a failed deployment with the same idempotency key; the system returns the original deployment's id, not a new one.
 - [ ] Killing the `provider-worker` process mid-job and restarting it: the reconciler picks up the stuck `Job` row, resumes polling, and the deployment completes. **The system does not re-submit the original operation** — it resumes from the existing `Job`.
@@ -53,17 +53,17 @@ Get the end-to-end deployment loop running against a **fake provider** so every 
 
 ## Test layers
 
-- **Tiny / unit**: catalog template rendering; deployment state-machine transitions; idempotency-key matching; SSE event-id sequencing; `Last-Event-ID` replay logic (events older than the window produce the sentinel).
-- **Contract**: the provider Protocol against the fake provider; the `QuadletWorkerRuntime` Protocol against a fake systemd D-Bus; the SSE consumer against fake event streams; idempotency at the DRF view boundary.
-- **Integration**: full deployment flow against testcontainers Postgres + NATS + the fake provider running in-process. Worker crash + reconciler resume. SSE reconnect with `Last-Event-ID`. Multi-VM stack with mixed states.
-- **E2E**: a logged-in user deploys a fake-provider catalog item from the dashboard, watches it progress via SSE, snapshots it, restores from the snapshot, releases it. axe-core runs on every page; a11y is held to the WCAG 2.2 AA baseline.
+- **Tiny / unit** (Pest 4): catalog template rendering; deployment state-machine transitions; idempotency-key matching; broadcast event ULID sequencing; `since=<ULID>` replay logic (events older than the window produce the sentinel).
+- **Contract** (Pest 4): the provider Protocol against the fake provider; the `QuadletWorkerRuntime` Protocol against a fake systemd D-Bus; the Laravel Echo broadcast consumer against fake event streams; idempotency at the Laravel controller boundary.
+- **Integration** (Pest 4): full deployment flow against testcontainers Postgres + NATS + the fake provider running in-process. Horizon worker crash + reconciler resume. Broadcast reconnect with `since=<ULID>` replay. Multi-VM stack with mixed states.
+- **Browser E2E** (Dusk + axe-core): a logged-in user deploys a fake-provider catalog item from the dashboard, watches it progress via Laravel Echo, snapshots it, restores from the snapshot, releases it. axe-core runs on every page; a11y is held to the WCAG 2.2 AA baseline.
 
 ## Risks / open questions
 
 - **NATS JetStream durability config**: what consumer / stream / retention policy ships as the default? Aggressive retention costs disk; lax retention loses events. Probably 24-hour retention with a configurable override.
 - **The fake provider's failure modes**: the more realistic it is, the more bugs it catches in M3 integration. Must include: transient 5xx, connection refused before request body sent (the "safe-to-retry" case in the Proxmox spec §5), task-id returned then provider becomes unreachable (the node-loss case), task completes successfully but the response is malformed.
 - **Stack deployments and partial failure**: if component 1 succeeds and component 2 fails, what's the rollback policy? Per PRD §08, deployments reach "partially ready" — codify this in the state machine before M3.
-- **SSE replay storage**: the per-stream retention window of 24h is reasonable for live ops but expensive for `DeploymentEvent` history. Tune the retention sweep so old `DeploymentEvent` rows are dropped from the SSE replay buffer but preserved in the audit-event log.
+- **Broadcast replay storage**: the per-channel retention window of 24h is reasonable for live ops but expensive for `DeploymentEvent` history. Tune the retention sweep so old `DeploymentEvent` rows are pruned from `broadcast_event_log` but preserved in the audit-event log.
 
 ## Out of scope (deferred)
 
