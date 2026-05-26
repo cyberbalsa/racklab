@@ -17,7 +17,7 @@ Stand up the bones of the RackLab codebase so every later milestone has a stable
 - PRD §15 i18n scaffolding (catalogs for en-US, the translation-coverage admin model).
 - PRD §17 engineering quality + TDD discipline (the entire CI matrix becomes real here).
 - PRD §19 data model — `Job` (multi-table inheritance base), `Artifact` + `ArtifactReference`, `PluginLifecycleState`, `PluginMigrationRecord`, the identity/scope tables (without auth flows — those land in M1).
-- The strong-linting + no-overrides discipline from PRD §17 — `pyproject.toml` ruff config, mypy strict, the no-lint-overrides hook.
+- The strong-linting + no-overrides discipline from PRD §17 — `composer.json` + `package.json` Pint / Larastan / Rector config, the no-lint-overrides hook.
 
 ## Dependencies
 
@@ -25,8 +25,8 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 
 ## Deliverables
 
-- `pyproject.toml` with `uv` lockfile, ruff at strictest sensible settings, mypy strict mode, pytest configuration covering the four test layers.
-- Django project skeleton: `racklab/` app, settings split for dev / test / prod, ASGI entrypoint, `racklab.runtime` package with the `PluginWorkerRuntime` + `WorkerRuntime` Protocols (concrete implementations land in M2 and M12).
+- `composer.json` + `package.json` with lockfiles, Pint at strictest sensible settings, Larastan strict mode, Pest 4 configuration covering the four test layers.
+- Laravel 13 project skeleton via `composer create-project`: domain modules under `app/Domain/`, config split for dev / test / prod, Octane entrypoint, `app/Domain/Runtime/` package with the `PluginWorkerRuntime` + `WorkerRuntime` Contracts (concrete implementations land in M2 and M12).
 - Plugin lifecycle CLI: `racklab plugin install` / `migrate` / `enable` / `disable` / `rollback` / `uninstall` with the state machine from PRD §13.
 - A reference `racklab-plugin-hello` plugin that exercises every contract surface (entry point, capability declaration, RBAC contribution, audit emission, settings schema, health check, migration shipping, i18n catalog). Used in the plugin contract smoke test in CI.
 - Universal `Job` model (multi-table inheritance base, no subtypes yet) + generic `Artifact` + `ArtifactReference` models + retention sweep `ReconcilerTask` scaffold.
@@ -34,19 +34,19 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 - RBAC primitives: structured CRUD `Permission` rows for every core resource, `PermissionPack` nested trees, `RolePreset` bundles, `Role`, `RoleBinding`, `Group`, the permission-snapshot test, the share-link primitive scaffold.
 - Secret backend abstraction (Protocol + a dev-only filesystem backend; real backends are plugins).
 - i18n scaffolding: gettext catalog directory layout, `Plural-Forms` headers per locale, the `TranslationCoverage` model, the translation-coverage admin command.
-- CI for code: `.github/workflows/code-ci.yml` running ruff format + ruff lint + mypy + pyright + pytest tiny + pytest contract + pytest integration + permission-snapshot + audit-emission + plugin contract smoke + dependency audit (`pip-audit` invoked via `uv run pip-audit` — `uv pip audit` is not a real subcommand) + Bandit + Semgrep + drf-spectacular schema generation (placeholder until DRF lands in M1/M2).
-- **Pinned baseline versions** in `pyproject.toml`: Django `~=5.2.0` (LTS), Pydantic `~=2.x`, Channels `~=4.x`, pluggy `~=1.x`, mypy `>=1.20`, ruff `>=0.7`, pytest `>=8`. Each pin has a documented upgrade policy.
+- CI for code: `.github/workflows/code-ci.yml` running Pint format + Pint lint + Larastan + Rector + Pest tiny + Pest contract + Pest integration + permission-snapshot + audit-emission + plugin contract smoke + dependency audit (`composer audit`) + Semgrep + L5 Swagger / Scribe schema generation (placeholder until API controllers land in M1/M2).
+- **Pinned baseline versions** in `composer.json` + `package.json`: Laravel `^13.0` (LTS), Livewire `^4.0`, Filament `^5.0`, Laravel Octane `^2.0`, Larastan `^3.0`, Pest `^4.0`. Each pin has a documented upgrade policy.
 - **An empty `console-worker` pool scaffold** (a stub Channels-routed `WorkerPoolSpec` that can be declared but does nothing yet) so M4's console-plugin work has a stable dependency rather than needing to add the pool itself.
-- Pre-commit hooks expanded: ruff, mypy on changed files, pytest tiny layer. The existing markdownlint / gitleaks / no-lint-overrides hooks stay.
+- Pre-commit hooks expanded: Pint, Larastan on changed files, Pest tiny layer. The existing markdownlint / gitleaks / no-lint-overrides hooks stay.
 - `docs/architecture/` updated with the M0-reflective component diagram.
-- React-island toolchain skeleton: `package.json` + Vite 8 config + `django-vite` 3.1 wiring + Mantine + LinguiJS + TanStack Query + Zustand + Zod + Vitest + RTL + Storybook 10 (with a11y addon) + ESLint (jsx-a11y + react + react-hooks) + Prettier + TypeScript 5.5 strict. A hello-world React island demonstrates the full pipeline.
+- Livewire 4 + Vite toolchain skeleton: `package.json` + Vite config + `laravel-vite-plugin` wiring + daisyUI + TanStack Query + Zustand + Zod + Vitest + RTL + Storybook 10 (with a11y addon) + ESLint (jsx-a11y + react + react-hooks) + Prettier + TypeScript 5.5 strict. A hello-world Livewire 4 component (with an optional vanilla JS island) demonstrates the full pipeline.
 - `Tenant`, `TenantMembership`, `UploadSession` models + migrations. `RoleBinding` extended with `scope_type` + `tenant_set`. Tenant context middleware on `contextvars`. Tenant-aware managers on existing tenant-scoped models with the migration backfilling all existing rows to a `default` tenant (RIT).
-- `AuditEvent` extended with `prev_hash` + `hash` columns for tamper-evident chaining + a `manage.py verify_audit_chain` command.
-- Postgres outbox table + outbox-row schema + the `manage.py drain_audit_outbox` administrative command (M0 ships the table + drain command + a contract test that proves an `AuditEvent` insert always produces a matching outbox row in the same transaction). The `nats-py` relay worker that actually drains the outbox to JetStream lands in M2 alongside the rest of the production NATS integration — until then, the drain command can be invoked manually or via cron, but unbounded outbox growth is *not* an M0 concern.
+- `AuditEvent` extended with `prev_hash` + `hash` columns for tamper-evident chaining + a `php artisan audit:verify-chain` command.
+- Postgres outbox table + outbox-row schema + the `php artisan audit:drain-outbox` administrative command (M0 ships the table + drain command + a contract test that proves an `AuditEvent` insert always produces a matching outbox row in the same transaction). The NATS relay worker that actually drains the outbox to JetStream lands in M2 alongside the rest of the production NATS integration — until then, the drain command can be invoked manually or via cron, but unbounded outbox growth is *not* an M0 concern.
 
 ## Acceptance criteria
 
-- [ ] `uv sync --locked && uv run pytest` passes from a clean clone in under 5 minutes.
+- [ ] `composer install && ./vendor/bin/pest` passes from a clean clone in under 5 minutes.
 - [ ] `pre-commit run --all-files` passes from a clean clone.
 - [ ] `racklab plugin install racklab-plugin-hello && racklab plugin migrate racklab-plugin-hello && racklab plugin enable racklab-plugin-hello` completes successfully and the plugin's health check reports OK.
 - [ ] **Disabling** `racklab-plugin-hello` removes its routes/admin pages/hooks but leaves its models and migrations intact in Postgres; **rolling back** runs the reverse migrations (plugin must be disabled first); **uninstalling** rolls back to zero and removes plugin metadata. CI verifies each leg of this state machine separately.
@@ -67,8 +67,8 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 - [ ] Tenant context propagates correctly through ASGI async views and Channels consumers (`contextvars`-based propagation). The middleware sets the context on every request; an async view fetched under tenant A's context cannot read tenant B's rows.
 - [ ] The `nats_envelope_carries_tenant_id` contract test passes against a fake NATS handler — every envelope a message-producing code path emits carries `tenant_id`; a fake handler refuses to deliver envelopes that don't. (Production NATS integration lands in M2; M0 ships the envelope discipline + the contract test.)
 - [ ] An `UploadSession` row is created on session start and refuses creation if the actor has no `Tenant` (i.e., the tenant identity check is enforced at M0). The full quota gate lands in M6 — until then, M0's `UploadSession` accepts any size for tenants that exist.
-- [ ] The `package.json` + Vite config + django-vite wiring + Mantine + LinguiJS + Storybook scaffold + Vitest scaffold + axe-core CI hook all exist and a hello-island renders cleanly in dev, passes `vitest`, and passes Storybook a11y addon.
-- [ ] ESLint + jsx-a11y + react + react-hooks + Prettier all run in pre-commit on the React tree.
+- [ ] The `package.json` + Vite config + `laravel-vite-plugin` wiring + daisyUI + LinguiJS + Storybook scaffold + Vitest scaffold + axe-core CI hook all exist and a hello Livewire 4 component renders cleanly in dev, passes `vitest`, and passes Storybook a11y addon.
+- [ ] ESLint + jsx-a11y + react + react-hooks + Prettier all run in pre-commit on the JS/TS tree.
 - [ ] The new model-tenant CI test refuses to merge a tenant-scoped model without a `tenant` FK unless decorated `@untenanted`.
 
 ## Test layers
@@ -76,18 +76,18 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 - **Tiny / unit**: Pydantic models for plugin metadata; `Job` state-machine transitions; RBAC predicate logic; permission-string parsing; gettext plural-form resolution; UPID-shape parser (even though no Proxmox plugin yet — the parser lives in core for shared use); the no-lint-overrides regex matcher.
 - **Contract**: the `PluginWorkerRuntime` Protocol (against a dummy in-memory implementation); the `Plugin` lifecycle CLI; the audit emitter; the secret-backend Protocol against the dev filesystem backend.
 - **Integration**: plugin install → migrate → enable → exercise → disable → rollback → uninstall end-to-end against a testcontainers Postgres; `Job` create → transition → audit visible across two processes (web + a fake worker); artifact upload → reference → retention sweep.
-- **E2E**: not applicable for M0 (no UI yet beyond Django admin). The first E2E flow lands in M1.
+- **E2E**: not applicable for M0 (no UI yet beyond Filament admin). The first E2E flow lands in M1.
 
 ## Risks / open questions
 
-- **Plugin CLI vs management commands**: should `racklab plugin enable` be a standalone CLI (`racklab` console script) or a Django management command (`./manage.py racklab plugin enable`)? Standalone is the cleaner UX; management command is less infra. Decide before M0 implementation.
-- **Migration restart semantics**: how is the controlled restart triggered in development? Production is systemd (Baseline) or Nomad (Scale), but the dev story (`./manage.py runserver`) needs a clear pattern. Probably a sentinel file the dev server checks on each reload.
+- **Plugin CLI vs Artisan commands**: should `racklab plugin enable` be a standalone CLI binary (Symfony Console) or an Artisan command (`php artisan racklab:plugin:enable`)? Standalone is the cleaner UX; Artisan commands are less infra and native to Laravel. Decide before M0 implementation.
+- **Migration restart semantics**: how is the controlled restart triggered in development? Production is systemd (Baseline) or Nomad (Scale), but the dev story (`php artisan serve` or Octane `--watch`) needs a clear pattern. Probably a sentinel file the dev server checks on each reload.
 - **Retention sweep cadence**: configurable; default value matters because too aggressive will surprise developers, too lax delays artifact-store debugging. Propose default 1 hour, configurable.
-- **Pluggy version pin**: pluggy 1.x has been stable for years; pin to a known-good version and document the upgrade policy.
+- **Hookspec event class discipline**: typed hookspec event classes (under `app/Events/Hookspecs/<Domain>/<Verb>Event.php`) are the contract surface; pin the event-dispatch library version and document the upgrade policy.
 
 ## Out of scope (deferred)
 
-- DRF + drf-spectacular wiring — lands in M1 (it's coupled to auth surfaces).
+- API controller wiring (Laravel Sanctum + L5 Swagger / Scribe) — lands in M1 (it's coupled to auth surfaces).
 - Real worker pools (`provider-worker`, `script-worker`, `console-worker`) — M2 and later. M0 just defines the Protocols.
 - The `WorkerRuntime` Quadlet and Nomad implementations — M2 (Quadlet for dev) and M12 (Nomad for Scale).
 - NATS JetStream integration — M2 (the deployment lifecycle needs it).
