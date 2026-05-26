@@ -36,7 +36,7 @@ At the time this is written, only `docs/` is committed under the new direction �
 | Multi-tenancy scaffolding | spatie/laravel-multitenancy + Filament 5 tenancy (with `isPersistent: true`) | spatie v4.1.3 |
 | Multi-tenancy security | Custom — `tenant_id` columns, global scopes, `@untenanted` Larastan rule, cross-tenant audit, queue context, channel auth | RackLab core |
 | Real-time | Laravel Reverb (MIT, WebSockets, Pusher protocol) + Echo client + Livewire 4 broadcasting | ^1.10.2 |
-| Real-time replay | Custom `GET /api/v1/replay?channel=…&since=…` endpoint backed by Redis Streams (matches PRD §07 Last-Event-ID semantics) | RackLab core |
+| Real-time replay | Custom `GET /api/v1/replay?channel=…&since=…` endpoint backed by Postgres `broadcast_event_log` table with `ShouldBroadcastAfterCommit` persist-before-broadcast discipline (matches PRD §07 Last-Event-ID semantics; see §7 for the table schema) | RackLab core |
 | Auth — session/cookie | Sanctum | v4.3.2 |
 | Auth — Track B opaque PAT (PRD §06) | Sanctum opaque PATs (scoped via abilities) | v4.3.2 |
 | Auth — Track A signed JWT (PRD §06, required for console grants / share links / deployment tokens) | `firebase/php-jwt` (RS256) + custom `App\Auth\Jwt\TrackAIssuer` + `App\Http\Controllers\JwksController` | firebase/php-jwt ^6.10 |
@@ -71,15 +71,16 @@ At the time this is written, only `docs/` is committed under the new direction �
                             │
        ┌────────────────────┼────────────────────────────────┐
        ▼                    ▼                                ▼
-┌──────────────┐  ┌─────────────────────┐  ┌──────────────────────────┐
-│  Postgres 16 │  │  Redis 7            │  │  Reverb daemon (MIT)     │
-│  (single DB, │  │  ├─ Queues (Horizon)│  │  ├─ Pusher protocol      │
-│   row-tenant)│  │  ├─ Cache           │  │  ├─ WebSocket listener   │
-│              │  │  ├─ Session         │  │  └─ Behind Caddy upstream│
-│              │  │  ├─ Reverb backplane│  │     (or own TLS listener)│
-│              │  │  └─ Redis Streams   │  └──────────────────────────┘
-│              │  │     (replay log)    │                              
-└──────────────┘  └─────────────────────┘                              
+┌──────────────────────┐  ┌─────────────────────┐  ┌──────────────────────────┐
+│  Postgres 16         │  │  Redis 7            │  │  Reverb daemon (MIT)     │
+│  ├─ row-level tenant │  │  ├─ Queues (Horizon)│  │  ├─ Pusher protocol      │
+│  │  isolation        │  │  ├─ Cache           │  │  ├─ WebSocket listener   │
+│  ├─ broadcast_event_ │  │  ├─ Session         │  │  └─ Behind Caddy upstream│
+│  │  log (replay log; │  │  └─ Reverb backplane│  │     (or own TLS listener)│
+│  │  see §7)          │  │                     │  └──────────────────────────┘
+│  └─ audit_events     │  │                     │                              
+│     hash chain       │  │                     │                              
+└──────────────────────┘  └─────────────────────┘                              
        │                    │
        └────────────┬───────┘
                     ▼
