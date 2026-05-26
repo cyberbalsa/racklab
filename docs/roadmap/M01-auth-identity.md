@@ -29,8 +29,8 @@ Wire authentication, identity, and project/course scoping into the M0 skeleton s
 - `ShareGrant` + `Invitation` + `GuestLink` models. The share-link primitive is the canonical sharing mechanism for everything downstream (docs, deployments, SSH sessions all reuse it).
 - `TokenGrant`, `TokenUse`, `TokenRevocation`, `SigningKey` per PRD §06 + §07 — the two-track token surface. **Track A** (signed JWT, short-lived) via `firebase/php-jwt` ^7.0 with RS256 + JWK rotation + `jti` blacklist; implemented in `App\Auth\Jwt\TrackAIssuer`; verifying public keys exported via `App\Http\Controllers\JwksController` (JWKS endpoint) for sidecar services. **Track B** (opaque PAT, long-lived) via Laravel Sanctum opaque tokens with abilities-scoped storage + server-side revoke. `TokenGrant` rows carry tenant FK + `scope_type` (`tenant_local` / `multi_tenant` / `global`) + `tenant_set` per the §19 data model; the `Authorization` header dispatch (`Bearer` → JWT lookup, `Token` → PAT lookup) is implemented. PRD §6 amendment is folded; both tracks share the standard grant metadata, audit on every state change.
 - A minimal Filament Admin panel surface for managing users / courses / projects.
-- A bare-bones authenticated UI: login page (Blade-rendered via Fortify), "you're logged in" landing dashboard (Mantine React island via Vite), logout, "set my locale" preference. Branding driven by deployment defaults (no admin GUI yet).
-- API controller wiring for the first authenticated endpoints (`/api/v1/me`, `/api/v1/projects`, `/api/v1/courses`), with Scramble generating a real OpenAPI schema. Controllers and Livewire components delegate permission checks to `App\Domain\Tenancy\AccessResolver`.
+- A bare-bones authenticated UI: login page (Blade-rendered via Fortify), "you're logged in" landing dashboard (Livewire 4 component with daisyUI styling), logout, "set my locale" preference. Branding driven by deployment defaults (no admin GUI yet).
+- API controller wiring for the first authenticated endpoints (`/api/v1/me`, `/api/v1/projects`, `/api/v1/courses`), with Scribe generating a real OpenAPI schema. Controllers and Livewire components delegate permission checks to `App\Domain\Tenancy\AccessResolver`.
 - `php artisan racklab:sync-rbac-defaults` command now covers every Student / Instructor / Admin / Guest default role; permission-snapshot test updated accordingly.
 
 ## Acceptance criteria
@@ -45,7 +45,7 @@ Wire authentication, identity, and project/course scoping into the M0 skeleton s
 - [ ] Both tracks dispatch correctly from the `Authorization` header (`Bearer` → JWT, `Token` → PAT); a request with the wrong prefix is rejected.
 - [ ] Token issuance respects tenant scope: a tenant-local issuer cannot issue a `multi_tenant` or `global` token; attempting to escalate emits a `tenant.cross_access` audit event with `result=denied, reason=insufficient_scope`.
 - [ ] Permission-snapshot test passes against the M1-shipped role definitions; any PR that changes a default role's permissions must update the snapshot.
-- [ ] The `/api/v1/me` endpoint returns the authenticated user's profile with their effective permissions; Scramble's generated OpenAPI schema accurately describes it.
+- [ ] The `/api/v1/me` endpoint returns the authenticated user's profile with their effective permissions; Scribe's generated OpenAPI schema accurately describes it.
 
 ## Test layers
 
