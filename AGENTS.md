@@ -90,14 +90,15 @@ Standard Laravel layout with RackLab-specific modules under `app/` and first-par
 │   │   ├── RunUserScript            — spawns racklab/user-script:v1 container
 │   │   ├── RunConsoleScript         — spawns racklab/console-script:v1 container
 │   │   └── PollProxmoxTask          — task-polling discipline from proxmox-client-discipline spec
-│   ├── Events/
+│   ├── Events/                      — Broadcastable events (ShouldBroadcast)
 │   │   └── Hookspecs/               — ~80 typed hookspec event classes (Pre/Post/Resolver/Validator)
 │   ├── Providers/
 │   │   ├── AppServiceProvider
 │   │   ├── PluginServiceProvider    — discovers + boots installed (enabled) plugins
 │   │   ├── HookspecServiceProvider  — registers hookspec catalog + dispatcher
 │   │   └── ProxmoxServiceProvider   — Guzzle client w/ multi-issuer TLS trust
-│   └── Plugins/                     — Plugin runtime: HookDispatcher, PluginRegistry, manifest loader
+│   ├── Plugins/                     — Plugin runtime: HookDispatcher, PluginRegistry, manifest loader
+│   └── Providers/Proxmox/           — Proxmox VE REST client (replaces proxmoxer)
 │
 ├── packages/                        — first-party plugins developed in-monorepo
 │   ├── racklab/plugin-hello/        — reference plugin
@@ -141,15 +142,17 @@ From spec §2. **If the spec table changes, update this table with it.**
 | --- | --- | --- |
 | Language | PHP | 8.3+ (8.4 also supported) |
 | Framework | Laravel | 13.x (v13.11.2 current) |
-| Application server | FrankenPHP + Laravel Octane worker mode | v2.17.4 (Octane) |
+| Application server | FrankenPHP (Caddy + embedded PHP, MIT) + Laravel Octane (v2.17.4) worker mode | latest |
 | Interactivity | Livewire 4 + bundled Alpine.js | v4.3.0 |
 | CSS — public UI | Tailwind v4.1+ + daisyUI 5 | daisyui v5.5.x |
 | CSS — admin UI | Tailwind v4.1+ + Filament 5 (MIT) vendor styles | Filament v5.6.5 |
+| Vite entries | Separate `app.css` (Tailwind + daisyUI, public) and `filament.css` (Filament vendor, admin) | — |
 | Multi-tenancy scaffolding | spatie/laravel-multitenancy + Filament 5 tenancy (`isPersistent: true`) | spatie v4.1.3 |
 | Multi-tenancy security | Custom — `tenant_id` columns, global scopes, `@untenanted` Larastan rule, cross-tenant audit, queue context, channel auth | RackLab core |
 | Real-time | Laravel Reverb (MIT, WebSockets, Pusher protocol) + Echo client + Livewire 4 broadcasting | ^1.10.2 |
 | Real-time replay | Custom `GET /api/v1/replay?channel=…&since=…` backed by Postgres `broadcast_event_log` | RackLab core |
-| Auth — session/cookie + Track B opaque PAT | Sanctum | v4.3.2 |
+| Auth — session/cookie | Sanctum | v4.3.2 |
+| Auth — Track B opaque PAT (PRD §06) | Sanctum opaque PATs (scoped via abilities) | v4.3.2 |
 | Auth — Track A signed JWT | `firebase/php-jwt` (RS256) + custom `TrackAIssuer` + `JwksController` | firebase/php-jwt ^6.10 |
 | Auth — login / 2FA / passkey | Fortify | v1.37.2 |
 | Auth — OAuth providers | Socialite | v5.27.0 |
@@ -161,7 +164,7 @@ From spec §2. **If the spec table changes, update this table with it.**
 | File uploads | spatie/livewire-filepond + custom chunk/retry/checksum design | spatie v1.7.1 |
 | Storage backends | Flysystem v3.34 + plugin family (s3, gcs, azure, proxmox-shared) | — |
 | Observability | Pulse v1.7.3 + Telescope v5.20 (dev) + sentry/sentry-laravel v4.25.1 + spatie/laravel-health v1.39.3 | — |
-| Other Spatie | laravel-permission v7.4.1, laravel-settings v3.9.0, laravel-backup v10.2.1, laravel-medialibrary v11.22.1 | — |
+| Other Spatie | laravel-permission v7.4.1, laravel-settings v3.9.0, laravel-backup v10.2.1, laravel-medialibrary v11.22.1. **Dropped**: `spatie/laravel-activitylog` (overlaps custom AuditEvent + latest v5 requires PHP 8.4) | — |
 | Heavy JS islands | `@xterm/xterm@6.0.0`, `@novnc/novnc@1.7.0`, `chart.js@4.5.1`, `filepond@4.32.12`, `@tiptap/core@3.23.6` | — |
 | Quality tooling | Pest 4 (v4.7.0) + Pint v1.29.1 + larastan/larastan v3.9.6 (PHPStan 2 max) + rector/rector v2.4.4 + Dusk v8.6 | — |
 | Proxmox client | Guzzle 7.10 + custom typed client | — |
