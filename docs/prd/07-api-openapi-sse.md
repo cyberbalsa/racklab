@@ -1,4 +1,6 @@
-# Public API, OpenAPI, And SSE
+# Public API, OpenAPI, And Real-Time Push
+
+> **Note:** Implementation detail for the API and real-time stack choices in this section (OpenAPI generator, WebSocket transport, replay-log schema) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2 and §7. This document captures the wire-protocol contracts and functional requirements; the spec is the source of truth for the libraries that implement them.
 
 RackLab exposes a public REST API from the start. Anything a user can do in the UI should be automatable through the API, subject to the same RBAC, quota, approval, and audit checks.
 
@@ -17,8 +19,8 @@ Requirements:
 
 Preferred implementation:
 
-- Django REST Framework.
-- `drf-spectacular` for OpenAPI 3, Swagger UI, and ReDoc.
+- Laravel (routes defined via `routes/api.php`; business logic in `app/Domain/` services).
+- `knuckleswtf/scribe` (v5.10) for OpenAPI 3.1 generation, Swagger UI, and ReDoc. Scribe introspects routes, FormRequest validation rules, and Eloquent models automatically; explicit `@response` annotations fill gaps. A **schema-drift CI gate** runs `php artisan scribe:generate --no-extraction` and then `git diff --exit-code docs/api/openapi.yaml` — PRs that change the route surface must update the committed OpenAPI artifact.
 
 ## Token System
 
@@ -59,14 +61,18 @@ The auth backend picks the track from the `Authorization` header prefix:
 
 ### Token types
 
-- **Track A**: short-lived deployment token, short-lived console token, guest link token, browser session token (when SSE/WebSocket auth via cookie is impractical).
+- **Track A**: short-lived deployment token, short-lived console token, guest link token, browser session token (when WebSocket auth via cookie is impractical).
 - **Track B**: personal access token, project service token, course service token, plugin webhook token.
 
-## SSE
+## Real-Time Push
 
-SSE is a first-class live update channel.
+Real-time push is a first-class feature of RackLab.
 
-Streams:
+**Transport:** [Laravel Reverb](https://reverb.laravel.com/) (WebSocket server, Pusher wire protocol). The client-side counterpart is [Laravel Echo](https://laravel.com/docs/broadcasting#client-side-installation) with the Pusher.js driver. This replaces the prior SSE/`EventSource` transport; the on-the-wire format is WebSocket frames using the Pusher protocol rather than `text/event-stream` — but the **durable-replay contract** (see below) is preserved by a Postgres event log, so API consumers get equivalent Last-Event-ID semantics regardless of transport.
+
+### Live channels
+
+Streams available via Reverb:
 
 - Deployment timeline.
 - Script execution.
@@ -77,12 +83,88 @@ Streams:
 - Audit events for authorized admin views.
 - Job logs where permitted.
 
-SSE requirements:
+Requirements:
 
-- Streams are permission-filtered per user or token.
-- Streams can be scoped to deployment, project, course, or admin views.
-- Important events are persisted before broadcast.
-- Browser disconnects do not lose the authoritative event timeline.
-- **`Last-Event-ID` replay**: every emitted event carries a monotonic id (per stream scope) in the `id:` SSE field. On reconnect, the browser's `EventSource` automatically resends `Last-Event-ID` as a request header; the server replays persisted events with `id > Last-Event-ID` before resuming live emission. Replay is bounded by a per-stream retention window (default 24h); events older than that produce a "stream advanced past your last id, refresh for current state" sentinel rather than a silent gap.
-- NATS can be used for fanout, but PostgreSQL remains the source for durable state.
-- TanStack Query `refetchInterval` (with Page Visibility API backoff) can be used for simple screens; SSE is preferred for live status. SSE consumers in React islands wrap the browser-native `EventSource` API in a TanStack Query subscription per PRD §15 Live Updates.
+- Channels are permission-filtered per user or token.
+- Channels can be scoped to deployment, project, course, or admin views.
+- Important events are **persisted before broadcast** (`ShouldBroadcastAfterCommit` discipline — the `broadcast_event_log` INSERT and the business-state mutation share the same DB transaction; Reverb dispatch fires only after the transaction commits, preventing "client saw event for state that doesn't exist").
+- Browser disconnects do not lose the authoritative event timeline (see replay endpoint below).
+
+### Channel taxonomy
+
+All channels are private (presence channels are avoided for fan-out cost reasons). Channel names carry `{tid}` (tenant id) so channel auth can enforce tenant scope before the resource-level check.
+
+| Channel | Audience | Events |
+| --- | --- | --- |
+| `private-tenant.{tid}.deployment.{did}` | actors with `deployment.view` on `did` | `DeploymentStateChanged`, `DeploymentResourceAttached` |
+| `private-tenant.{tid}.job.{jid}` | actors with `job.view` on `jid` | `JobStateChanged`, `JobOutputChunk` |
+| `private-tenant.{tid}.console.{cid}` | actors with `console.attach` on `cid` | `ConsolePreAttach`, `ConsoleAttached`, `ConsoleDetached` |
+| `private-tenant.{tid}.audit.tail` | actors with `audit.tail` (typically admins) | `AuditAppended` |
+
+Event names (e.g. `JobOutputChunk`, `DeploymentStateChanged`, `AuditAppended`) are stable functional-contract names regardless of transport.
+
+**Channel auth** delegates to the same `AccessResolver`-based three-predicate composition used throughout the system (binding scope ⊇ resource tenant AND resource visibility ⊇ actor tenant AND role ⊇ requested action).
+
+### Wire format (Pusher protocol)
+
+An incoming event on the Echo client looks like:
+
+```json
+{
+  "event": "JobOutputChunk",
+  "channel": "private-tenant.42.job.5001",
+  "data": {
+    "id": "01HXAB…",
+    "chunk": "…",
+    "seq": 47
+  }
+}
+```
+
+The Echo client abstracts the Pusher framing; application code subscribes with `Echo.private('private-tenant.42.job.5001').listen('JobOutputChunk', handler)`. The `id` field in `data` is a ULID — monotonic and sortable — used as the cursor for replay.
+
+### Last-Event-ID replay endpoint
+
+Reverb provides reconnection but not durable replay. RackLab adds a dedicated replay endpoint that preserves the Last-Event-ID semantics from the prior SSE transport, now backed by a Postgres `broadcast_event_log` table instead of the SSE `id:` field.
+
+```http
+GET /api/v1/replay?channel=private-tenant.42.job.5001&since=01HXAB…
+```
+
+The endpoint reads:
+
+```sql
+SELECT * FROM broadcast_event_log
+WHERE channel = :ch AND id > :since
+ORDER BY id ASC LIMIT 1000
+```
+
+The client merges replay results with live Reverb messages (dedup by ULID, monotonic order). On reconnect:
+
+1. Client records last-seen ULID from the live channel.
+2. Client reconnects via Echo.
+3. Client fires `GET /api/v1/replay?since=<last_ULID>`, drains the response, then accepts live messages.
+4. Dedup by ULID prevents double-delivery.
+
+**Replay gap sentinel:** events are retained for 24 hours. If `since` is older than the sweep window, the endpoint returns a `gap` sentinel (`HTTP 200` with `{"gap": true}`) rather than silently missing events — the client should refresh from the authoritative REST state. The nightly sweep deletes rows where `created_at < now() - interval '24 hours'`.
+
+**Scope check:** the replay endpoint uses the same `AccessResolver` for visibility checks as the WebSocket channel auth. Requesting a replay for a channel the caller cannot authorize returns `403`.
+
+**Postgres schema** (from spec §7):
+
+```sql
+CREATE TABLE broadcast_event_log (
+  id            ULID  PRIMARY KEY,           -- monotonic, sortable, client-facing
+  tenant_id     UUID  NOT NULL,
+  channel       TEXT  NOT NULL,              -- e.g. private-tenant.42.job.5001
+  event_class   TEXT  NOT NULL,              -- e.g. App\Events\JobOutputChunk
+  payload       JSONB NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  -- BRIN index on created_at (sweep efficiency), btree on (channel, id) for replay
+  -- GIN on tenant_id for cross-tenant audit query joins
+);
+```
+
+### Simple polling fallback
+
+TanStack Query `refetchInterval` (with Page Visibility API backoff) can be used for simple screens where Reverb is not warranted. Reverb channels are preferred for live status, console output, and deployment timelines.
