@@ -137,7 +137,7 @@ Storage backends must:
 - Declare a **capability flag set**: `supports_presigned_urls`, `supports_multipart`, `supports_versioning`, `supports_object_lock`, `supports_byte_range`, `supports_tenant_partitioning`. The artifact subsystem checks these before issuing operations the backend doesn't support.
 - Report **health** via the standard plugin health check.
 
-First-party storage plugins ship as `racklab/storage-*` Composer packages. The library survey at `docs/architecture/2026-05-25-django-library-survey.md` §6 recommends using Flysystem adapters as the foundation for S3 / GCS / Azure plugins — the plugin presents a thin `ArtifactBackend` → Flysystem adapter rather than wiring Flysystem directly into core.
+First-party storage plugins ship as `racklab/storage-*` Composer packages. The laravel-redesign spec at `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §6 standardises on Flysystem 3.34 adapters as the foundation for S3 / GCS / Azure plugins — each plugin presents a thin `ArtifactBackend` → Flysystem adapter rather than wiring Flysystem directly into core.
 
 ### Proxmox shared storage backend
 
