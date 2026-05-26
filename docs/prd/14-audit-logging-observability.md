@@ -1,5 +1,7 @@
 # Audit, Logging, And Observability
 
+> **Note:** Implementation detail for the audit and observability stack (owen-it/laravel-auditing integration, hash-chain semantics, Pulse/Sentry/spatie-health wiring, verify-audit-chain command) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §5 (audit_events schema) and §8 (observability stack). This document captures the audit/observability contract — what gets logged, the bidirectional surfacing rules, the hash chain integrity property, the health endpoint shape; the spec is the source of truth for the libraries that implement them.
+
 Strong audit and logging are top-level product requirements.
 
 ## Audit Requirements
@@ -25,7 +27,7 @@ Audit records should include:
 - Provider task id where applicable.
 - Script digest where applicable.
 - Before/after summary where applicable.
-- **`prev_hash` + `hash`** — tamper-evident hash chain. Each new audit row's `hash = sha256(prev_hash || canonical_json(this_event))`. The `manage.py verify_audit_chain` command walks the chain and refuses on any mismatch. Forensic-grade integrity; not a substitute for transport security but catches in-place row tampering.
+- **`prev_hash` + `hash`** — tamper-evident hash chain. Each new audit row's `hash = sha256(prev_hash || canonical_json(this_event))`. The `php artisan racklab:verify-audit-chain` command walks the chain and refuses on any mismatch. Forensic-grade integrity; not a substitute for transport security but catches in-place row tampering.
 - **`binding_scope`** (`tenant_local` | `multi_tenant` | `global`) and **`binding_id`** when the action was authorised by a `RoleBinding` (per PRD §19 cross-tenant RBAC).
 - **`sharing_scope`** (`tenant_local` | `shared_with_tenants` | `global`) and **`shared_resource_owner_tenant`** when the action accessed a resource via cross-tenant sharing (per PRD §19 cross-tenant resource visibility).
 
@@ -36,7 +38,11 @@ A first-class audit event. Two variants:
 - **Access variant** — actor in tenant A acts on a resource owned by tenant B (regardless of whether authorisation came from a `multi_tenant` / `global` `RoleBinding` or from the resource's `shared_with_tenants` / `global` `sharing_scope`). Payload: `actor_tenant`, `resource_tenant`, `binding_scope` (nullable if sharing-driven), `binding_id` (same), `sharing_scope` (nullable if binding-driven), `shared_resource_owner_tenant` (same), action, result (`allowed` | `denied`), `reason` (`insufficient_scope` | `no_sharing` | `sharing_revoked` | `allowed` | `missing_or_invalid_provenance` | etc.).
 - **Issuance variant** — actor in tenant A attempts to *issue* something cross-tenant (a `multi_tenant` / `global` `RoleBinding`, a cross-tenant API token, a cross-tenant share-link). There's no resource_tenant in the access-variant sense here — the act of issuance is the violation. Payload: `actor_tenant`, `issuance_target` (the entity being issued — `role_binding` / `token_grant` / `share_link`), `target_scope_type` (the scope the actor tried to grant — `multi_tenant` / `global`), `target_tenant_set` (the tenants the actor tried to grant access to), `actor_held_scope` (what the actor actually held — typically `tenant_local`), action (`issue` / `revoke`), result (`allowed` | `denied`), `reason` (`insufficient_scope` for the canonical containment failure, or `allowed` for legitimate cross-tenant issuance by an actor with sufficient authority).
 
-Bidirectional surfacing is achieved at query time: the audit query interface filters `AuditEvent` rows where `actor_tenant = :viewing_tenant OR resource_tenant = :viewing_tenant OR :viewing_tenant IN target_tenant_set` (per the variant). The `AuditEvent` table is indexed on each of these columns to keep the query fast; PRD §19 specifies the index set. Both the actor's tenant view and the resource owner's tenant view see access-variant events; tenants in the `target_tenant_set` see issuance-variant events (so a partner school can audit "RIT just granted itself global access to our resources").
+Bidirectional surfacing is achieved at query time: the audit query interface filters `AuditEvent` rows where `actor_tenant = :viewing_tenant OR resource_tenant = :viewing_tenant OR :viewing_tenant = ANY(target_tenant_set)` (per the variant). The `AuditEvent` table is indexed on each of these columns (GIN index on `target_tenant_set`) to keep the query fast; PRD §19 specifies the index set. Both the actor's tenant view and the resource owner's tenant view see access-variant events; tenants in the `target_tenant_set` see issuance-variant events (so a partner school can audit "RIT just granted itself global access to our resources").
+
+### Model-change tracking
+
+`owen-it/laravel-auditing` v14 handles model-level field-change tracking and feeds the custom `AuditEvent` table with the hash chain. It is subordinate to the custom `AuditEvent` append-only table — it provides the before/after field-diff detail that populates `AuditEvent` rows for model mutations, not a parallel audit store. Cross-tenant access + issuance events (`tenant.cross_access` and its variants) bypass owen-it and go through Laravel Events directly into the custom `AuditEvent` table with the hash chain.
 
 ## Required Audit Events
 
@@ -147,8 +153,6 @@ Logging requirements:
 
 ## Observability
 
-Metrics and traces should support Prometheus/OpenTelemetry-compatible systems.
-
 Required signals:
 
 - Request latency.
@@ -164,3 +168,12 @@ Required signals:
 - NATS health.
 - PostgreSQL health.
 - Artifact storage health.
+
+### Observability stack
+
+| Concern | Library | Notes |
+| --- | --- | --- |
+| In-product dashboard | Laravel Pulse v1.7.3 | Request rate, slow queries, queue depth, job runtime, cache hit ratio. Tenant-scoped via custom Pulse recorder. |
+| Error tracking | `sentry/sentry-laravel` v4.25.1 | Production traces + breadcrumbs, `tenant_id` tag on every event. |
+| Health endpoints | `spatie/laravel-health` v1.39.3 | `/healthz` (liveness), `/readyz` (postgres + redis + podman socket + proxmox cluster ping). Checks registered per-plugin. |
+| OpenTelemetry exporter | Deferred to M13b-equivalent | Pulse + Sentry cover the Baseline observability need. |
