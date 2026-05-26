@@ -153,7 +153,7 @@ From spec §2. **If the spec table changes, update this table with it.**
 | Real-time replay | Custom `GET /api/v1/replay?channel=…&since=…` backed by Postgres `broadcast_event_log` | RackLab core |
 | Auth — session/cookie | Sanctum | v4.3.2 |
 | Auth — Track B opaque PAT (PRD §06) | Sanctum opaque PATs (scoped via abilities) | v4.3.2 |
-| Auth — Track A signed JWT | `firebase/php-jwt` (RS256) + custom `TrackAIssuer` + `JwksController` | firebase/php-jwt ^6.10 |
+| Auth — Track A signed JWT | `firebase/php-jwt` (RS256) + custom `TrackAIssuer` + `JwksController` | firebase/php-jwt ^7.0 |
 | Auth — login / 2FA / passkey | Fortify | v1.37.2 |
 | Auth — OAuth providers | Socialite | v5.27.0 |
 | Auth — OIDC | Kovah/laravel-socialite-oidc | ^0.8.0 |
@@ -166,7 +166,7 @@ From spec §2. **If the spec table changes, update this table with it.**
 | Observability | Pulse v1.7.3 + Telescope v5.20 (dev) + sentry/sentry-laravel v4.25.1 + spatie/laravel-health v1.39.3 | — |
 | Other Spatie | laravel-permission v7.4.1, laravel-settings v3.9.0, laravel-backup v10.2.1, laravel-medialibrary v11.22.1. **Dropped**: `spatie/laravel-activitylog` (overlaps custom AuditEvent + latest v5 requires PHP 8.4) | — |
 | Heavy JS islands | `@xterm/xterm@6.0.0`, `@novnc/novnc@1.7.0`, `chart.js@4.5.1`, `filepond@4.32.12`, `@tiptap/core@3.23.6` | — |
-| Quality tooling | Pest 4 (v4.7.0) + Pint v1.29.1 + larastan/larastan v3.9.6 (PHPStan 2 max) + rector/rector v2.4.4 + Dusk v8.6 | — |
+| Quality tooling | Pest 4 (v4.7.0) + Pint v1.29.1 + larastan/larastan v3.9.6 (PHPStan 2 max) + rector/rector v2.4.5 + Dusk v8.6 | — |
 | Proxmox client | Guzzle 7.10 + custom typed client | — |
 | Script execution | Per-job ephemeral Podman/Docker containers; nsjail dropped | — |
 | Plugin authoring | Composer packages + ServiceProvider + typed hookspec event bus over Laravel Events | RackLab core |
