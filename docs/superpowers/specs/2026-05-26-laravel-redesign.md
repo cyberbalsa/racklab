@@ -540,7 +540,7 @@ The replay endpoint reads `SELECT … FROM broadcast_event_log WHERE channel = :
 
 ### No-overrides linter discipline (load-bearing)
 
-- No `@phpstan-ignore`, no `// @phpstan-ignore-line`, no `@psalm-suppress`, no `// @phpcs:ignore`, no `// @phpstan-ignore-next-line` in production code (`app/`, `packages/racklab/*/src/`).
+- No `@phpstan-ignore`, no `// @phpstan-ignore-line`, no `// @phpstan-ignore-next-line`, no `@psalm-suppress`, no `// @phpcs:ignore`, no `// @phpcs:disable` (block-level suppressor) in production code (`app/`, `packages/racklab/*/src/`).
 - Two audited exceptions, enforced by a custom Pint/Larastan rule with a path-glob: test code may use `@phpstan-ignore` for runtime-only Eloquent attributes; `database/migrations/` Laravel auto-generated artifacts are excluded.
 - If the linter is wrong, fix the underlying code OR the Larastan rule — not the source.
 - Pre-commit hook (`lefthook` or `captainhook`) runs `pint --test`, `larastan --no-progress`, `rector --dry-run`, tiny-layer Pest.
