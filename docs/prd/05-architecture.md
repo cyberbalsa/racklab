@@ -2,6 +2,8 @@
 
 RackLab uses a PHP/Laravel control plane with durable async workers behind it.
 
+> **Note:** Implementation detail and rationale for the stack choices below live in `docs/superpowers/specs/2026-05-26-laravel-redesign.md`, which is the source of truth for *how* RackLab is built. This section captures the topology and architectural principles; the spec covers container manifests, network modes, hookspec semantics, CI gates, and the per-component versions.
+
 ## Core Components
 
 - `web`: Laravel application (FrankenPHP + Octane workers) serving Livewire 4 pages, Filament 5 admin panel, JSON API endpoints, auth, catalog, RBAC, quota, networking, and audit views.
@@ -76,7 +78,7 @@ RackLab uses a PHP/Laravel control plane with durable async workers behind it.
 3. Laravel persists intent and audit records in PostgreSQL.
 4. Laravel dispatches a durable job to the Redis-backed Horizon queue.
 5. A Horizon worker consumes the job, executes the action (spawning an ephemeral Podman container if needed), records state transitions, and broadcasts progress events via Reverb.
-6. Reverb pushes real-time progress to authorized clients; `broadcast_event_log` enables `Last-Event-ID`-style replay for clients that reconnect.
+6. Reverb pushes real-time progress to authorized clients; on reconnect, clients drain missed events via `GET /api/v1/replay?channel=…&since=<ULID>` backed by `broadcast_event_log` (matches PRD §07 Last-Event-ID semantics, but the wire endpoint is an HTTP replay, not an SSE `Last-Event-ID` header).
 7. Reconciliation workers in Horizon verify provider state and repair or mark drift.
 
 ## Architectural Principles
