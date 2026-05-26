@@ -1,0 +1,95 @@
+# M0 — Foundations
+
+**Status:** In progress.
+**Estimated effort:** 4–6 weeks.
+**Depends on:** (none — this is the foundation).
+**Unblocks:** every subsequent milestone.
+
+## Goal
+
+Stand up the bones of the RackLab codebase so every later milestone has a stable, type-checked, test-driven, pluggable surface to build against. At the end of M0 there is no user-facing functionality yet — but a developer can install the project, run the test layers, register a stub plugin, persist a `Job` row, persist an `Artifact` row, emit an audit event, look up an RBAC permission, and watch CI enforce the no-overrides linter discipline.
+
+## In scope
+
+- PRD §05 architecture (skeleton without provider/worker wiring).
+- PRD §13 plugin system — discovery, lifecycle commands, failure isolation rules.
+- PRD §14 audit, logging, and observability — audit event base schema + emission framework.
+- PRD §15 i18n scaffolding (catalogs for en-US, the translation-coverage admin model).
+- PRD §17 engineering quality + TDD discipline (the entire CI matrix becomes real here).
+- PRD §19 data model — `Job` (multi-table inheritance base), `Artifact` + `ArtifactReference`, `PluginLifecycleState`, `PluginMigrationRecord`, the identity/scope tables (without auth flows — those land in M1).
+- The strong-linting + no-overrides discipline from PRD §17 — `pyproject.toml` ruff config, mypy strict, the no-lint-overrides hook.
+
+## Dependencies
+
+The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds the Python project layout, code CI gates, and the abstractions everything else needs.
+
+## Deliverables
+
+- `pyproject.toml` with `uv` lockfile, ruff at strictest sensible settings, mypy strict mode, pytest configuration covering the four test layers.
+- Django project skeleton: `racklab/` app, settings split for dev / test / prod, ASGI entrypoint, `racklab.runtime` package with the `PluginWorkerRuntime` + `WorkerRuntime` Protocols (concrete implementations land in M2 and M12).
+- Plugin lifecycle CLI: `racklab plugin install` / `migrate` / `enable` / `disable` / `rollback` / `uninstall` with the state machine from PRD §13.
+- A reference `racklab-plugin-hello` plugin that exercises every contract surface (entry point, capability declaration, RBAC contribution, audit emission, settings schema, health check, migration shipping, i18n catalog). Used in the plugin contract smoke test in CI.
+- Universal `Job` model (multi-table inheritance base, no subtypes yet) + generic `Artifact` + `ArtifactReference` models + retention sweep `ReconcilerTask` scaffold.
+- Audit subsystem: `AuditEvent` model, the emitter API plugins call, the audit-emission test that fails CI on missing events.
+- RBAC primitives: structured CRUD `Permission` rows for every core resource, `PermissionPack` nested trees, `RolePreset` bundles, `Role`, `RoleBinding`, `Group`, the permission-snapshot test, the share-link primitive scaffold.
+- Secret backend abstraction (Protocol + a dev-only filesystem backend; real backends are plugins).
+- i18n scaffolding: gettext catalog directory layout, `Plural-Forms` headers per locale, the `TranslationCoverage` model, the translation-coverage admin command.
+- CI for code: `.github/workflows/code-ci.yml` running ruff format + ruff lint + mypy + pyright + pytest tiny + pytest contract + pytest integration + permission-snapshot + audit-emission + plugin contract smoke + dependency audit (`pip-audit` invoked via `uv run pip-audit` — `uv pip audit` is not a real subcommand) + Bandit + Semgrep + drf-spectacular schema generation (placeholder until DRF lands in M1/M2).
+- **Pinned baseline versions** in `pyproject.toml`: Django `~=5.2.0` (LTS), Pydantic `~=2.x`, Channels `~=4.x`, pluggy `~=1.x`, mypy `>=1.20`, ruff `>=0.7`, pytest `>=8`. Each pin has a documented upgrade policy.
+- **An empty `console-worker` pool scaffold** (a stub Channels-routed `WorkerPoolSpec` that can be declared but does nothing yet) so M4's console-plugin work has a stable dependency rather than needing to add the pool itself.
+- Pre-commit hooks expanded: ruff, mypy on changed files, pytest tiny layer. The existing markdownlint / gitleaks / no-lint-overrides hooks stay.
+- `docs/architecture/` updated with the M0-reflective component diagram.
+- React-island toolchain skeleton: `package.json` + Vite 8 config + `django-vite` 3.1 wiring + Mantine + LinguiJS + TanStack Query + Zustand + Zod + Vitest + RTL + Storybook 10 (with a11y addon) + ESLint (jsx-a11y + react + react-hooks) + Prettier + TypeScript 5.5 strict. A hello-world React island demonstrates the full pipeline.
+- `Tenant`, `TenantMembership`, `UploadSession` models + migrations. `RoleBinding` extended with `scope_type` + `tenant_set`. Tenant context middleware on `contextvars`. Tenant-aware managers on existing tenant-scoped models with the migration backfilling all existing rows to a `default` tenant (RIT).
+- `AuditEvent` extended with `prev_hash` + `hash` columns for tamper-evident chaining + a `manage.py verify_audit_chain` command.
+- Postgres outbox table + outbox-row schema + the `manage.py drain_audit_outbox` administrative command (M0 ships the table + drain command + a contract test that proves an `AuditEvent` insert always produces a matching outbox row in the same transaction). The `nats-py` relay worker that actually drains the outbox to JetStream lands in M2 alongside the rest of the production NATS integration — until then, the drain command can be invoked manually or via cron, but unbounded outbox growth is *not* an M0 concern.
+
+## Acceptance criteria
+
+- [ ] `uv sync --locked && uv run pytest` passes from a clean clone in under 5 minutes.
+- [ ] `pre-commit run --all-files` passes from a clean clone.
+- [ ] `racklab plugin install racklab-plugin-hello && racklab plugin migrate racklab-plugin-hello && racklab plugin enable racklab-plugin-hello` completes successfully and the plugin's health check reports OK.
+- [ ] **Disabling** `racklab-plugin-hello` removes its routes/admin pages/hooks but leaves its models and migrations intact in Postgres; **rolling back** runs the reverse migrations (plugin must be disabled first); **uninstalling** rolls back to zero and removes plugin metadata. CI verifies each leg of this state machine separately.
+- [ ] A `Job` row can be created, transition through `dispatching → pending → running → succeeded` via the universal API, and each transition emits an audit event observable via the audit query API.
+- [ ] An `Artifact` can be uploaded to the filesystem backend, referenced by a `Job`, and reaped by the retention sweep after its `retention_until` passes.
+- [ ] The permission-snapshot test refuses to merge a PR that changes a role's permission set without updating the snapshot.
+- [ ] Every core resource has `read` / `create` / `update` / `delete` permission descriptors; every future app/plugin milestone must contribute the same CRUD surface for its resources plus any domain-specific operation permissions.
+- [ ] Nested RBAC packs expand deterministically into effective permissions, reject cycles, and can be used by named role presets.
+- [ ] `sync_rbac_defaults` installs the built-in CRUD permissions, nested permission packs, and role presets idempotently from the catalog definitions.
+- [ ] The audit-emission test refuses to merge a PR that documents a new audit event without a code path emitting it.
+- [ ] Attempting to add `# noqa` or `# type: ignore` in production code fails pre-commit and CI.
+- [ ] The translation-coverage admin command runs against an empty catalog and reports 100% coverage of the (currently zero) translatable strings; adding a translatable string and re-running shows the coverage drop until a catalog entry is added.
+- [ ] Creating a `Tenant`, switching the request context to it, and creating a `Course` under it works; the `Course` row carries the tenant FK.
+- [ ] A query made under tenant A's context cannot return rows owned by tenant B without an explicit `all_tenants()` manager call.
+- [ ] Attempting cross-tenant access without sharing scope or a cross-tenant binding emits a `tenant.cross_access` audit event with `result=denied`.
+- [ ] Granting a `multi_tenant` or `global` role binding requires the granter to hold a binding of equal or broader scope; escalation attempts fail with `tenant.cross_access` (`result=denied, reason=insufficient_scope`).
+- [ ] `Job`, `AuditEvent`, `Artifact` carry an immutable denormalized `tenant_id` column set at insert; updating it post-insert raises a model-level validation error.
+- [ ] Tenant context propagates correctly through ASGI async views and Channels consumers (`contextvars`-based propagation). The middleware sets the context on every request; an async view fetched under tenant A's context cannot read tenant B's rows.
+- [ ] The `nats_envelope_carries_tenant_id` contract test passes against a fake NATS handler — every envelope a message-producing code path emits carries `tenant_id`; a fake handler refuses to deliver envelopes that don't. (Production NATS integration lands in M2; M0 ships the envelope discipline + the contract test.)
+- [ ] An `UploadSession` row is created on session start and refuses creation if the actor has no `Tenant` (i.e., the tenant identity check is enforced at M0). The full quota gate lands in M6 — until then, M0's `UploadSession` accepts any size for tenants that exist.
+- [ ] The `package.json` + Vite config + django-vite wiring + Mantine + LinguiJS + Storybook scaffold + Vitest scaffold + axe-core CI hook all exist and a hello-island renders cleanly in dev, passes `vitest`, and passes Storybook a11y addon.
+- [ ] ESLint + jsx-a11y + react + react-hooks + Prettier all run in pre-commit on the React tree.
+- [ ] The new model-tenant CI test refuses to merge a tenant-scoped model without a `tenant` FK unless decorated `@untenanted`.
+
+## Test layers
+
+- **Tiny / unit**: Pydantic models for plugin metadata; `Job` state-machine transitions; RBAC predicate logic; permission-string parsing; gettext plural-form resolution; UPID-shape parser (even though no Proxmox plugin yet — the parser lives in core for shared use); the no-lint-overrides regex matcher.
+- **Contract**: the `PluginWorkerRuntime` Protocol (against a dummy in-memory implementation); the `Plugin` lifecycle CLI; the audit emitter; the secret-backend Protocol against the dev filesystem backend.
+- **Integration**: plugin install → migrate → enable → exercise → disable → rollback → uninstall end-to-end against a testcontainers Postgres; `Job` create → transition → audit visible across two processes (web + a fake worker); artifact upload → reference → retention sweep.
+- **E2E**: not applicable for M0 (no UI yet beyond Django admin). The first E2E flow lands in M1.
+
+## Risks / open questions
+
+- **Plugin CLI vs management commands**: should `racklab plugin enable` be a standalone CLI (`racklab` console script) or a Django management command (`./manage.py racklab plugin enable`)? Standalone is the cleaner UX; management command is less infra. Decide before M0 implementation.
+- **Migration restart semantics**: how is the controlled restart triggered in development? Production is systemd (Baseline) or Nomad (Scale), but the dev story (`./manage.py runserver`) needs a clear pattern. Probably a sentinel file the dev server checks on each reload.
+- **Retention sweep cadence**: configurable; default value matters because too aggressive will surprise developers, too lax delays artifact-store debugging. Propose default 1 hour, configurable.
+- **Pluggy version pin**: pluggy 1.x has been stable for years; pin to a known-good version and document the upgrade policy.
+
+## Out of scope (deferred)
+
+- DRF + drf-spectacular wiring — lands in M1 (it's coupled to auth surfaces).
+- Real worker pools (`provider-worker`, `script-worker`, `console-worker`) — M2 and later. M0 just defines the Protocols.
+- The `WorkerRuntime` Quadlet and Nomad implementations — M2 (Quadlet for dev) and M12 (Nomad for Scale).
+- NATS JetStream integration — M2 (the deployment lifecycle needs it).
+- The full PRD audit event catalog — M0 ships the framework + base events for `Job` transitions and plugin lifecycle; per-domain events land with their respective milestones.
+- Cell-level retention policy (per-artifact-kind retention windows) — defaults in M0, fine-grained tuning in M13d.

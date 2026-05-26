@@ -1,0 +1,76 @@
+# M2 — Deployment Lifecycle (Fake Provider)
+
+**Status:** Not started.
+**Estimated effort:** 3–4 weeks.
+**Depends on:** M0, M1.
+**Unblocks:** M3, M7a, M10.
+
+## Goal
+
+Get the end-to-end deployment loop running against a **fake provider** so every piece of the control plane is exercised before real provider integration in M3. After M2, a logged-in user clicks "Deploy" on a catalog item, an HTTP request becomes a durable NATS message, a `provider-worker` picks it up, advances the deployment state machine, emits SSE events the browser sees in real time, and the deployment lands in a `running` state. The fake provider is a Python in-process implementation that simulates clone latency, occasional failures, and the task-id model — enough to prove the loop without depending on Proxmox.
+
+## In scope
+
+- PRD §04 product requirements (the deployment-lifecycle slice).
+- PRD §05 architecture (the web + provider-worker + NATS + scheduler-reconciler flow).
+- PRD §07 API + OpenAPI + SSE (the `Last-Event-ID` replay landed in PRD; M2 implements it end-to-end).
+- PRD §08 catalog, stacks, and deployments.
+- PRD §14 audit + observability (the deployment-domain events).
+- PRD §19 data model (the catalog and deployment tables; the `Job` model becomes load-bearing here).
+- The fake-provider plugin family (`racklab/testing/fakes/` for shared test fakes; a `racklab-provider-fake` plugin for runtime use in dev/CI).
+
+## Dependencies
+
+- M0 plugin framework, `Job` model, audit subsystem.
+- M0 `WorkerRuntime` Protocol — M2 ships the `QuadletWorkerRuntime` concrete implementation (Quadlet generation + systemd D-Bus bindings) so the provider-worker can actually run.
+- M0 NATS JetStream integration was deferred from M0 — M2 picks it up. NATS in dev runs as a Quadlet under systemd or via testcontainers in CI.
+- M1 auth so deployment requests have an actor.
+
+## Deliverables
+
+- `racklab.catalog` Django app: `CatalogItem`, `CatalogVersion`, `StackDefinition`, `StackComponent`, `ConsoleInstructionPanel`, `CatalogApproval`. The catalog model supports singleton VMs and multi-VM stacks per PRD §08.
+- `racklab.deployments` Django app: `Deployment`, `DeploymentResource`, `DeploymentStateTransition`, `DeploymentEvent` (with the `id` field for `Last-Event-ID` replay), `Snapshot`, `Lease` (basic model + expiry sweep only; quota-coupled lease limits land in M6).
+- `Job` subtypes wired: `ProviderTask` model (no Proxmox-specific fields yet; M3 fills them in).
+- `provider-worker` pool process: NATS JetStream consumer, dispatches to provider plugins via the `racklab_provider_*` hookspecs, persists state to the `Job` ledger.
+- `scheduler-reconciler` worker: polls `Job` rows in `pending` state past their deadline, resumes polling for stuck tasks, repairs orphaned deployments.
+- `racklab-provider-fake` plugin: implements the full Provider Protocol with configurable latency, jitter, and failure injection. Lives in the main repo so test infrastructure has access; ships as an installable plugin so dev deployments can use it.
+- `QuadletWorkerRuntime` concrete implementation: writes Quadlet files to `/etc/containers/systemd/`, calls `systemctl daemon-reload` and `systemctl start/stop` via the D-Bus API.
+- DRF endpoints: `/api/v1/catalog/items`, `/api/v1/catalog/items/{id}/versions/{ver}`, `/api/v1/deployments` (POST creates, GET lists), `/api/v1/deployments/{id}` (GET retrieves), `/api/v1/deployments/{id}/events` (SSE with `Last-Event-ID` replay).
+- Mantine React-island dashboard (mounted via django-vite per PRD §15): a logged-in user sees their projects, can browse the catalog, click Deploy, watch the deployment progress live via SSE (`EventSource` wrapped in a TanStack Query subscription), see state transitions and audit-visible events.
+- Idempotency-key handling on the `POST /api/v1/deployments` endpoint per PRD §07.
+
+## Acceptance criteria
+
+- [ ] A user creates a deployment from a fake-provider catalog item; the deployment state machine progresses `pending → running` in under 30 seconds (fake provider's simulated clone latency); SSE events stream live to the browser.
+- [ ] Browser disconnects mid-stream and reconnects with `Last-Event-ID = N`; replay resumes from `N+1`; events outside the 24-hour retention window produce the documented sentinel.
+- [ ] The fake provider can be configured to fail a deployment; the deployment state machine transitions to `failed`, the audit event includes the error reason, and the user sees the failure in the UI.
+- [ ] A user retries a failed deployment with the same idempotency key; the system returns the original deployment's id, not a new one.
+- [ ] Killing the `provider-worker` process mid-job and restarting it: the reconciler picks up the stuck `Job` row, resumes polling, and the deployment completes. **The system does not re-submit the original operation** — it resumes from the existing `Job`.
+- [ ] A multi-VM stack with two `StackComponent` entries deploys both components; the `Deployment` row's status reflects partial state (one running, one pending) accurately.
+- [ ] Snapshot create + restore against the fake provider: snapshots are persisted, restores work, audit events emitted.
+- [ ] Lease expiration triggers cleanup via the reconciler; expired deployments transition to `expired` and resources are released.
+- [ ] The full deployment-lifecycle audit-event set (request, scheduling decision, provider selection, lifecycle transition, failure, retry, rollback, cleanup) is emitted and observable.
+
+## Test layers
+
+- **Tiny / unit**: catalog template rendering; deployment state-machine transitions; idempotency-key matching; SSE event-id sequencing; `Last-Event-ID` replay logic (events older than the window produce the sentinel).
+- **Contract**: the provider Protocol against the fake provider; the `QuadletWorkerRuntime` Protocol against a fake systemd D-Bus; the SSE consumer against fake event streams; idempotency at the DRF view boundary.
+- **Integration**: full deployment flow against testcontainers Postgres + NATS + the fake provider running in-process. Worker crash + reconciler resume. SSE reconnect with `Last-Event-ID`. Multi-VM stack with mixed states.
+- **E2E**: a logged-in user deploys a fake-provider catalog item from the dashboard, watches it progress via SSE, snapshots it, restores from the snapshot, releases it. axe-core runs on every page; a11y is held to the WCAG 2.2 AA baseline.
+
+## Risks / open questions
+
+- **NATS JetStream durability config**: what consumer / stream / retention policy ships as the default? Aggressive retention costs disk; lax retention loses events. Probably 24-hour retention with a configurable override.
+- **The fake provider's failure modes**: the more realistic it is, the more bugs it catches in M3 integration. Must include: transient 5xx, connection refused before request body sent (the "safe-to-retry" case in the Proxmox spec §5), task-id returned then provider becomes unreachable (the node-loss case), task completes successfully but the response is malformed.
+- **Stack deployments and partial failure**: if component 1 succeeds and component 2 fails, what's the rollback policy? Per PRD §08, deployments reach "partially ready" — codify this in the state machine before M3.
+- **SSE replay storage**: the per-stream retention window of 24h is reasonable for live ops but expensive for `DeploymentEvent` history. Tune the retention sweep so old `DeploymentEvent` rows are dropped from the SSE replay buffer but preserved in the audit-event log.
+
+## Out of scope (deferred)
+
+- Real Proxmox provider — M3.
+- Console plugin (noVNC, xterm.js) — M4. M2's "console" link in the deployment-detail page is a stub that says "console will land in M4."
+- Networking (the `network_attach` provider operation) — M5a.
+- Quotas + scheduling — M6. M2 allows unlimited deployments per user; quota enforcement lands in M6 and retroactively gates the M2 flow.
+- Scripts / post-deployment automation — M7a/M7b.
+- Multi-host worker scaling — the `QuadletWorkerRuntime` ships in M2 for single-host; Nomad multi-host comes in M12.
+- The full deployment-detail-page UI (markdown instruction panels, share controls, sharing across courses) — M10.
