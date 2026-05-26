@@ -1,6 +1,6 @@
 # UI And UX
 
-> **Note:** Implementation detail for the UI stack choices in this section (Livewire/Filament/Tailwind versions, daisyUI integration, vanilla JS island compilation, accessibility tooling) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2 and §4. This document captures the UX requirements and accessibility/i18n commitments; the spec is the source of truth for the libraries that implement them.
+> **Note:** This section was rewritten for the May 2026 Laravel redesign. The previous version described a Django + React islands + Mantine + Radix + LinguiJS stack; the new stack is Blade + Livewire 4 + Filament 5 + Tailwind v4 + daisyUI 5. Implementation detail for the UI stack choices below (Livewire/Filament/Tailwind versions, daisyUI integration, vanilla JS island compilation, accessibility tooling) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2 and §4. This document captures the UX requirements and accessibility/i18n commitments; the spec is the source of truth for the libraries that implement them.
 
 RackLab uses **Blade + Livewire 4 components** for the public UI (server-rendered, reactive over the wire) and **Filament 5** for the admin panel. Tailwind v4 + daisyUI 5 handle public-facing styles; Filament 5 ships its own Tailwind v4-based vendor styles for the admin panel. Vanilla JS islands (`@xterm/xterm`, `@novnc/novnc`, Chart.js, FilePond, TipTap) are mounted by Livewire components via `wire:ignore` + `@push('scripts')` — no React.
 
@@ -150,7 +150,7 @@ WCAG 2.2 AA across the platform; AAA on critical flows (deployment status, conso
 Implementation:
 
 - **daisyUI + Livewire accessibility strategy**: daisyUI components are semantic HTML with ARIA baked in. Livewire's reactive rendering must not break focus — `wire:key` discipline ensures stable DOM identity across re-renders. CI a11y gates verify per-component compliance. Where daisyUI components are insufficient, drop to a lightweight headless component or manually authored ARIA markup.
-- **CI gates**: axe-core in Laravel Dusk E2E + `eslint-plugin-jsx-a11y` on island TypeScript + pa11y on critical flows. Build fails on any new violation.
+- **CI gates**: axe-core in Laravel Dusk E2E (the primary a11y gate; covers all rendered pages including island content) + pa11y on critical flows + manual review of Blade/Livewire templates for ARIA correctness. (No JSX-specific a11y linter applies — the islands are vanilla DOM TypeScript, not React; axe-core covers what `eslint-plugin-jsx-a11y` would on a React stack.) Build fails on any new violation.
 - **Manual screen-reader pass**: NVDA, VoiceOver, Orca before promotion.
 - **Semantic HTML first**; ARIA only where semantic HTML cannot express intent.
 - **All interactive elements keyboard-reachable**; visible focus indicators per WCAG 2.4.7.
@@ -169,16 +169,16 @@ Implementation:
 
 ## Internationalization
 
-RackLab is internationalized from day one. **Laravel's built-in i18n** (`resources/lang/*`) is the canonical catalog tool; `php artisan lang:check` flags catalog drift in CI.
+RackLab is internationalized from day one. **Laravel's built-in i18n** (`resources/lang/*`) is the canonical catalog tool. A catalog-drift CI gate (RackLab-custom artisan command, working name `php artisan racklab:lang:check`, or equivalent via a community package such as `amir9480/laravel-translations-status`) flags missing or unused keys; build fails on drift. The exact command lands as part of the `ci-gates` sub-plan from the redesign spec §10.
 
 Requirements:
 
 - All user-facing strings (Blade templates, Livewire components, API error messages, audit-event human descriptions, email templates, console UI, admin pages) are wrapped in translation calls (`__(...)`, `trans(...)`, `@lang(...)`). No bare user-facing English literals in templates, controllers, Livewire components, or worker outputs.
 - Translation catalogs live in `resources/lang/<lang>/`. Laravel's PHP-array format is the primary form; JSON catalogs for front-end strings passed to Alpine.js islands or JS config. Plugin authors ship their own `resources/lang/` catalogs within their package.
-- `php artisan lang:check` (or equivalent) runs in CI to detect missing keys. Catalog drift breaks the build.
+- The catalog-drift gate (`php artisan racklab:lang:check` or equivalent — see the i18n section header) runs in CI to detect missing or orphaned keys. Catalog drift breaks the build.
 - Each user has a per-account locale preference; falls back to `Accept-Language`, then to the deployment-default locale (`APP_LOCALE`).
 - Date, time, number, and currency formatting respect the active locale via Laravel's locale-aware helpers and JavaScript `Intl` in islands.
-- CLDR plural forms via Laravel's pluralization. Full ICU MessageFormat is **not** in scope for v1.
+- Plural forms: `trans_choice()` (Laravel's built-in pluralization) handles singular/plural for English correctly. For non-English locales with multiple CLDR plural categories (Arabic has six, Russian has three, Welsh has six, etc.), Laravel's built-in pluralization is **not** CLDR-compliant — full coverage requires a community package layered on top, e.g. `symfony/translation` integrated via `mcamara/laravel-localization` or `spatie/laravel-translatable`. Choosing and integrating the CLDR plural package is part of the M10b-equivalent i18n-hardening milestone; v1 ships en-US only and stubs the API for additional locales. Full ICU MessageFormat is **not** in scope for v1.
 - RTL languages (Arabic, Hebrew) supported end-to-end: layout flips, bidi-aware text rendering, mirrored icons where directional.
 - Default ships with en-US populated; additional locales community-contributable.
 - Translatable strings include extractor comments where context is non-obvious.

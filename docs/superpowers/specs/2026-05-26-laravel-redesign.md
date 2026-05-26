@@ -586,7 +586,7 @@ The replay endpoint reads `SELECT … FROM broadcast_event_log WHERE channel = :
   9. **OpenAPI schema-drift gate**: `php artisan scribe:generate --no-extraction` then `git diff --exit-code docs/api/openapi.yaml` — PRs that change the route surface must update the committed OpenAPI artifact
   10. **Security scanning** beyond `composer audit` / `npm audit`: `roave/security-advisories` (composer dev dep that aborts install on known-CVE deps), `enlightn/security-checker` for Laravel-specific patterns, `phpcs-security-audit` for taint analysis on `app/Http/`, `semgrep` with Laravel + PHP rule packs for OWASP top 10
   11. **a11y gate** via axe-core in Dusk runs (every Browser test asserts no axe-core violations on the page-load snapshot)
-  12. **i18n catalog drift**: `php artisan lang:check` — fails if any Blade/Livewire template uses `__('…')` with a string not present in `resources/lang/en/*.php` or vice-versa
+  12. **i18n catalog drift**: custom RackLab artisan command (working name `php artisan racklab:lang:check`) — fails if any Blade/Livewire template uses `__('…')` with a string not present in `resources/lang/en/*.php` or vice-versa. Laravel core does not ship a `lang:check` command; the working name reserves the verb in our namespace. A community package (e.g. `amir9480/laravel-translations-status`) may be adopted instead during the ci-gates sub-plan.
 - Nightly job: `pest --mutate` on high-stakes surfaces; mutation score posted to PR comments
 - Codex review fires on PRs touching `docs/prd/`, `docs/superpowers/specs/`, `app/Domain/`, `app/Plugins/`, or `app/Auth/`
 
@@ -616,7 +616,7 @@ After this spec is approved, the next step is the **writing-plans** skill. The w
 4. **`plugin-lifecycle`** — `PluginRegistry`, `PluginInstallation` + `PluginMigrationRecord` models, `racklab plugin install/migrate/enable/disable/rollback/uninstall` Artisan commands, `HookDispatcher` with the four listener-style semantics, hookspec event class scaffold, `racklab/plugin-hello` reference implementation.
 5. **`realtime-replay`** — Reverb daemon, channel auth, `broadcast_event_log` table + `ShouldBroadcastAfterCommit` discipline, `/api/v1/replay` endpoint + sweep job. xterm.js + noVNC islands. Negative-path tests for replay gap sentinel.
 6. **`script-containers`** — Horizon worker setup (pcntl/posix), `RunAnsiblePlaybook` + `RunUserScript` + `RunConsoleScript` job classes, container manifests, `ProviderConsoleProxy` unix-socket service, container image build pipeline (cosign-signed), reaper sidecar. Provider-task idempotency port from `2026-05-24-proxmox-client-discipline.md`.
-7. **`ci-gates`** — custom Larastan rules (`UntenantedRule`, `NoBareScopeBypassRule`, `NoSpatieBypassRule`, `NoBareEventDispatchOnHookspecsRule`, `NoLintOverridesRule`, `HookspecEventTypedRule`), snapshot tests, OpenAPI schema-drift gate, semgrep + security-checker, axe-core a11y in Dusk, `lang:check` i18n drift.
+7. **`ci-gates`** — custom Larastan rules (`UntenantedRule`, `NoBareScopeBypassRule`, `NoSpatieBypassRule`, `NoBareEventDispatchOnHookspecsRule`, `NoLintOverridesRule`, `HookspecEventTypedRule`), snapshot tests, OpenAPI schema-drift gate, semgrep + security-checker, axe-core a11y in Dusk, the custom `racklab:lang:check` (or adopted equivalent) i18n drift gate.
 
 Sub-plans 2 → 7 can run in parallel after sub-plan 1 (PRD rewrite) sets the functional ground truth. Some natural ordering still applies (e.g., `tenancy-auth` should land before `plugin-lifecycle` since plugins use the AccessResolver).
 
