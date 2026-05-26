@@ -1,5 +1,7 @@
 # SSH Plugin
 
+> **Note:** Implementation detail for the SSH plugin stack choices in this section (xterm.js/noVNC vanilla integration, phpseclib usage, ProviderConsoleProxy routing, ssh-runner container kind) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2 and §7. This document captures the SSH plugin's functional contract — host-key phone-home, session lifecycle, key rotation, deployment binding, browser-never-holds-creds rule; the spec is the source of truth for the libraries that implement them.
+
 The `racklab-console-ssh` plugin gives users a browser-based SSH terminal to lab VMs. RackLab acts as the SSH gateway from the management plane; the browser connects to RackLab over WebSocket, and RackLab opens an outbound SSH session to the target VM.
 
 It is the SSH parallel of the `racklab-console-proxmox` plugin: same xterm.js front-end, same `ConsoleAccessGrant` flow, same audit and recording shape, same lifetime inside the existing `console-worker` pool. SSH is its own plugin because the credential and reachability models are different from Proxmox's `termproxy` / `vncproxy` ticket flow.
@@ -42,29 +44,30 @@ This pushes the "how do I actually reach the VM" question onto the network layer
 
 ## Editor / Front-End
 
-Browser front-end is **`@xterm/xterm`** 6.0.0 (the official package, renamed from the legacy `xterm` package) + **`@xterm/addon-attach`** for WebSocket binding + **`@xterm/addon-fit`** for terminal resize, mounted inside a React component (Mantine-styled console pane) via `useRef` + `useEffect`. Cleanup in the effect's return calls `terminal.dispose()` and closes the WebSocket. Same accessibility chrome, focus-release shortcut, and screen-reader announcements as the `racklab-console-proxmox` LXC/serial console paths. The console pane reuses the established React layout: markdown instructions panel above/beside/below the terminal per PRD §15.
+Browser front-end is **`@xterm/xterm`** 6.0.0 (the official package, renamed from the legacy `xterm` package) + **`@xterm/addon-attach`** for WebSocket binding + **`@xterm/addon-fit`** for terminal resize, mounted as a **vanilla JS island** inside a Livewire 4 component via `wire:ignore` and a `@push('scripts')` init block. The init block calls `new Terminal({…})`, mounts it to the `wire:ignore` container, and attaches the addon; teardown is a `beforeLivewire:navigating` listener that calls `terminal.dispose()` and closes the WebSocket. Same accessibility chrome, focus-release shortcut, and screen-reader announcements as the `racklab-console-proxmox` LXC/serial console paths. The console pane layout (markdown instructions panel above/beside/below the terminal, per PRD §15) is handled by Blade/Livewire templates with Tailwind.
 
 The plugin ships no editor — SSH is the editor.
 
 ## Back-End
 
-Python implementation in **Django Channels** + **asyncssh**:
+PHP implementation via **Laravel Reverb** (WebSocket server) + **`phpseclib/phpseclib`** (PHP SSH/SFTP) for the outbound SSH connection from the app server, plus the **`racklab/ssh-runner:v1`** container kind for scripted SSH access:
 
-- The WebSocket consumer (Channels) terminates the browser-side connection.
-- It validates the `ConsoleAccessGrant` token (same primitive as Proxmox console — see Proxmox client spec §7).
+- The browser connects to RackLab's WebSocket endpoint (Reverb); it **never holds Proxmox credentials**. See the browser-never-holds-creds rule below.
+- The WebSocket handler validates the `ConsoleAccessGrant` token (same primitive as the Proxmox console — see spec §7 of `docs/superpowers/specs/2026-05-26-laravel-redesign.md`).
 - It reads the `DeploymentResource.reachability` capability and the resolved target address (guest IP or gateway port-forward) from the grant.
-- It opens an outbound SSH connection from the `console-worker` Podman container using `asyncssh`.
-- It pipes bytes bidirectionally between WebSocket and SSH session.
-- It runs the redaction pipeline (see Session Recording below) and conditionally streams the result to artifact storage.
+- It opens an outbound SSH connection from the Horizon worker process using `phpseclib/phpseclib`, which provides key auth, password auth, keyboard-interactive, and SSH agent-forwarding. `phpseclib` covers the v1 credential model (service key, password-passthrough); X.509 / FIDO2 host certificates are the v1.1 SSH CA path.
+- Byte streaming between WebSocket and the SSH session is handled in-process within the worker. The redaction pipeline (see Session Recording below) runs against the byte stream before it reaches artifact storage.
+- Live-watch console access (noVNC and the SSH terminal live output feed) routes through the **`ProviderConsoleProxy`** localhost service on the worker — spec §7. The proxy holds the Proxmox API credentials; the browser connects only to RackLab's Reverb WebSocket. The narrow Track A JWT scoped to `(tenant, deployment_resource, op_set, expiry)` is the sole credential the worker-side component passes across the proxy socket.
+- Scripted SSH access (automation, console scripts) uses the **`racklab/ssh-runner:v1`** per-job container kind, launched via the same Horizon container-job model as `racklab/ansible-runner:v1` and `racklab/console-script:v1`. The container carries only a narrow Track A JWT; it cannot reach Proxmox directly — network policy is `via-console-proxy` (the bind-mounted unix socket on `/run/console-proxy.sock`). Features that `phpseclib` does not cover in-process (FIDO2/U2F auth, custom SSH agent protocols) are deferred to the per-job container path.
 
-`asyncssh` is asyncio-native (clean fit with Channels), supports key auth + FIDO2/U2F + X.509 certs + password + keyboard-interactive, and is dual-licensed EPL-2.0 / GPL-2.0-or-later.
+**Browser-never-holds-Proxmox-creds rule** (PRD §18:37): the browser connects only to RackLab's Reverb WebSocket. The `ProviderConsoleProxy` on the Horizon worker is the exclusive holder of Proxmox API credentials and verifies each request against the narrow Track A JWT before issuing any Proxmox API call. Containers running scripted SSH access cannot reach Proxmox directly; the network policy forbids it (spec §7).
 
 ## Host-Key Verification
 
 The previous draft of this spec was silent on host-key verification. Without it, an attacker who controls the network between `console-worker` and a target VM can MITM the SSH session. Required behavior:
 
 - **TOFU + cloud-init capture is the v1 default.** When RackLab provisions a VM via cloud-init, the cloud-init `phone_home` (or a similar callback the provisioning template invokes) reports the VM's freshly-generated SSH host-key fingerprints (`/etc/ssh/ssh_host_ed25519_key.pub`, RSA, etc.) back to RackLab. The fingerprints are persisted on the `DeploymentResource` row as the pinned known-hosts entries.
-- On every SSH connect, `asyncssh` is configured with `known_hosts=<the pinned set>`. Any mismatch raises `asyncssh.HostKeyNotVerifiable`, the session aborts, an audit event fires (`console.ssh.host_key_mismatch`), and the operator sees a clear "host key changed — possible MITM" alert.
+- On every SSH connect, `phpseclib` is initialized with the pinned host-key set passed to `setPreferredAlgorithms()` + a host-key validation callback. Any mismatch aborts the connection before the session opens, an audit event fires (`console.ssh.host_key_mismatch`), and the operator sees a clear "host key changed — possible MITM" alert.
 - **Re-keying** (legitimate host-key rotation, e.g., after a snapshot restore) goes through an explicit admin-approved "re-capture host key" action that re-runs the cloud-init phone-home flow or accepts a manually-pasted fingerprint with audit + reason.
 - **Cloud-init-less deployments** (legacy images, restored snapshots without fresh host keys): the deployment is marked `requires_host_key_capture`. SSH is refused until the operator either re-images, runs a one-time fingerprint capture via the provider's serial console, or pastes the fingerprint into the admin UI.
 - v1.1: SSHFP records via DNSSEC for deployments with public DNS, and signed host certificates with RackLab as the host-CA. Documented as the durable answer; out of scope for v1.
@@ -88,7 +91,7 @@ For legacy lab images that cannot run cloud-init:
 
 1. The catalog template marks the deployment as `password-passthrough = true`.
 2. When the user opens an SSH session, RackLab prompts for the SSH password in-browser.
-3. The password is sent over the WebSocket-TLS-protected channel to the console-worker, which passes it to asyncssh's `password` auth.
+3. The password is sent over the WebSocket-TLS-protected channel to the Horizon worker, which passes it to `phpseclib`'s password auth.
 4. The password is never persisted.
 5. **Session recording is forced off** for password-passthrough sessions (see Session Recording).
 
@@ -147,35 +150,34 @@ Sharing reuses the PRD §06 share-link primitive. A guest-link shared SSH sessio
 
 The plugin demonstrates the contract:
 
-- **Discovery**: registered via a Python entry point in the `racklab.plugins` group.
-- **Capability declaration**: `console:ssh:v1`, supported RackLab API range, contributed permissions, migration set, health check (`console-ssh.health` returns ok if Channels is up, asyncssh can be imported, and a probe SSH-connect to a known reachable test host succeeds).
-- **Migration shipping**: contributes Django models (`ConsoleSession`-SSH-subtype rows, `SSHCredentialBinding`). Migrations follow the plugin migration lifecycle in PRD §13.
-- **RBAC contribution**: the four `console.ssh*` permissions integrated with allauth and the share-link primitive.
+- **Discovery**: registered via a Composer package ServiceProvider in the `racklab.plugins` group (PRD §13).
+- **Capability declaration**: `console:ssh:v1`, supported RackLab API range, contributed permissions, migration set, health check (`console-ssh.health` returns ok if Reverb is reachable, `phpseclib/phpseclib` is loadable, the `ProviderConsoleProxy` unix socket responds, and a probe SSH-connect to a known reachable test host succeeds).
+- **Migration shipping**: contributes Eloquent models (`ConsoleSession`-SSH-subtype rows, `SSHCredentialBinding`) and Laravel migrations. Follows the plugin migration lifecycle in PRD §13.
+- **RBAC contribution**: the four `console.ssh*` permissions integrated with Sanctum/Fortify and the share-link primitive.
 - **Audit emission**: emits `console.ssh.session.start`, `.end`, `.bind`, `.password_used`, `.host_key_mismatch`, `.host_key_recaptured`, `.recording.start`, `.recording.aborted_redaction`, `.recording.replay`, `.credential.rotated`. Schema follows PRD §14.
 - **Artifact storage integration**: session recordings land in artifact storage as `Artifact(kind=console_recording)`; cleanup is the universal retention sweep.
-- **WorkerRuntime user**: co-locates with the existing `console-worker` pool's `WorkerPoolSpec`.
-- **Failure isolation**: a plugin-internal failure (asyncssh dependency missing, secret backend unreachable) degrades to "SSH unavailable" with a clear admin alert. It does not break other console types or the rest of RackLab.
+- **WorkerRuntime user**: runs inside the Horizon worker process; the `racklab/ssh-runner:v1` container kind is launched per scripted-SSH job via the container-job model from spec §7.
+- **Failure isolation**: a plugin-internal failure (`phpseclib/phpseclib` missing, secret backend unreachable, `ProviderConsoleProxy` socket down) degrades to "SSH unavailable" with a clear admin alert. It does not break other console types or the rest of RackLab.
 
 ## Operational Notes
 
-- **Idle timeout**: configurable per pool, default 15 minutes. The Channels consumer detects browser disconnect and asyncssh's keepalive detects SSH-side drop.
+- **Idle timeout**: configurable per pool, default 15 minutes. The Reverb WebSocket handler detects browser disconnect; `phpseclib`'s keepalive interval detects SSH-side drop.
 - **Max duration**: configurable per pool, default 4 hours.
 - **Per-user concurrency cap**: configurable, default 5 concurrent sessions per user.
-- **Browser tab backgrounding**: asyncssh keepalive interval is set lower than typical browser tab-suspend behavior so sessions don't drop on minimized tabs.
-- **Session-killed-mid-stream**: on SSH-side drop, the Channels consumer flushes the cast, audits, notifies the browser, and offers reconnect.
-- **Daphne vs uvicorn**: console-worker uses Daphne for ASGI termination in v1; performance benchmarking with sustained binary WebSocket streams is on the v1 verification list.
+- **Browser tab backgrounding**: `phpseclib` keepalive interval is set lower than typical browser tab-suspend behavior so sessions don't drop on minimized tabs.
+- **Session-killed-mid-stream**: on SSH-side drop, the Reverb WebSocket handler flushes the cast, audits, notifies the browser, and offers reconnect.
 
 ## Deployment
 
-The plugin ships as a Python package on PyPI: `racklab-console-ssh`. Installation follows the standard RackLab plugin lifecycle from PRD §13:
+The plugin ships as a Composer package: `racklab/ssh-plugin` (see `packages/racklab/ssh-plugin/` in the monorepo). Installation follows the standard RackLab plugin lifecycle from PRD §13:
 
 ```sh
-racklab plugin install racklab-console-ssh
-racklab plugin migrate racklab-console-ssh
-racklab plugin enable racklab-console-ssh
+racklab plugin install racklab/ssh-plugin
+racklab plugin migrate racklab/ssh-plugin
+racklab plugin enable racklab/ssh-plugin
 ```
 
-The plugin runs inside the existing `console-worker` Podman container — it adds Channels routes and consumers to the console-worker app. No new top-level service in the orchestration spec. The xterm.js front-end is shared with `racklab-console-proxmox`.
+The plugin runs as a Laravel ServiceProvider registered into the main FrankenPHP / Horizon process — it contributes Reverb WebSocket handlers, Artisan commands, Eloquent models, and migrations. No new top-level service is required in the orchestration spec. The `racklab/ssh-runner:v1` container kind is declared in the plugin's manifest and pulled on first use. The xterm.js vanilla island (`resources/js/islands/xterm-console.ts`) is shared with `racklab-console-proxmox`.
 
 ## Out of Scope for v1
 
@@ -189,12 +191,12 @@ The plugin runs inside the existing `console-worker` Podman container — it add
 
 ## Effort Estimate
 
-Approximately 3-4 engineering weeks for one Django developer — slightly higher than the previous estimate because host-key capture, the redaction-with-abort recording policy, and reachability-aware grant issuance are explicit v1 work:
+Approximately 3-4 engineering weeks for one Laravel developer — slightly higher than a baseline estimate because host-key capture, the redaction-with-abort recording policy, and reachability-aware grant issuance are explicit v1 work:
 
-- Plugin skeleton, capability declaration, models, migrations, RBAC permission strings — ~3 days.
-- Channels consumer, asyncssh client wiring with pinned `known_hosts`, `ConsoleAccessGrant` validation, audit emission — ~4 days.
-- Cloud-init host-key capture flow + `requires_host_key_capture` handling for cloud-init-less images — ~3 days.
-- xterm.js front-end pane (reusing console-proxmox chrome) + service-key cloud-init provisioning + consent prompt — ~2 days.
+- Plugin skeleton, ServiceProvider, capability declaration, Eloquent models, migrations, RBAC permission strings — ~3 days.
+- Reverb WebSocket handler, `phpseclib/phpseclib` client wiring with pinned host-key validation, `ConsoleAccessGrant` validation, `ProviderConsoleProxy` routing, audit emission — ~4 days.
+- Cloud-init host-key capture flow (Laravel route + phone-home endpoint) + `requires_host_key_capture` handling for cloud-init-less images — ~3 days.
+- xterm.js vanilla island (reusing console-proxmox Livewire `wire:ignore` pattern) + service-key cloud-init provisioning + consent prompt — ~2 days.
 - Pattern-based redaction pipeline + abort-on-failure + asciinema v2 emission + replay view — ~4 days.
 - Idle / duration / concurrency policy, drain semantics, browser-tab keepalive — ~2 days.
 - Tests including a deliberate MITM scenario, a redaction-defeating-byte-sequence scenario, and an `isolated_no_ingress` grant-refusal scenario — ~3 days.
