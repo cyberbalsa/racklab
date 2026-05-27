@@ -87,7 +87,7 @@ Requirements:
 
 - Channels are permission-filtered per user or token.
 - Channels can be scoped to deployment, project, course, or admin views.
-- Important events are **persisted before broadcast** (`ShouldBroadcastAfterCommit` discipline — the `broadcast_event_log` INSERT and the business-state mutation share the same DB transaction; Reverb dispatch fires only after the transaction commits, preventing "client saw event for state that doesn't exist").
+- Important events are **persisted before broadcast**: the `broadcast_event_log` INSERT and the business-state mutation share the same DB transaction, and broadcast events implement Laravel's `ShouldBroadcast` plus `ShouldDispatchAfterCommit` interfaces. Reverb dispatch fires only after the transaction commits, preventing "client saw event for state that doesn't exist".
 - Browser disconnects do not lose the authoritative event timeline (see replay endpoint below).
 
 ### Channel taxonomy

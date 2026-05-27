@@ -4,10 +4,12 @@ RackLab is specified as a full target product. Implementation may be phased late
 
 ## Product Requirements
 
-- Users can deploy singleton VMs and multi-VM stacks from a catalog.
+- Users can deploy Stacks from a catalog or from project-local Stack definitions; a single VM is represented as a one-component Stack.
 - Catalog items are versioned and include provider capability requirements.
 - Projects isolate deployments, networks, scripts, secrets, quota usage, and sharing policy.
+- Every user gets a personal Project on first login or registration. Each Project has a reserved Default Stack for quick VM launches.
 - Students can create resources when RBAC and quota allow it.
+- Users with permission can create Stacks, add or remove VMs from deployed Stacks, rebuild an individual VM, or rebuild the full Stack.
 - Instructors can deploy stacks for rosters and manage course-created deployments.
 - Admins can configure providers, plugins, quotas, auth, networks, audit, and operations.
 - Console views can show markdown instructions above, beside, and below the console.

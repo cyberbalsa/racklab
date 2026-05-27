@@ -11,7 +11,7 @@ Replace the fake provider with the real Proxmox VE integration. After M3, a user
 
 ## In scope
 
-- `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md` — the discipline applies through the PHP stack-carry-forward mapping note in the spec header; Python examples translate row-by-row to the PHP codegen + Guzzle transport implementation described there.
+- `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md` — the discipline applies to the PHP codegen + Guzzle transport implementation described in the spec header.
 - PRD §12 Proxmox provider.
 - PRD §19 data model `ProviderTask` subtype (Proxmox UPID parts).
 - The `racklab/provider-proxmox` plugin per PRD §13.

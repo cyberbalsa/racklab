@@ -67,7 +67,7 @@ Users can open a console pane to any deployment they have access to: noVNC for K
 - **Focus-release shortcut conflict**: the default `Ctrl-Alt-Shift-Q` may conflict with a user's OS or browser shortcuts. Make it configurable per-user.
 - **LXC vs KVM detection**: the provider plugin reports console kind per instance; the console pane picks the right renderer. If a future provider reports both, the capability flag is `console:vnc` or `console:terminal`; pick the user's preference if both are available.
 - **Octane state-leak for `ProviderConsoleProxy`**: the proxy holds a Guzzle client with Proxmox credentials. The Octane state-reset discipline from the Laravel redesign spec §5 applies: the proxy must not carry a prior request's credentials into a new Octane worker cycle.
-- **SPICE deprioritized**: PRD §12 deprioritizes SPICE since Proxmox is moving away. M4 does not implement SPICE; the spec records this. If a deployment actually needs SPICE, a separate plugin can ship later.
+- **SPICE deferred**: PRD §12 prioritizes browser-native VNC/terminal access. M4 does not implement SPICE because it requires a native client workflow and has no RackLab browser story; if a deployment needs it, a separate plugin can ship later.
 
 ## Out of scope (deferred)
 

@@ -1,8 +1,8 @@
 # Executive Summary
 
-RackLab is a replacement for RLES: a self-service educational lab platform where students and instructors can deploy VMs and multi-VM stacks from a catalog, manage them safely, connect to consoles, run post-deployment automation, and share access with controlled permissions.
+RackLab is a replacement for RLES: a self-service educational lab platform where students and instructors can deploy Stacks from a catalog, manage them safely, connect to consoles, run post-deployment automation, and share access with controlled permissions. A Stack may contain one VM or many VMs.
 
-The original RLES workflow is lightweight: users log in, choose a VM from a catalog, submit a deployment request, wait for progress, then power on and connect to a remote console. RackLab keeps that approachable workflow while expanding it into a modern control plane for courses, student projects, stack templates, quotas, networking, automation, auditing, and multiple infrastructure providers.
+The original RLES workflow is lightweight: users log in, choose a VM from a catalog, submit a deployment request, wait for progress, then power on and connect to a remote console. RackLab keeps that approachable workflow while expanding it into a modern control plane for courses, student projects, catalog-backed and project-local Stacks, quotas, networking, automation, auditing, and multiple infrastructure providers.
 
 RackLab is built around:
 

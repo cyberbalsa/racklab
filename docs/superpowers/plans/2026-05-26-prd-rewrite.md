@@ -473,7 +473,7 @@ Add the audit-pre-emit-must-not-block guarantee from spec §6.
 
 - [ ] **Step 5: Rewrite the lifecycle state machine**
 
-Replace `racklab plugin ... ` Python-CLI examples with `php artisan racklab:plugin install|migrate|enable|disable|rollback|uninstall <slug>` Artisan commands. Keep the state machine diagram unchanged.
+Replace Python-era plugin CLI examples with the canonical `racklab plugin install|migrate|enable|disable|rollback|uninstall <slug>` lifecycle commands. Keep the state machine diagram unchanged.
 
 - [ ] **Step 6: Rewrite the storage backend plugin family**
 
@@ -535,7 +535,7 @@ grep -nE 'React|Vite|django-vite|Mantine|Radix|LinguiJS|TanStack|Zustand|Zod|Typ
 | Django + React islands via django-vite | Blade + Livewire 4 components (server-rendered, reactive over the wire) + Filament 5 for admin |
 | Mantine + Radix gaps | Tailwind v4 + daisyUI 5 for public UI; Filament 5 for admin (Tailwind 4 internally) |
 | LinguiJS sharing .po with gettext | Laravel's built-in i18n (`resources/lang/*`); `php artisan racklab:lang:check` for catalog drift CI |
-| TanStack Query + Zustand + Zod | Livewire 4 (handles server state) + Alpine.js bundled (client state) + Laravel FormRequest + spatie/laravel-data (server-side typed payloads) |
+| TanStack Query + Zustand + Zod | Livewire 4 (handles server state) + Alpine.js bundled (client state) + Laravel FormRequest + typed PHP DTOs for server-side payloads |
 | TypeScript 5.5+ strict, React 19+ | Vanilla JS islands compiled via Vite; TypeScript only for the islands themselves (xterm config, noVNC adapter). No React. |
 | `@tiptap/react` + `@mantine/tiptap` for docs editor | `@tiptap/core` vanilla mounted via `wire:ignore` in a Livewire component (public), Filament's built-in TipTap-based `RichEditor` (admin) |
 | `react-filepond` 7.x | `filepond` vanilla 4.x via the `spatie/livewire-filepond` bridge |
@@ -933,7 +933,7 @@ The data model section uses Django ORM idioms heavily. Map:
 | Old (Django) | New (Eloquent + Laravel) |
 | --- | --- |
 | `models.Model` / `models.CharField` / `models.JSONField` | Eloquent `Model` with `$casts`/`$fillable` arrays; JSONB fields cast to `'array'` or `'json'` |
-| `ArrayField(JSONField(...))` (Postgres-specific in Django) | JSONB column with `$casts = ['column' => 'array']`; for typed payloads use `spatie/laravel-data` DTOs |
+| `ArrayField(JSONField(...))` (Postgres-specific in Django) | JSONB column with `$casts = ['column' => 'array']`; for typed payloads use first-party PHP DTOs |
 | `EncryptedField` (django-fernet-fields) | Laravel's built-in `encrypted` cast (`$casts = ['column' => 'encrypted']` or `'encrypted:json'`) |
 | `on_delete=models.PROTECT` | Foreign key `onDelete('restrict')` in migrations |
 | `GenericForeignKey` / contenttypes | Polymorphic relations (`morphTo`/`morphMany`) — Laravel-native; no contenttypes app needed |

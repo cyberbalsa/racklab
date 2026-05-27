@@ -2330,7 +2330,7 @@ Create `packages/racklab/plugin-hello/composer.json`:
 
 The `extra.racklab.plugin: true` flag is the marker `App\Plugins\PluginRegistry` will look for during plugin discovery (real registry lands in the plugin-lifecycle sub-plan).
 
-The `extra.laravel.dont-discover` entry suppresses Laravel's standard package auto-discovery — RackLab plugins must go through the lifecycle gate (`racklab:plugin:enable`) before their ServiceProvider boots, per spec §6.
+The `extra.laravel.dont-discover` entry suppresses Laravel's standard package auto-discovery — RackLab plugins must go through the lifecycle gate (`racklab plugin enable`) before their ServiceProvider boots, per spec §6.
 
 - [ ] **Step 3: Create the README**
 
@@ -2346,7 +2346,7 @@ Reference first-party RackLab plugin. Exercises the plugin contract from
 - `"extra.racklab.plugin": true` marker for `PluginRegistry` discovery
 - `"extra.laravel.dont-discover"` opt-out from Laravel's standard
   auto-discovery (RackLab plugins must go through
-  `racklab:plugin:enable` before their ServiceProvider boots)
+  `racklab plugin enable` before their ServiceProvider boots)
 - Stub `PluginHelloServiceProvider` for the future `PluginRegistry` to boot
 - Stub `Manifest` class for the future `RackLab\Plugins\Contracts\Manifest`
   interface (the interface itself lands in the `plugin-lifecycle` sub-plan)
@@ -2382,7 +2382,7 @@ use Illuminate\Support\ServiceProvider;
  * - boots no routes, no views, no commands, no listeners
  *
  * The class exists so PSR-4 autoload + Larastan + Pint all see it; the
- * future PluginRegistry will instantiate it once `racklab:plugin:enable
+ * future PluginRegistry will instantiate it once `racklab plugin enable
  * racklab/plugin-hello` runs.
  */
 final class PluginHelloServiceProvider extends ServiceProvider
@@ -2481,7 +2481,7 @@ wired into the root composer.json as a path repository. The package:
 - Declares `extra.racklab.plugin: true` — the future PluginRegistry's
   discovery marker
 - Declares `extra.laravel.dont-discover` for itself — RackLab plugins
-  go through the lifecycle gate (racklab:plugin:enable) before booting,
+  go through the lifecycle gate (`racklab plugin enable`) before booting,
   not Laravel's auto-discovery (spec §6).
 - Ships a stub PluginHelloServiceProvider (no behaviour yet) and a stub
   Manifest readonly DTO.
@@ -2787,7 +2787,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with: { php-version: '8.3', tools: composer:v2 }
       - run: composer install --prefer-dist --no-progress
-      # The full racklab:plugin install/migrate/enable/disable/rollback/uninstall
+      # The full racklab plugin install/migrate/enable/disable/rollback/uninstall
       # smoke test lands in the plugin-lifecycle sub-plan. For now, just verify
       # the plugin-hello package is autoloadable.
       - run: |

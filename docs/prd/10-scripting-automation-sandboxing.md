@@ -11,7 +11,7 @@ RackLab supports student, instructor, and admin-authored post-deployment automat
 RackLab includes a cloud-init wizard for:
 
 - Users.
-- SSH keys.
+- Project SSH keys selected from `ProjectSSHKey` rows; RackLab injects public keys only and records which user created each key.
 - Password policy.
 - Packages.
 - Files.

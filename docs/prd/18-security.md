@@ -76,7 +76,7 @@ Large-file uploads (ISOs, OVAs, stack tarballs) go through the FilePond chunked-
 - **Quarantine flag (`Artifact.quarantined`) is true on insert**; scanner pipeline (ClamAV for unknown blobs; `qemu-img info` + format validator for ISO/OVA) clears the flag before the artifact becomes referenceable.
 - **MIME magic sniffing** via PHP's `finfo` (or an equivalent libmagic-backed library) rejects declared/actual mismatches before scan.
 - **Archive / zip-bomb limits** enforce extracted-size caps before processing tarballs and zips.
-- **Filename + path sanitisation**: storage key derived from `transfer_id`; original filename kept as metadata.
+- **Filename + path sanitisation**: in-flight chunks are keyed by `transfer_id`; finalized artifacts are keyed by `<tenant_id>/<artifact.kind>/<sha256>`; original filename is kept as metadata.
 - **sha256 verification**: computed during streaming for filesystem backend; post-upload via `GetObject` for S3. Optional client-declared sha256 is a preflight hint; session refuses to complete if hashes don't match.
 - **No direct-to-storage uploads bypassing Laravel.** Even when the backend is S3-compatible, the Laravel app is the upload coordinator — quota and tenant context are enforced before any storage write.
 

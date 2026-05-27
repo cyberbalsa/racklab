@@ -36,7 +36,7 @@ The repo is now cleaned up — the previous stack's `src/`, `frontend/`, `tests/
 | Multi-tenancy scaffolding | spatie/laravel-multitenancy + Filament 5 tenancy (with `isPersistent: true`) | spatie v4.1.3 |
 | Multi-tenancy security | Custom — `tenant_id` columns, global scopes, `#[Untenanted]` Larastan rule, cross-tenant audit, queue context, channel auth | RackLab core |
 | Real-time | Laravel Reverb (MIT, WebSockets, Pusher protocol) + Echo client + Livewire 4 broadcasting | ^1.10.2 |
-| Real-time replay | Custom `GET /api/v1/replay?channel=…&since=…` endpoint backed by Postgres `broadcast_event_log` table with `ShouldBroadcastAfterCommit` persist-before-broadcast discipline (matches PRD §07 Last-Event-ID semantics; see §7 for the table schema) | RackLab core |
+| Real-time replay | Custom `GET /api/v1/replay?channel=…&since=…` endpoint backed by Postgres `broadcast_event_log` table with Laravel `ShouldBroadcast` + `ShouldDispatchAfterCommit` persist-before-broadcast discipline (matches PRD §07 Last-Event-ID semantics; see §7 for the table schema) | RackLab core |
 | Auth — session/cookie | Sanctum | v4.3.2 |
 | Auth — Track B opaque PAT (PRD §06) | Sanctum opaque PATs (scoped via abilities) | v4.3.2 |
 | Auth — Track A signed JWT (PRD §06, required for console grants / share links / deployment tokens) | `firebase/php-jwt` (RS256) + custom `App\Auth\Jwt\TrackAIssuer` + `App\Http\Controllers\JwksController` | firebase/php-jwt ^7.0 |
@@ -429,7 +429,7 @@ Horizon worker (PHP, long-lived, pcntl/posix)        ⟵  trusted; holds provide
   container streams stdout/stderr line-by-line back through the Horizon job
        │
        ▼
-  job dispatches App\Events\JobOutputChunk (ShouldBroadcastAfterCommit)
+  job dispatches App\Events\JobOutputChunk (ShouldBroadcast + ShouldDispatchAfterCommit)
        │
        ▼ (1) insert broadcast_event_log row in same DB transaction
        ▼ (2) after commit: dispatch to Reverb
@@ -498,7 +498,7 @@ CREATE TABLE broadcast_event_log (
 );
 ```
 
-**Persist-before-broadcast** discipline: every event extends `ShouldBroadcastAfterCommit`. The event's constructor opens (or joins) the active DB transaction, INSERTs the `broadcast_event_log` row, and only after the transaction commits does Reverb receive the dispatch. If the transaction rolls back, the broadcast never fires — preventing the "client saw event for state that doesn't exist" failure mode.
+**Persist-before-broadcast** discipline: every event implements `ShouldBroadcast` and `ShouldDispatchAfterCommit`. The event's constructor opens (or joins) the active DB transaction, INSERTs the `broadcast_event_log` row, and only after the transaction commits does Reverb receive the dispatch. If the transaction rolls back, the broadcast never fires — preventing the "client saw event for state that doesn't exist" failure mode.
 
 The replay endpoint reads `SELECT … FROM broadcast_event_log WHERE channel = :ch AND id > :since ORDER BY id ASC LIMIT 1000`. The client merges replay results with live Reverb messages (dedup by ULID, monotonic). The endpoint's scope/visibility check uses the same `AccessResolver`. A nightly sweep job deletes rows where `created_at < now() - interval '24 hours'`.
 
@@ -614,7 +614,7 @@ After this spec is approved, the next step is the **writing-plans** skill. The w
 2. **`laravel-scaffold`** — initial Laravel 13 + Octane + FrankenPHP + Filament 5 + Livewire 4 project skeleton. Vite entries (`app.css` public + daisyUI; `filament.css` admin). Pint + Larastan + Rector + Pest 4 wired up. CI matrix from §8.
 3. **`tenancy-auth`** — `app/Domain/Tenancy/AccessResolver`, `CrossTenantFetch`, `IdentifyTenant` + `SetTenantContextForOctane` + `BindTenantContext` middleware, `RoleBinding` model with `scope_type` + `tenant_set`, spatie/laravel-multitenancy + spatie/laravel-permission integration, Filament tenancy with `isPersistent: true`. Track A JWT issuer + JWKS endpoint + Sanctum PATs + Fortify + Socialite + OIDC + SAML. `AuditEvent` three-tenant schema + hash chain + `VerifyAuditChain` command + bidirectional surfacing query.
 4. **`plugin-lifecycle`** — `PluginRegistry`, `PluginInstallation` + `PluginMigrationRecord` models, `racklab plugin install/migrate/enable/disable/rollback/uninstall` Artisan commands, `HookDispatcher` with the four listener-style semantics, hookspec event class scaffold, `racklab/plugin-hello` reference implementation.
-5. **`realtime-replay`** — Reverb daemon, channel auth, `broadcast_event_log` table + `ShouldBroadcastAfterCommit` discipline, `/api/v1/replay` endpoint + sweep job. xterm.js + noVNC islands. Negative-path tests for replay gap sentinel.
+5. **`realtime-replay`** — Reverb daemon, channel auth, `broadcast_event_log` table + `ShouldBroadcast` / `ShouldDispatchAfterCommit` discipline, `/api/v1/replay` endpoint + sweep job. xterm.js + noVNC islands. Negative-path tests for replay gap sentinel.
 6. **`script-containers`** — Horizon worker setup (pcntl/posix), `RunAnsiblePlaybook` + `RunUserScript` + `RunConsoleScript` job classes, container manifests, `ProviderConsoleProxy` unix-socket service, container image build pipeline (cosign-signed), reaper sidecar. Provider-task idempotency port from `2026-05-24-proxmox-client-discipline.md`.
 7. **`ci-gates`** — custom Larastan rules (`UntenantedRule`, `NoBareScopeBypassRule`, `NoSpatieBypassRule`, `NoBareEventDispatchOnHookspecsRule`, `NoLintOverridesRule`, `HookspecEventTypedRule`), snapshot tests, OpenAPI schema-drift gate, semgrep + security-checker, axe-core a11y in Dusk, the custom `racklab:lang:check` (or adopted equivalent) i18n drift gate.
 
@@ -649,7 +649,7 @@ Sub-plans 2 → 7 can run in parallel after sub-plan 1 (PRD rewrite) sets the fu
 | 2026-05-26 | **REVERSED** by codex spec review: reintroduce Track A signed JWT (`firebase/php-jwt` + custom JWKS endpoint + `App\Auth\Jwt\TrackAIssuer`) | PRD §06:124 + §18:37 require Track A for concrete consumers (console grants via the console-proxy, share links, deployment tokens). YAGNI was wrong. |
 | 2026-05-26 | Per-job container network default `--network=none`; explicit allow-list per kind | PRD §18 alignment |
 | 2026-05-26 | Console-script containers carry no Proxmox creds; they speak to `ProviderConsoleProxy` over unix socket with Track A JWT | PRD §18:37 — "no provider credentials in script workers" |
-| 2026-05-26 | `broadcast_event_log` Postgres table + `ShouldBroadcastAfterCommit` (NOT Redis Streams) | Redis stream IDs aren't arbitrary ULIDs; persist-before-broadcast required |
+| 2026-05-26 | `broadcast_event_log` Postgres table + `ShouldBroadcast` / `ShouldDispatchAfterCommit` (NOT Redis Streams) | Redis stream IDs aren't arbitrary ULIDs; persist-before-broadcast required |
 | 2026-05-26 | Plugin discovery via `PluginRegistry` gated by `enabled` lifecycle state — NOT Laravel package auto-discovery | Auto-discovery boots installed plugins before the lifecycle gate |
 | 2026-05-26 | `AuditEvent` schema: `actor_tenant` + `resource_tenant` + `target_tenant_set`, not single `tenant_id` | PRD §19:203 |
 | 2026-05-26 | All authorisation decisions go through `App\Domain\Tenancy\AccessResolver`; raw `$user->hasRole()` outside that class is a Larastan failure | Single source of truth for the three-predicate composition |

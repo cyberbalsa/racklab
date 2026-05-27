@@ -7,7 +7,7 @@
 
 ## Goal
 
-**Note on scope shift from the original Django roadmap:** In the Laravel stack, Filament 5 handles the entire admin shell from M00 — admin screens (provider inventory, quota policies, plugin management, audit search, system settings, branding) are Filament panels, not custom-built. M10a therefore covers the **public-facing UI only**: the Livewire 4 + daisyUI 5 component library used by students and instructors. The admin branding / theme work that was in the original M10a is re-homed to Filament's built-in theme customisation and is handled in M0 setup, not here.
+**Scope:** Filament 5 handles the entire admin shell from M00 — admin screens (provider inventory, quota policies, plugin management, audit search, system settings, branding) are Filament panels, not custom-built. M10a covers the **public-facing UI only**: the Livewire 4 + daisyUI 5 component library used by students and instructors. Admin branding and theme work stays in Filament's built-in theme customisation.
 
 Every Key Screen from PRD §15 that is not an admin panel exists as a Livewire 4 component styled with daisyUI 5 primitives and Tailwind v4. The component palette is exercised by Pest 4 integration tests (Dusk for browser-layer flows). Laravel's built-in i18n (`resources/lang/en/`) is wired up for every translatable string surfaced by M0–M9 and the catalog-drift CI gate is green. The release gates on a11y + i18n hardening (full WCAG 2.2 AA pass, second locale, RTL verification, manual screen-reader runs) land in M10b.
 

@@ -73,7 +73,7 @@ The initial console backend supports two Proxmox-native console paths through on
 
 The two paths share the same `ConsoleAccessGrant` flow (short-lived, scoped, audit-logged) and the same in-page chrome (markdown instructions, share controls, focus-release shortcut for keyboard users — see UI/UX accessibility requirements). The choice of noVNC vs xterm.js is a per-target capability flag the provider reports; the console pane picks the right renderer.
 
-Optional future console plugins can support Apache Guacamole, SPICE, SSH, RDP, or other brokered access modes. SPICE is deprioritized — Proxmox is moving away from it and KubeVirt has dropped it; new plugins should not target SPICE without a specific reason.
+Optional future console plugins can support Apache Guacamole, SPICE, SSH, RDP, or other brokered access modes. SPICE is deferred because RackLab v1 prioritizes browser-native console paths. A future SPICE plugin may be added when an operator has a specific client-based desktop-console requirement.
 
 ## Reliability
 

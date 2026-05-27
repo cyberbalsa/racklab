@@ -56,7 +56,7 @@ Reconciliation and audit query `Job`; nothing above the queue layer knows which 
 
 Fields:
 
-- `id`, `tenant_id` (denormalized, immutable, set at insert from the actor's tenant context), `kind` (`script_log` | `script_screenshot` | `script_serial` | `console_recording` | `docs_image` | `audit_export` | `backup_metadata` | `catalog_iso` | `catalog_template` | `catalog_disk_image` | `catalog_snippet` | `catalog_backup` | `other`), `content_type` (RFC 6838), `size_bytes`, `sha256`, `quarantined` (bool, defaults true; scanner pipeline clears). The `catalog_*` kinds map to Proxmox storage content types (`iso` / `vztmpl` / `images` / `snippets` / `backup`) and route to the `proxmox_shared` backend by default (configurable per kind via the `Artifact.kind → backend` routing table; PRD §13 storage backend contract).
+- `id`, `tenant_id` (denormalized, immutable, set at insert from the actor's tenant context), `kind` (`script_log` | `script_screenshot` | `script_serial` | `console_recording` | `docs_image` | `audit_export` | `backup_metadata` | `catalog_iso` | `catalog_template` | `catalog_disk_image` | `catalog_snippet` | `catalog_backup` | `catalog_stack_package` | `other`), `content_type` (RFC 6838), `size_bytes`, `sha256`, `quarantined` (bool, defaults true; scanner pipeline clears). The `catalog_*` kinds map to Proxmox storage content types (`iso` / `vztmpl` / `images` / `snippets` / `backup`) and route to the `proxmox_shared` backend by default (configurable per kind via the `Artifact.kind → backend` routing table; PRD §13 storage backend contract).
 - `storage_backend` (`filesystem` | `s3` | `s3_compatible` | `proxmox_shared` | plugin-contributed value), `storage_key`, `storage_uri` (canonical reference; not always a direct URL).
 - `created_at`, `created_by` (actor or system reason), `retention_until` (computed from policy at create time, nullable for indefinite retention).
 - `owner_scope` (`project_id` | `course_id` | `global` | `user_id` for guest artifacts), `rbac_visibility` (`scope_members` | `scope_admins` | `actor_only` | `public_with_token`).
@@ -67,7 +67,7 @@ Fields:
 
 Retention sweep is a `ReconcilerTask` that runs on a schedule, marks expired artifacts as `pending_delete`, then deletes from the storage backend after a configurable grace period. Audit rows for `artifact.deleted` capture sha256 + last reference for forensic reconstruction.
 
-The previously-named tables `ScriptArtifact` and `LogArtifact` collapse into `Artifact` with appropriate `kind` values; their use sites become `ArtifactReference` rows.
+`ScriptArtifact` and `LogArtifact` collapse into `Artifact` with appropriate `kind` values; their use sites become `ArtifactReference` rows.
 
 ## Identity And Scope
 
@@ -95,6 +95,8 @@ The previously-named tables `ScriptArtifact` and `LogArtifact` collapse into `Ar
 
 - `Project`
 - `ProjectMembership`
+- `ProjectDefaultStack` — project-owned pointer to the reserved Default `StackDefinition` and optional active Default `Deployment`. Unique per project.
+- `ProjectSSHKey` — project-scoped SSH public key. Carries `tenant_id`, `project_id`, unique `name` per project, public key material, fingerprint, key type, `created_by`, timestamps, and optional revoke metadata. RackLab never stores or accepts private keys here. List views show which user created each key.
 - `ShareGrant`
 - `Invitation`
 
@@ -102,15 +104,17 @@ The previously-named tables `ScriptArtifact` and `LogArtifact` collapse into `Ar
 
 - `CatalogItem`
 - `CatalogVersion`
-- `StackDefinition`
-- `StackComponent`
+- `StackDefinition` — reusable Stack blueprint. Can be catalog-published or project-local. A single VM is represented as a StackDefinition with one VM component. Each Project has one reserved Default StackDefinition for quick VM launches.
+- `StackComponent` — VM, network, script, instruction, or policy component inside a StackDefinition.
+- `StackPackage` — import/export record for an OVA-style RackLab Stack Package. Points to an `Artifact(kind=catalog_stack_package)`, stores manifest format version, source Stack/CatalogVersion, checksum set, signature status, export/import state, and validation errors.
 - `ConsoleInstructionPanel`
 - `CatalogApproval`
 
 ## Deployments
 
-- `Deployment` — carries denormalized `tenant_id` (immutable, set at insert).
-- `DeploymentResource`
+- `Deployment` — deployed Stack instance in a Project; carries denormalized `tenant_id` (immutable, set at insert). A Project may have one active Default Stack Deployment created from its reserved Default StackDefinition; quick VM launches add resources to that Deployment through `DeploymentOperation(add_vm)`.
+- `DeploymentResource` — concrete VM, disk, NIC, network, generated snippet, or other provider resource belonging to the deployed Stack.
+- `DeploymentOperation` — durable user-requested Stack change (`deploy`, `add_vm`, `remove_vm`, `rebuild_vm`, `rebuild_stack`, `resize`, `release`) backed by a `Job`, with actor, idempotency key, requested diff, and audit correlation.
 - `DeploymentStateTransition`
 - `DeploymentEvent` (carries `id` as a ULID cursor for `broadcast_event_log` replay)
 - `Lease`
@@ -168,8 +172,7 @@ The previously-named tables `ScriptArtifact` and `LogArtifact` collapse into `Ar
 ## Console
 
 - `ConsoleSession` — **subtype of `Job`**. Console recordings land in `Artifact` with `kind = console_recording`.
-- `SSHCredentialBinding` (SSH plugin only — see PRD §23).
-- `UserSSHKey` (SSH plugin only — see PRD §23).
+- `SSHCredentialBinding` (SSH plugin only — see PRD §23; distinct from project SSH public keys).
 
 ## Docs (plugin)
 
@@ -191,7 +194,7 @@ The previously-named tables `ScriptArtifact` and `LogArtifact` collapse into `Ar
 - `PluginSecretRef`
 - `PluginHealth`
 - `PluginCapability`
-- `PluginLifecycleState` (see PRD §13: `installed` → `migrated` → `enabled` → `disabled` → `pending_uninstall`)
+- `PluginLifecycleState` (see PRD §13: `installed` → `migrated` → `enabled` → `disabled` → removed)
 - `PluginMigrationRecord` — every plugin migration applied or rolled back, with version range and outcome.
 
 ## TLS / ACME

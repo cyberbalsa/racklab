@@ -46,7 +46,7 @@ graph TB
     Browser -- HTTPS/WSS --> Traefik
     Traefik --> Web
     Web --> Postgres
-    Web -- "ShouldBroadcastAfterCommit dispatch" --> Redis
+    Web -- "after-commit broadcast dispatch" --> Redis
     Web --> ArtStore
 
     Redis --> ProvW
@@ -366,7 +366,7 @@ classDiagram
     Plugin --> CoreServices : uses
 ```
 
-## 7. End-to-end sequence — deploy a VM from the catalog
+## 7. End-to-end sequence — deploy a Stack from the catalog
 
 The canonical flow exercising RBAC, quota, Horizon, provider-worker, Proxmox, task polling, reconciliation, and Reverb broadcast.
 
@@ -385,7 +385,7 @@ sequenceDiagram
     participant PX as Proxmox VE
     participant SR as scheduler-reconciler
 
-    U->>B: Click "Deploy" on catalog item
+    U->>B: Click "Deploy" on catalog Stack
     B->>T: POST /api/v1/deployments
     T->>W: forward
     W->>W: validate auth, RBAC, quota, capability
@@ -416,7 +416,7 @@ sequenceDiagram
     PC-->>PW: result (TaskResult)
     PW->>DB: UPDATE deployment (status=running or failed)
     PW->>DB: insert broadcast_event_log row (in transaction)
-    PW->>RD: ShouldBroadcastAfterCommit dispatch (after commit)
+    PW->>RD: ShouldBroadcast + ShouldDispatchAfterCommit dispatch
     RD->>RV: push to channel
     RV-->>B: broadcast event (DeploymentStateChanged)
 

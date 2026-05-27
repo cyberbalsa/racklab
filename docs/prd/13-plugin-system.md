@@ -63,16 +63,15 @@ States:
 2. **migrated** — the plugin's migrations have been applied. Models exist in Postgres; the plugin's ServiceProvider is not yet booted for the running RackLab processes.
 3. **enabled** — the plugin's ServiceProvider is booted, its hookspec listeners are registered via `HookDispatcher`, its Filament resources and routes are mounted, its workers are eligible for scheduling, and its health check is reported.
 4. **disabled** — the plugin's listeners are unregistered and its admin/routes are unmounted, but its models remain in Postgres and its migrations are not reversed. A disabled plugin can be re-enabled instantly.
-5. **pending_uninstall** — the plugin is marked for migration rollback. Rollback runs in a separate step; until it completes, the plugin remains in this state.
 
 Commands:
 
-- `php artisan racklab:plugin install <slug>` — sanity-checks the Composer package + capability declarations + version constraints. State becomes `installed`. No DB changes.
-- `php artisan racklab:plugin migrate <slug>` — runs the plugin's forward migrations against Postgres. Verifies declared migration dependencies on RackLab core and on other enabled plugins; refuses if a dependency isn't satisfied. State becomes `migrated`.
-- `php artisan racklab:plugin enable <slug>` — writes the plugin into RackLab's persisted `PluginInstallation` row (NOT `config/*.php`); the next process startup boots its ServiceProvider and registers its listeners. Triggers a controlled restart of `web` and the worker pools the plugin contributes to. State becomes `enabled`.
-- `php artisan racklab:plugin disable <slug>` — marks the plugin disabled in the `PluginInstallation` row; next startup skips its ServiceProvider. Triggers the same controlled restart. State returns to `migrated`.
-- `php artisan racklab:plugin rollback <slug> --to-version=<ver>` — runs reverse migrations from the current applied version down to the target version. Refuses if other enabled plugins depend on schema introduced after the target. Plugin must be `disabled` first. State becomes `migrated` at the new target version.
-- `php artisan racklab:plugin uninstall <slug>` — runs reverse migrations all the way to zero, then removes plugin metadata. Plugin must be `disabled` first. After uninstall, removing the package from the Composer vendor tree is the operator's separate step. State becomes `installed`-with-no-migrations (effectively gone).
+- `racklab plugin install <slug>` — sanity-checks the Composer package + capability declarations + version constraints. State becomes `installed`. No DB changes.
+- `racklab plugin migrate <slug>` — runs the plugin's forward migrations against Postgres. Verifies declared migration dependencies on RackLab core and on other enabled plugins; refuses if a dependency isn't satisfied. State becomes `migrated`.
+- `racklab plugin enable <slug>` — writes the plugin into RackLab's persisted `PluginInstallation` row (NOT `config/*.php`); the next process startup boots its ServiceProvider and registers its listeners. Triggers a controlled restart of `web` and the worker pools the plugin contributes to. State becomes `enabled`.
+- `racklab plugin disable <slug>` — marks the plugin disabled in the `PluginInstallation` row; next startup skips its ServiceProvider. Triggers the same controlled restart. State returns to `disabled`.
+- `racklab plugin rollback <slug> --to-version=<ver>` — runs reverse migrations from the current applied version down to the target version. Refuses if other enabled plugins depend on schema introduced after the target. Plugin must be `disabled` first. State becomes `migrated` at the new target version.
+- `racklab plugin uninstall <slug>` — runs reverse migrations all the way to zero, removes plugin metadata, and marks the plugin removed from RackLab. Plugin must be `disabled` first. Removing the package from the Composer vendor tree is the operator's separate step.
 
 Discipline:
 
@@ -93,7 +92,7 @@ Plugins contribute through controlled extension points — they do not patch the
 - **Hookspec listeners** for the families declared in §1. Listeners are tagged with `#[ListensTo(…)]` and registered via `HookDispatcher` at `enable` time. Direct use of `Event::dispatch()` or `Event::until()` against hookspec event classes is caught by Larastan CI.
 - **API routes** under the plugin's prefix, contributed via standard Laravel routing in the plugin's `routes/api.php`.
 - **Worker pool requirements** declared as `WorkerPoolSpec` objects passed through the plugin's `Manifest::declareWorkerPools()` per the Podman orchestration spec §4.
-- **Permission strings** added at `enable` time. Permission removal on `disable` strips the permission from role bindings.
+- **Permission strings** added at `enable` time. Disabling a plugin marks its contributed permissions inactive for access checks while retaining role-binding rows, so re-enable restores the previous operator configuration.
 - **Audit event schemas** declared at `enable` time and validated at emission.
 - **Translation catalogs** registered at `enable` time and merged with the core catalogs (PRD §15 i18n).
 - **Capability flags** that other code (especially the catalog validator) consumes.
@@ -103,7 +102,7 @@ Plugins contribute through controlled extension points — they do not patch the
 The PRD goal is that one plugin's failure doesn't break the control plane. Failures map to states:
 
 - **Boot-time failure** at process startup (`ServiceProvider` exception, missing Composer dependency): the plugin is flagged unhealthy; its listeners are not registered; its admin pages are not mounted. The web tier and worker pools start; an admin notification fires.
-- **Migration failure** during `php artisan racklab:plugin migrate`: the command aborts with a non-zero exit. The database transaction guarantees no partial schema. The plugin stays in `installed`.
+- **Migration failure** during `racklab plugin migrate`: the command aborts with a non-zero exit. The database transaction guarantees no partial schema. The plugin stays in `installed`.
 - **Hookspec listener raising at runtime**: the offending listener is recorded as unhealthy; subsequent dispatches to that listener are skipped. The host code path proceeds with remaining listeners. Repeated failures within a window auto-disable the plugin (configurable threshold) and emit an admin alert.
 - **Worker pool registration failure**: the WorkerRuntime declares the pool failed; replicas already running continue, but no new ones start. Admin sees the failure in the Plugin Management page.
 - **Admin page exception**: the plugin's admin URL returns the standard RackLab 500 page with a "report this plugin" link. Other admin pages are unaffected.
@@ -131,7 +130,7 @@ Artifact storage is a plugin family per the data model in PRD §19 (`Artifact.st
 Storage backends must:
 
 - Implement the typed `RackLab\Storage\Contracts\ArtifactBackend` interface. Every method takes a `string $tenantId` parameter as its first argument so the backend can partition storage layout per tenant if it chooses (the upload coordinator always passes the actor's tenant; backends that don't partition just ignore the argument). The methods are: `put(string $tenantId, string $key, mixed $stream, string $contentType, array $metadata): string` (returns URI), `get(string $tenantId, string $key): mixed` (returns stream), `stat(string $tenantId, string $key): ArtifactStat`, `delete(string $tenantId, string $key): void`, `presignedUrl(string $tenantId, string $key, int $ttl): ?string`, `multipartInitiate(string $tenantId, string $key, string $contentType): MultipartHandle`, `multipartUploadPart(MultipartHandle $handle, int $partNumber, mixed $stream): string` (returns ETag; the handle already carries the tenant context from `multipartInitiate`), `multipartComplete(MultipartHandle $handle, array $parts): string` (returns URI), `multipartAbort(MultipartHandle $handle): void`, `health(): BackendHealth`.
-- **Storage-key derivation**: the upload coordinator owns key derivation, not the backend. A finalized artifact's storage key is `<tenant_id>/<artifact.kind>/<sha256>` (after the upload completes, sha256 is known). During the in-flight upload, the chunks are addressed by the `UploadSession.id` (a UUID4 transfer ID) — that transfer ID is *not* the final storage key. The upload coordinator atomically renames `transfer_id` → `sha256`-keyed path on session completion (filesystem backend) or completes the S3 multipart with the sha256-based key (S3 backend). PRD §15 + §18's "storage key derived from `transfer_id`" wording refers to the *temporary in-flight key*; the final stored artifact is sha256-keyed.
+- **Storage-key derivation**: the upload coordinator owns key derivation, not the backend. A finalized artifact's storage key is `<tenant_id>/<artifact.kind>/<sha256>` (after the upload completes, sha256 is known). During the in-flight upload, chunks are addressed by `UploadSession.id` (a UUID4 transfer ID); that transfer ID is not the final storage key. The upload coordinator atomically renames `transfer_id` → the sha256-keyed path on session completion (filesystem backend) or completes the S3 multipart with the sha256-based key (S3 backend).
 - Honour the **upload-session invariants** from PRD §15: backends are called by the upload coordinator (Laravel controller), not directly by the FilePond client. Backends implementing S3-style multipart expose `multipart*` methods; backends without that capability fall back to streaming put + post-upload-hash verification (per PRD §18 upload security).
 - Emit the **pipeline hooks** below at every state change so other plugins can extend the pipeline.
 - Declare a **capability flag set**: `supports_presigned_urls`, `supports_multipart`, `supports_versioning`, `supports_object_lock`, `supports_byte_range`, `supports_tenant_partitioning`. The artifact subsystem checks these before issuing operations the backend doesn't support.

@@ -174,7 +174,7 @@ From spec §2. **If the spec table changes, update this table with it.**
 
 ## Multi-tenancy primer (load-bearing)
 
-Resource hierarchy: **Tenant → Project → Deployment ([Stack | Ad-Hoc VM]) → DeploymentResource.** Course is orthogonal — it's a membership/access-control concept, not a containment level.
+Resource hierarchy: **Tenant → Project → Deployment (deployed Stack) → DeploymentResource.** A single VM is represented as a one-component Stack in the Project's Default Stack, not as a separate standalone deployment type. Course is orthogonal — it's a membership/access-control concept, not a containment level.
 
 **Soft isolation, RBAC-enforced.** One Postgres, one migration graph, one backup. Tenant context resolves via a chain: `IdentifyTenant` middleware sets the active tenant (from URL slug, Sanctum token, or Filament panel), `spatie/laravel-multitenancy` sets `currentTenant()`, `SetTenantContextForOctane` resets it on response (Octane state-leak hazard — mandatory `terminate()` call). Horizon jobs carry explicit `tenant_id` on every payload envelope via `TenantAwareJob` trait + `BindTenantContext` job middleware; audit events read the envelope, never `currentTenant()` at emit time.
 

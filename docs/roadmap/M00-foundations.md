@@ -48,7 +48,7 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 
 - [ ] `composer install && ./vendor/bin/pest` passes from a clean clone in under 5 minutes.
 - [ ] `pre-commit run --all-files` passes from a clean clone.
-- [ ] `php artisan racklab:plugin install racklab/plugin-hello && php artisan racklab:plugin migrate racklab/plugin-hello && php artisan racklab:plugin enable racklab/plugin-hello` completes successfully and the plugin's health check reports OK.
+- [ ] `racklab plugin install racklab/plugin-hello && racklab plugin migrate racklab/plugin-hello && racklab plugin enable racklab/plugin-hello` completes successfully and the plugin's health check reports OK.
 - [ ] **Disabling** `racklab/plugin-hello` removes its routes/admin pages/hooks but leaves its models and migrations intact in Postgres; **rolling back** runs the reverse migrations (plugin must be disabled first); **uninstalling** rolls back to zero and removes plugin metadata. CI verifies each leg of this state machine separately.
 - [ ] A `Job` row can be created, transition through `dispatching → pending → running → succeeded` via the universal API, and each transition emits an audit event observable via the audit query API.
 - [ ] An `Artifact` can be uploaded to the filesystem backend, referenced by a `Job`, and reaped by the retention sweep after its `retention_until` passes.
@@ -80,7 +80,7 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 
 ## Risks / open questions
 
-- **Plugin CLI vs Artisan commands**: should `racklab plugin enable` be a standalone CLI binary (Symfony Console) or an Artisan command (`php artisan racklab:plugin:enable`)? Standalone is the cleaner UX; Artisan commands are less infra and native to Laravel. Decide before M0 implementation.
+- **Plugin CLI surface**: M0 implements the canonical `racklab plugin install|migrate|enable|disable|rollback|uninstall <slug>` commands from the redesign spec. Packaging can expose that surface as a thin wrapper over Artisan, but documentation and acceptance tests use the `racklab plugin ...` form.
 - **Migration restart semantics**: how is the controlled restart triggered in development? Production is systemd (Baseline) or Nomad (Scale), but the dev story (`php artisan serve` or Octane `--watch`) needs a clear pattern. Probably a sentinel file the dev server checks on each reload.
 - **Retention sweep cadence**: configurable; default value matters because too aggressive will surprise developers, too lax delays artifact-store debugging. Propose default 1 hour, configurable.
 - **Hookspec event class discipline**: typed hookspec event classes (under `app/Events/Hookspecs/<Domain>/<Verb>Event.php`) are the contract surface; pin the event-dispatch library version and document the upgrade policy.

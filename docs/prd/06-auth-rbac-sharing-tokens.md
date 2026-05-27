@@ -87,7 +87,13 @@ Example permissions:
 - `project.delete`
 - `project.share`
 - `project.admin`
+- `project.ssh_key.read`
+- `project.ssh_key.create`
+- `project.ssh_key.update`
+- `project.ssh_key.delete`
 - `catalog.publish`
+- `catalog.stack_package.export`
+- `catalog.stack_package.import`
 - `network.create_private`
 - `network.create_nat`
 - `network.attach_provider`
@@ -117,6 +123,12 @@ The audit chain verification command is `php artisan racklab:verify-audit-chain`
 Users can share projects, VMs, stacks, networks, and scripts when RBAC allows it. Sharing can grant narrow access, including console only, power controls only, snapshot restore, stack operator, script runner, or project admin.
 
 Instructors can deploy stacks for a list of students and retain management access for those course-created deployments.
+
+## First-login Personal Projects
+
+RackLab creates a personal Project on first login or registration in the user's **primary tenant**. Local registration creates or resolves the user's `TenantMembership` in the deployment's configured default tenant before creating the Project. SSO/OIDC/SAML flows must resolve tenant membership from claim mapping or invitation context before personal Project creation; if the tenant cannot be resolved, login completes only after an admin/invitation flow assigns a tenant.
+
+There is at most one personal default Project per `(tenant_id, user_id)` pair. Changing a user's primary tenant does not move existing Projects across tenants. If the user later logs into another tenant where they are a member, RackLab may create a separate personal Project for that tenant. Each personal Project grants the user Project Owner inside that Project only, and the grant is tenant-local.
 
 ## Guest Links
 

@@ -1,6 +1,6 @@
 # UI And UX
 
-> **Note:** This section was rewritten for the May 2026 Laravel redesign. The previous version described a Django + React islands + Mantine + Radix + LinguiJS stack; the new stack is Blade + Livewire 4 + Filament 5 + Tailwind v4 + daisyUI 5. Implementation detail for the UI stack choices below (Livewire/Filament/Tailwind versions, daisyUI integration, vanilla JS island compilation, accessibility tooling) lives in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2 and §4. This document captures the UX requirements and accessibility/i18n commitments; the spec is the source of truth for the libraries that implement them.
+> **Note:** The canonical implementation details for Livewire, Filament, Tailwind, daisyUI, vanilla JS islands, and accessibility tooling live in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §2 and §4. This document captures UX requirements and accessibility/i18n commitments.
 
 RackLab uses **Blade + Livewire 4 components** for the public UI (server-rendered, reactive over the wire) and **Filament 5** for the admin panel. Tailwind v4 + daisyUI 5 handle public-facing styles; Filament 5 ships its own Tailwind v4-based vendor styles for the admin panel. Vanilla JS islands (`@xterm/xterm`, `@novnc/novnc`, Chart.js, FilePond, TipTap) are mounted by Livewire components via `wire:ignore` + `@push('scripts')` — no React.
 
@@ -18,14 +18,14 @@ Requirements:
 - **TypeScript only for vanilla JS islands** (`xterm-console.ts`, `novnc-viewer.ts`, `chart-board.ts`, `filepond-uploader.ts`, `tiptap-editor.ts`). No TypeScript outside of islands. No React anywhere in the stack.
 - **Server state**: Livewire 4 handles all reactive server state over WebSocket/HTTP. No separate client-side query library.
 - **Client state**: Alpine.js (bundled) for lightweight UI state (toggle panels, transient form state, dropdown open/close).
-- **Forms**: Laravel `FormRequest` classes for validation; `spatie/laravel-data` for server-side typed payloads. Livewire form objects for the component-layer form binding.
+- **Forms**: Laravel `FormRequest` classes for validation; typed PHP DTOs for server-side payloads. Livewire form objects for the component-layer form binding.
 - **Tables**: Filament `Table` component (admin); daisyUI + Livewire components for public-facing tables.
 - **Routing**: server-driven by Laravel (full-page navigation via `wire:navigate` for SPA-feel transitions). Intra-page navigation (tabs, modals) via Livewire + Alpine.js.
 - **HTMX is out.** No Vue/Svelte/Solid. No React. No separate SPA framework.
 
 ## Operator admin UI
 
-**Filament 5** is the admin panel from day one. It replaces the Django admin pattern entirely. Filament Resources, Pages, and custom Widgets cover all admin screens listed under Key Screens below. The **M10a milestone** — equivalent to the original custom shell milestone — instead rewrites the **public** UI component library on top of daisyUI 5, not the admin panel.
+**Filament 5** is the admin panel from day one. Filament Resources, Pages, and custom Widgets cover all admin screens listed under Key Screens below. The **M10a milestone** rewrites the **public** UI component library on top of daisyUI 5, not the admin panel.
 
 ## Vanilla JS islands (mounted via `wire:ignore`)
 
@@ -42,14 +42,14 @@ Islands are compiled TypeScript files under `resources/js/islands/`. Each island
 
 ## jQuery-plugin → Livewire/daisyUI/Filament replacement map (historical)
 
-The original PRD §15 jQuery slate was replaced first by React equivalents, and now by Livewire + daisyUI + Filament equivalents:
+RackLab's required interface components map to Livewire + daisyUI + Filament equivalents:
 
 | Old jQuery plugin (out) | New replacement |
 |---|---|
 | DataTables | Filament `Table` (admin); Livewire + daisyUI `table` component (public) |
 | Select2 | daisyUI `select` + Livewire `wire:model` (public); Filament `Select` (admin) |
 | Flatpickr | daisyUI `input[type=date]` + browser native or a lightweight vanilla date picker island (public); Filament `DatePicker` (admin) |
-| jQuery Validate | Laravel `FormRequest` + `spatie/laravel-data` (server); Alpine.js + Livewire errors (client) |
+| jQuery Validate | Laravel `FormRequest` + typed PHP DTOs (server); Alpine.js + Livewire errors (client) |
 | SortableJS | SortableJS vanilla island or `wire:sortable` (Livewire community package) |
 | jstree | Filament `Tree` resource (admin); Livewire component with daisyUI `menu` tree markup (public) |
 | Toastr | daisyUI `toast` + Alpine.js (public); Filament notifications (admin) |
@@ -70,7 +70,7 @@ Upload session invariants:
 - Offset locking + idempotent retry via Postgres advisory locks on `(transfer_id)`.
 - TTL cleanup reaper aborts abandoned sessions; for S3 the reaper calls `AbortMultipartUpload`.
 - `Artifact.quarantined = true` on insert; scanner pipeline (no-op in M0; ClamAV / `qemu-img info` / format validator from M1+) clears the flag on OK.
-- Filename + path sanitisation; storage key derived from `transfer_id`, original filename kept as metadata.
+- Filename + path sanitisation; in-flight chunks are keyed by `transfer_id`, finalized artifacts are keyed by `<tenant_id>/<artifact.kind>/<sha256>`, and the original filename is kept as metadata.
 - MIME magic sniffing; reject mismatches.
 - Archive / zip-bomb limits enforced before processing.
 

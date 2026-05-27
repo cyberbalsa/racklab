@@ -2,11 +2,12 @@
 
 ## Student
 
-Students deploy singleton VMs or stacks from a catalog, create allowed networks, run approved automation, restore snapshots, connect to consoles, and share controlled access with classmates or groups.
+Students deploy one-VM or multi-VM Stacks from a catalog or their own project-local Stack definitions, create allowed networks, run approved automation, restore snapshots, connect to consoles, and share controlled access with classmates or groups.
 
 Student needs:
 
 - Fast self-service deployment.
+- An automatic personal Project on first login, with a Default Stack for quick VM launches.
 - Clear quota and lease visibility.
 - Reliable console access.
 - Safe reset/restore workflows.
@@ -21,7 +22,7 @@ Instructors create or publish stack templates, attach instructions, define cours
 
 Instructor needs:
 
-- Stack authoring wizard.
+- Stack authoring wizard, including project-local drafts and catalog-published versions.
 - Catalog publishing.
 - Roster-based deployment.
 - Course-level quota and lease policies.

@@ -7,13 +7,13 @@
 
 ## Goal
 
-Provision-time automation works through a constrained cloud-init plugin before the broader script-sandbox surface lands. M7a creates the base script data model, a `script-worker` scaffold, cloud-init rendering, host-key phone-home, and service-key injection required by the SSH plugin.
+Provision-time automation works through a constrained cloud-init plugin before the broader script-sandbox surface lands. M7a creates the base script data model, a `script-worker` scaffold, cloud-init rendering, host-key phone-home, ProjectSSHKey injection, and gateway-service-key injection required by the SSH plugin.
 
 ## In scope
 
 - PRD §10 scripting and automation — cloud-init runner, script catalog references, low-risk provisioning flow.
 - PRD §19 data model — base `Script`, `ScriptVersion`, `ScriptRun`, and cloud-init `RunnerProfile` subset.
-- PRD §23 SSH plugin prerequisites — host-key capture and service-key injection during provisioning.
+- PRD §23 SSH plugin prerequisites — host-key capture, ProjectSSHKey injection, and gateway-service-key injection during provisioning.
 - The `racklab-script-cloudinit` first-party plugin.
 
 ## Dependencies
@@ -27,21 +27,22 @@ Provision-time automation works through a constrained cloud-init plugin before t
 - `racklab/scripts` Laravel module with base Eloquent models: `Script`, `ScriptVersion`, `ScriptRun`, `RunnerProfile`, and catalog-version references for provision-time scripts.
 - `script-worker` pool scaffold: receives script jobs, loads runner plugins, emits `ScriptRun` state transitions, writes logs/artifacts through the M0 artifact API. Only the cloud-init runner is active in M7a.
 - `racklab-script-cloudinit` plugin:
-  - wizard fields for users, SSH keys, password policy, packages, files, commands, network hints, template variables, and secret references.
+  - wizard fields for users, ProjectSSHKey selection, password policy, packages, files, commands, network hints, template variables, and secret references.
   - raw YAML editor with schema validation and safe rendering.
   - rendered output passed to the provider's cloud-init slot at deployment time.
 - Host-key phone-home endpoint: cloud-init posts generated host public keys back to RackLab, bound to the deployment resource and audited.
-- Service-key injection: RackLab provisions a scoped SSH service public key into the guest so M9 can open browser SSH sessions without user password relay by default.
+- Project SSH key injection: RackLab injects selected `ProjectSSHKey` public keys into the configured guest accounts and records which user created each key.
+- Gateway-service-key injection: RackLab provisions a scoped SSH gateway public key into the guest so M9 can open browser SSH sessions without user password relay by default.
 - Secret-reference rendering: persisted scripts store references, not secret values; rendered cloud-init is redacted in logs and audit events.
-- Audit events for script create/edit/publish, cloud-init render, host-key phone-home success/failure, service-key injection, and provisioning result.
+- Audit events for script create/edit/publish, cloud-init render, ProjectSSHKey injection, host-key phone-home success/failure, gateway-service-key injection, and provisioning result.
 - Basic UI surfaces: cloud-init editor, catalog-version provisioning script selector, script-run result panel on deployment detail.
 
 ## Acceptance criteria
 
-- [ ] A student writes a cloud-init script via the wizard, references it in an instructor-authored catalog item, deploys, and the VM boots with the expected account, SSH key, and package installs.
+- [ ] A student writes a cloud-init script via the wizard, selects a ProjectSSHKey, references it in an instructor-authored catalog item, deploys, and the VM boots with the expected account, public key, and package installs.
 - [ ] A cloud-init raw YAML script with invalid schema is rejected before catalog publication with field-level errors.
 - [ ] The guest posts its SSH host key during first boot; RackLab persists the key against the deployment resource and emits the host-key audit event.
-- [ ] RackLab injects the scoped service public key during provisioning; M9 can later consume the recorded key metadata.
+- [ ] RackLab injects selected ProjectSSHKey public keys and the scoped gateway service public key during provisioning; M9 can later consume the recorded gateway-key metadata.
 - [ ] Secret references render only at provision time; rendered secret values do not appear in `ScriptVersion`, `ScriptRun`, audit payloads, or captured logs.
 - [ ] Editing executable cloud-init content creates a new `ScriptVersion`; older catalog versions keep referencing the old immutable version.
 
@@ -49,7 +50,7 @@ Provision-time automation works through a constrained cloud-init plugin before t
 
 - **Tiny / unit**: cloud-init wizard → YAML transformer; schema validation; secret-reference redaction; host-key payload validator.
 - **Contract**: cloud-init runner Protocol against fake provider injection; phone-home endpoint contract against signed/unsigned payloads.
-- **Integration**: cloud-init injection through fake provider and Proxmox API mock; host-key phone-home round trip; service-key injection metadata persisted.
+- **Integration**: cloud-init injection through fake provider and Proxmox API mock; ProjectSSHKey injection; host-key phone-home round trip; gateway-service-key injection metadata persisted.
 - **E2E**: student deploys a VM with cloud-init that writes a sentinel file; deployment-detail page shows cloud-init completion and the captured host key.
 
 ## Risks / open questions

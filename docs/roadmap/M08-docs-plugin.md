@@ -44,7 +44,7 @@ The `racklab-docs` plugin lands — a built-in document store for guides, how-to
 
 ## Acceptance criteria
 
-- [ ] `php artisan racklab:plugin install racklab/docs-plugin && php artisan racklab:plugin migrate racklab/docs-plugin && php artisan racklab:plugin enable racklab/docs-plugin` succeeds; the plugin's health check reports OK; docs surface appears in the UI.
+- [ ] `racklab plugin install racklab/docs-plugin && racklab plugin migrate racklab/docs-plugin && racklab plugin enable racklab/docs-plugin` succeeds; the plugin's health check reports OK; docs surface appears in the UI.
 - [ ] An instructor creates a document, embeds an image (uploaded), inserts `[[deployment:abc-123]]`, saves; the rendered page shows the document with the image and a live-polling deployment status pill that resolves the deployment label + status from the resolver endpoint.
 - [ ] A student who has access to the document but not to `deployment:abc-123` sees a "redacted reference" pill instead of the status; the audit log records the redacted resolution with sampling per the codex P2 note.
 - [ ] A provider plugin contributes a resolver for `kind=cluster` via the `racklab_docs_ref_resolver` plugin hook; documents can `[[cluster:xyz]]` and the new pill type works.
@@ -65,7 +65,7 @@ The `racklab-docs` plugin lands — a built-in document store for guides, how-to
 - **TipTap's Markdown extension is still labeled Beta upstream** (codex's roadmap-review correction): TipTap is v3.x stable since July 2025, but the Markdown extension itself is Beta and has documented edge cases. The required spike above is the mitigation. PRD §22 references the Markdown extension; if the spike forces a different approach, update PRD §22 alongside the spike memo.
 - **Cross-link audit volume**: codex's P2 note flagged that polling-based audit would be high-volume noise. The sampled/aggregated approach is the design; tune the sampling rate against expected doc-page-views before production.
 - **Server-side Markdown rendering library**: PRD §15 names `league/commonmark` (PHP) with HTML sanitization as the server-side pipeline. Pin to a known-good version with a GFM extension and sanitizer config; document.
-- **TipTap version pinning**: **3.x is the current stable** (TipTap 3.0 was released July 2025 — the 6.x figure in the previous draft was wrong). Pin to a known-good 3.x patch level and document the upgrade policy. (The previous draft confused TipTap's version with xterm.js's, which is 6.x.)
+- **TipTap version pinning**: **3.x is the current stable**. Pin to a known-good 3.x patch level and document the upgrade policy. Do not conflate TipTap's major version with xterm.js 6.x.
 - **Per-document language**: PRD §22 explicitly out-of-scopes translations of authored document content. If a course needs bilingual docs, instructors write two documents and cross-link them. Confirm this UX is acceptable before M10.
 
 ## Out of scope (deferred)

@@ -7,7 +7,7 @@
 
 ## Goal
 
-Wire authentication, identity, and project/course scoping into the M0 skeleton so RackLab has real users with real RBAC. A developer (or a student in a development deployment) can log in via username/password, land on a logged-in dashboard scaffold, see their courses and projects, and have their session attributed to a real `UserProfile` row with the right RBAC bindings.
+Wire authentication, identity, and project/course scoping into the M0 skeleton so RackLab has real users with real RBAC. A developer (or a student in a development deployment) can log in via username/password, land on a logged-in dashboard scaffold, see their courses and projects, and have their session attributed to a real `UserProfile` row with the right RBAC bindings. First login or registration creates the user's personal Project and grants them Project Owner.
 
 ## In scope
 
@@ -24,7 +24,9 @@ Wire authentication, identity, and project/course scoping into the M0 skeleton s
 ## Deliverables
 
 - Laravel Fortify configured for local username/password auth (login, registration, password reset, 2FA scaffolding, passkey support) in dev. OAuth/OIDC/SAML adapters are pluggable via the auth plugin family (concrete adapters land in their respective plugin packages); M1 ships local auth only. Password hashing via `Hash::driver('argon2id')`.
-- `App\Domain\Identity` namespace: `UserProfile`, `Organization`, `Course`, `Enrollment`, `Project`, `ProjectMembership`, `Group` Eloquent models + associated migrations.
+- `App\Domain\Identity` namespace: `UserProfile`, `Organization`, `Course`, `Enrollment`, `Project`, `ProjectMembership`, `ProjectSSHKey`, `Group` Eloquent models + associated migrations.
+- First-login personal Project creation: every new user gets a personal Project (`created_for_user_id`, `is_personal_default`) in their primary tenant and a tenant-local Project Owner role binding. The Project's reserved Default StackDefinition/Deployment pointers are created in M2 when the Stack/Deployment tables exist.
+- Primary-tenant rule: local registration uses the deployment default tenant; SSO/OIDC/SAML login must resolve tenant membership before personal Project creation. There is at most one personal default Project per `(tenant_id, user_id)`.
 - The `Student` / `Instructor` / `Admin` / `Guest` role model in the database, with `RoleBinding` wiring users to courses or projects.
 - `ShareGrant` + `Invitation` + `GuestLink` models. The share-link primitive is the canonical sharing mechanism for everything downstream (docs, deployments, SSH sessions all reuse it).
 - `TokenGrant`, `TokenUse`, `TokenRevocation`, `SigningKey` per PRD §06 + §07 — the two-track token surface. **Track A** (signed JWT, short-lived) via `firebase/php-jwt` ^7.0 with RS256 + JWK rotation + `jti` blacklist; implemented in `App\Auth\Jwt\TrackAIssuer`; verifying public keys exported via `App\Http\Controllers\JwksController` (JWKS endpoint) for sidecar services. **Track B** (opaque PAT, long-lived) via Laravel Sanctum opaque tokens with abilities-scoped storage + server-side revoke. `TokenGrant` rows carry tenant FK + `scope_type` (`tenant_local` / `multi_tenant` / `global`) + `tenant_set` per the §19 data model; the `Authorization` header dispatch (`Bearer` → JWT lookup, `Token` → PAT lookup) is implemented. PRD §6 amendment is folded; both tracks share the standard grant metadata, audit on every state change.
@@ -37,7 +39,8 @@ Wire authentication, identity, and project/course scoping into the M0 skeleton s
 
 - [ ] A user can sign up, log in, set their locale, and log out via the browser UI.
 - [ ] Every M1-shipped auth event (`login`, `logout`, `failed_login`, `signup`, `password_change`) is audit-logged with actor, IP, user agent, and outcome. The audit-event **schema** for `oauth_link_attempt` and `saml_link_attempt` is registered in M1 (so the audit-emission CI test won't fail when an auth plugin lands), but the events themselves are emitted by the OAuth/OIDC and SAML auth plugins (`racklab-auth-socialite-oidc`, `racklab-auth-socialite-saml2`) — separate plugin packages, not part of the M1 deliverable.
-- [ ] A student with no role bindings sees an empty dashboard (no projects, no courses) — they cannot enumerate other users' projects.
+- [ ] A newly registered student sees exactly their personal Project and no courses — they cannot enumerate other users' projects.
+- [ ] A user who belongs to two tenants receives separate personal Projects per tenant only after logging into each tenant context; changing primary tenant never moves an existing Project across tenants.
 - [ ] An instructor with a course role binding can list course members, see their assigned projects, and create a project; a student in the course cannot.
 - [ ] A `GuestLink` can be issued for a project view, the link works for 1 hour, revocation is immediate, and access is audit-logged.
 - [ ] A Track-A JWT can be issued with a subset of the issuer's permissions; using it grants exactly that subset; revoking by `jti` invalidates the token within one request cycle.

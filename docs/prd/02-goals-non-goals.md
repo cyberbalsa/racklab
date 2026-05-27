@@ -3,7 +3,7 @@
 ## Goals
 
 - Replace the RLES user workflow with a modern self-service lab platform.
-- Support singleton VMs and versioned multi-VM stacks.
+- Support Stacks as the deployment unit, where a Stack may contain one VM or many VMs.
 - Let students self-service deployments within quota and RBAC policy.
 - Let instructors publish stacks, deploy stacks for rosters, and manage student deployments created in a course context.
 - Support project isolation, sharing, and self-service RBAC.

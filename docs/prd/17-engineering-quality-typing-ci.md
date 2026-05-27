@@ -79,7 +79,7 @@ Inline lint-override comments are **forbidden in production code** (`app/`, `pac
 - `// stylelint-disable` (Stylelint).
 - `// @ts-ignore` / `// @ts-expect-error` (TypeScript).
 - `<!-- markdownlint-disable ... -->` (markdownlint).
-- `// noqa` (residual Python-era comment; should not exist in the codebase, rejected on sight).
+- `// noqa` (unsupported lint override; should not exist in the codebase, rejected on sight).
 
 The grep gate runs in the pre-commit hook (`lefthook` or `captainhook`) and in CI on every PR. There are exactly **two** narrow exceptions, both audited:
 
@@ -184,7 +184,7 @@ Full system, browser-driven. Real Postgres, real Redis, real Horizon workers (Qu
 
 Named user journeys covered:
 
-- Student logs in, browses catalog, deploys a single VM, opens noVNC console, opens SSH console, runs a script, restores from snapshot, releases the deployment, sees quota return to zero.
+- Student logs in, browses catalog, deploys a one-VM Stack into the Project's Default Stack, opens noVNC console, opens SSH console, runs a script, restores from snapshot, releases the deployment, sees quota return to zero.
 - Instructor publishes a catalog item, deploys to a roster, manages a failing student deployment.
 - Admin configures a custom ACME issuer, watches first cert issue, switches LE staging → production, force-renews.
 - Admin installs a plugin via Composer, migrates it, enables it, sees a new permission appear in RBAC, disables it, rolls it back, uninstalls.
@@ -202,7 +202,7 @@ Required for any Livewire 4 component or vanilla JS island:
 
 - **Pest 4 browser layer via Laravel Dusk** with axe-core integration — Dusk drives Livewire components through the full Laravel stack; axe-core assertions run on every page-load snapshot. Component-level Livewire tests use Pest's Livewire test helpers (`Livewire::test()`) and run without a browser. Vanilla JS islands (xterm, noVNC, Chart, TipTap, FilePond) are covered by Dusk tests of the pages that mount them.
 - **No Storybook.** Livewire components are server-rendered and live inside their host pages; the Pest + Dusk browser layer is the integration-test surface. Filament 5 admin components have their own Filament-native test helpers.
-- **PHP FormRequest validation + spatie/laravel-data DTOs** for every API request/response shape the island consumes; failures are explicit, not silent.
+- **PHP FormRequest validation + typed DTOs** for every API request/response shape the island consumes; failures are explicit, not silent.
 - **TypeScript strict** must pass for the vanilla JS island TypeScript sources under `resources/js/islands/` (CI gates on `tsc --noEmit`).
 
 Coverage gates for the front-end surface: 80% on Pest 4 component/feature tests (Livewire + Filament) plus Dusk browser tests; named E2E flows for every user journey.
