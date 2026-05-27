@@ -25,23 +25,26 @@ Highlights:
 
 ### laravel-scaffold foundation slice (2026-05-27)
 
-The Laravel scaffold is now past the first quality-gate slice:
+The Laravel scaffold is now through the initial quality-gate slice:
 
 - Pest 4 is installed and `composer test` runs the PRD layer split (`Tiny`, `Contract`, `Integration`, `Browser`) instead of Laravel's default `Unit` / `Feature` split.
 - Larastan is installed at PHPStan max level with the six custom RackLab rule stubs registered and passing under `composer larastan`.
+- Rector is installed with a Laravel-oriented baseline, and `composer rector:dry` passes.
 - `racklab/plugin-hello` exists as an in-monorepo Composer path package with RackLab plugin metadata and no Laravel package auto-discovery provider/alias entries; it is required by the root project but explicitly excluded from Laravel discovery.
 - The stock Laravel welcome screen was replaced by a small RackLab scaffold page using the configured Vite entries, and the contract smoke test covers it without requiring built assets.
+- A Livewire 4 `/hello` smoke component exists and is covered by a Tiny test. Dusk 8 + axe-core browser tests cover the same page and are wired for CI; local execution currently requires installing a Chrome/Chromium binary.
+- Lefthook is installed through npm and configured for pre-commit (`pint`, `larastan`, `rector`, Tiny Pest) and pre-push (`composer test`, `npm run build`, dependency audits) gates.
+- `.github/workflows/code-ci.yml` runs PHP 8.3/8.4 quality gates, asset build/audit, and a Dusk browser job on GitHub-hosted Ubuntu runners.
 - Generated Laravel / Filament / Vite artifacts are ignored so normal Composer and frontend commands do not leave runtime outputs in git status.
 
 ## Next
 
-Six more sub-plans from the redesign-spec §10 portfolio:
+Five remaining sub-plans from the redesign-spec §10 portfolio:
 
-1. **`laravel-scaffold`** — Continue the scaffold plan: Rector, Dusk + axe-core, lefthook, GitHub Actions code CI, README dev commands, final clean-clone verification, and any remaining Livewire hello-world wiring from `docs/superpowers/plans/2026-05-27-laravel-scaffold.md`.
-2. **`tenancy-auth`** — `app/Domain/Tenancy/AccessResolver`, `CrossTenantFetch`, `IdentifyTenant` + `SetTenantContextForOctane` + `BindTenantContext` middleware, `RoleBinding` model with `scope_type` + `tenant_set`, spatie/laravel-multitenancy + spatie/laravel-permission integration, Filament tenancy with `isPersistent: true`. Track A JWT issuer + JWKS endpoint + Sanctum PATs + Fortify + Socialite + OIDC + SAML. `AuditEvent` three-tenant schema + hash chain + `racklab:verify-audit-chain` Artisan command + bidirectional surfacing query.
-3. **`plugin-lifecycle`** — `PluginRegistry`, `PluginInstallation` + `PluginMigrationRecord` models, `racklab plugin install/migrate/enable/disable/rollback/uninstall` Artisan commands, `HookDispatcher` with the four listener-style semantics, hookspec event class scaffold, `racklab/plugin-hello` reference implementation.
-4. **`realtime-replay`** — Reverb daemon, channel auth, `broadcast_event_log` table + `ShouldBroadcast` events that implement Laravel's after-commit dispatch discipline, `/api/v1/replay` endpoint + sweep job. xterm.js + noVNC islands. Negative-path tests for replay gap sentinel.
-5. **`script-containers`** — Horizon worker setup (pcntl/posix), `RunAnsiblePlaybook` + `RunUserScript` + `RunConsoleScript` job classes, container manifests, `ProviderConsoleProxy` unix-socket service, container image build pipeline (cosign-signed), reaper sidecar. Provider-task idempotency port from `2026-05-24-proxmox-client-discipline.md`.
-6. **`ci-gates`** — custom Larastan rules (`UntenantedRule`, `NoBareScopeBypassRule`, `NoSpatieBypassRule`, `NoBareEventDispatchOnHookspecsRule`, `NoLintOverridesRule`, `HookspecEventTypedRule`), snapshot tests, OpenAPI schema-drift gate, semgrep + security-checker, axe-core a11y in Dusk, `racklab:lang:check` i18n drift.
+1. **`tenancy-auth`** — `app/Domain/Tenancy/AccessResolver`, `CrossTenantFetch`, `IdentifyTenant` + `SetTenantContextForOctane` + `BindTenantContext` middleware, `RoleBinding` model with `scope_type` + `tenant_set`, spatie/laravel-multitenancy + spatie/laravel-permission integration, Filament tenancy with `isPersistent: true`. Track A JWT issuer + JWKS endpoint + Sanctum PATs + Fortify + Socialite + OIDC + SAML. `AuditEvent` three-tenant schema + hash chain + `racklab:verify-audit-chain` Artisan command + bidirectional surfacing query.
+2. **`plugin-lifecycle`** — `PluginRegistry`, `PluginInstallation` + `PluginMigrationRecord` models, `racklab plugin install/migrate/enable/disable/rollback/uninstall` Artisan commands, `HookDispatcher` with the four listener-style semantics, hookspec event class scaffold, `racklab/plugin-hello` reference implementation.
+3. **`realtime-replay`** — Reverb daemon, channel auth, `broadcast_event_log` table + `ShouldBroadcast` events that implement Laravel's after-commit dispatch discipline, `/api/v1/replay` endpoint + sweep job. xterm.js + noVNC islands. Negative-path tests for replay gap sentinel.
+4. **`script-containers`** — Horizon worker setup (pcntl/posix), `RunAnsiblePlaybook` + `RunUserScript` + `RunConsoleScript` job classes, container manifests, `ProviderConsoleProxy` unix-socket service, container image build pipeline (cosign-signed), reaper sidecar. Provider-task idempotency port from `2026-05-24-proxmox-client-discipline.md`.
+5. **`ci-gates`** — complete the remaining gates beyond the scaffold: snapshot tests, OpenAPI schema-drift gate, semgrep + security-checker, richer custom Larastan rule behavior beyond the registered stubs, and `racklab:lang:check` i18n drift.
 
-Sub-plans 2 → 6 can run in parallel after sub-plan 1 (`laravel-scaffold`) lands the project skeleton.
+Sub-plans 1 → 5 can now proceed on top of the Laravel scaffold. `tenancy-auth` is the recommended next slice because tenant context, RBAC, and audit provenance are prerequisites for most user-facing behavior.
