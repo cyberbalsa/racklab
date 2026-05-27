@@ -23,14 +23,14 @@ Multi-user RackLab is safe to use. Every deployment passes through quota reserva
 
 ## Deliverables
 
-- `racklab.quotas` Django app with the data model from PRD §19.
+- `app/Domain/Quota/` — Eloquent models (`QuotaPolicy`, `QuotaLimit`, `QuotaReservation`, `QuotaUsage`, `QuotaEvent`) plus quota-service classes, with the data model from PRD §19.
 - The reservation model from PRD §11: validate → reserve → persist → publish → convert-to-usage on success → release on failure/cancellation/expiration.
-- `racklab.scheduling` Django app: `Provider`, `ProviderCapacitySnapshot`, the scheduler service that ranks eligible targets.
+- `app/Domain/Scheduling/` — `Provider`, `ProviderCapacitySnapshot`, the scheduler service that ranks eligible targets.
 - Scheduler service: reads provider plugin inventory + health + capacity + tags + reserved capacity + maintenance windows; picks a target; persists the decision on the deployment row.
 - Periodic capacity-snapshot job in the `racklab-provider-proxmox` plugin: refreshes `ProviderCapacitySnapshot` rows on a schedule (default every 30s, configurable). Runs as a `ReconcilerTask` `Job` subtype.
 - `Lease` model extensions: M2 ships the basic model + expiry sweep; M6 adds **quota-coupled lease limits** (max-lease-duration per scope, max-concurrent-leased-deployments per user/project/course) and the policy enforcement at deployment-create time.
-- Admin UI: quota-policy management; per-scope (global / org / course / project / role / user / provider / network-offering / catalog-item / lease-window) limits.
-- Student/instructor UI: quota usage indicator on the dashboard (clear quota and lease indicators per PRD §15 product style).
+- Admin UI: Filament 5 resource pages for quota-policy management; per-scope (global / org / course / project / role / user / provider / network-offering / catalog-item / lease-window) limits.
+- Student/instructor UI: Livewire 4 quota usage indicator on the dashboard (clear quota and lease indicators per PRD §15 product style; styled with daisyUI progress/badge components).
 - Audit events from PRD §14: quota reservation, usage change, denial, override, expiration; deployment scheduling decision with the selected target and reasons.
 
 ## Acceptance criteria
@@ -46,10 +46,10 @@ Multi-user RackLab is safe to use. Every deployment passes through quota reserva
 
 ## Test layers
 
-- **Tiny / unit**: quota arithmetic (most-restrictive cap across scopes); reservation TTL logic; scheduler ranking algorithm against fixed inputs; lease-expiration cron-like clock.
-- **Contract**: the placement Protocol against a fake provider with configurable capacity snapshots; the quota-reservation API against the M0 RBAC system; the lease-reaper against a fake clock.
-- **Integration**: concurrent reservation under load (no overcommit); reservation released on deployment failure; lease expiry triggers cleanup end-to-end; provider-drift detection during scheduling.
-- **E2E**: the M2/M3/M5a flow plus quota exhaustion (student hits the cap and sees the error); admin sets a course quota and a student in the course sees the new effective cap reflected on their dashboard.
+- **Tiny / unit (Pest 4)**: quota arithmetic (most-restrictive cap across scopes); reservation TTL logic; scheduler ranking algorithm against fixed inputs; lease-expiration cron-like clock. Mutation testing with Infection runs on the `app/Domain/Quota/` math paths — high-stakes per spec §8.
+- **Contract (Pest 4)**: the placement interface against a fake provider with configurable capacity snapshots; the quota-reservation service against the M0 RBAC system; the lease-reaper against a fake clock.
+- **Integration (Pest 4 + Testcontainers PHP)**: concurrent reservation under load (no overcommit) against a real Postgres container; reservation released on deployment failure; lease expiry triggers cleanup end-to-end; provider-drift detection during scheduling.
+- **E2E (Laravel Dusk)**: the M2/M3/M5a flow plus quota exhaustion (student hits the cap and sees the error); admin sets a course quota and a student in the course sees the new effective cap reflected on their dashboard.
 
 ## Risks / open questions
 
