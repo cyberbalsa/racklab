@@ -1,0 +1,164 @@
+name: Code CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: testing
+  APP_KEY: "base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
+  APP_MAINTENANCE_DRIVER: file
+  BCRYPT_ROUNDS: "4"
+  BROADCAST_CONNECTION: "null"
+  CACHE_STORE: array
+  DB_CONNECTION: sqlite
+  DB_DATABASE: ":memory:"
+  MAIL_MAILER: array
+  NIGHTWATCH_ENABLED: "false"
+  PULSE_ENABLED: "false"
+  QUEUE_CONNECTION: sync
+  SESSION_DRIVER: array
+  TELESCOPE_ENABLED: "false"
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - "8.3"
+          - "8.4"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, dom, fileinfo, intl, mbstring, openssl, pdo_sqlite, simplexml, xml, xmlreader, xmlwriter, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate Composer metadata
+        run: composer validate --strict --no-check-publish
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Audit Composer dependencies
+        run: composer audit
+
+      - name: Check platform requirements
+        run: composer check-platform-reqs --no-interaction
+
+      - name: Pint
+        run: composer pint:test
+
+      - name: Larastan
+        run: composer larastan
+
+      - name: Rector
+        run: composer rector:dry
+
+      - name: Pest tiny
+        run: composer pest:tiny
+
+      - name: Pest contract
+        run: composer pest:contract
+
+      - name: Pest integration
+        run: composer pest:integration
+
+  assets:
+    name: Assets
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Audit npm production dependencies
+        run: npm audit --omit=dev
+
+      - name: Build assets
+        run: npm run build
+
+  browser:
+    name: Browser
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: curl, dom, fileinfo, intl, mbstring, openssl, pdo_sqlite, simplexml, xml, xmlreader, xmlwriter, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Match ChromeDriver to runner Chrome
+        run: php artisan dusk:chrome-driver --detect
+
+      - name: Start Laravel server
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/dusk-server.log 2>&1 &
+          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for Laravel server
+        run: curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://127.0.0.1:8000/hello
+
+      - name: Pest browser
+        env:
+          APP_URL: http://127.0.0.1:8000
+        run: composer pest:browser
+
+      - name: Stop Laravel server
+        if: always()
+        run: |
+          if [ -n "${SERVER_PID:-}" ]; then
+            kill "$SERVER_PID" || true
+          fi

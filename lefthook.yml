@@ -1,0 +1,23 @@
+pre-commit:
+  parallel: false
+  jobs:
+    - name: pint
+      run: composer pint:test
+    - name: larastan
+      run: composer larastan
+    - name: rector
+      run: composer rector:dry
+    - name: pest tiny
+      run: composer pest:tiny
+
+pre-push:
+  parallel: false
+  jobs:
+    - name: pest default
+      run: composer test
+    - name: npm build
+      run: npm run build
+    - name: composer audit
+      run: composer audit
+    - name: npm audit production
+      run: npm audit --omit=dev
