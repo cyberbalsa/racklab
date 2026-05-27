@@ -24,7 +24,7 @@ Provision-time automation works through a constrained cloud-init plugin before t
 
 ## Deliverables
 
-- `racklab.scripts` Django app with base script tables: `Script`, `ScriptVersion`, `ScriptRun`, `RunnerProfile`, and catalog-version references for provision-time scripts.
+- `racklab/scripts` Laravel module with base Eloquent models: `Script`, `ScriptVersion`, `ScriptRun`, `RunnerProfile`, and catalog-version references for provision-time scripts.
 - `script-worker` pool scaffold: receives script jobs, loads runner plugins, emits `ScriptRun` state transitions, writes logs/artifacts through the M0 artifact API. Only the cloud-init runner is active in M7a.
 - `racklab-script-cloudinit` plugin:
   - wizard fields for users, SSH keys, password policy, packages, files, commands, network hints, template variables, and secret references.
@@ -61,8 +61,8 @@ Provision-time automation works through a constrained cloud-init plugin before t
 
 ## Out of scope (deferred)
 
-- nsjail advanced-code runners — M7b.
-- Ansible Runner and WinRM automation — M7b.
+- Podman-sandboxed advanced-code runners — M7b.
+- Ansible container runner and WinRM automation — M7b.
 - openQA-style console automation — M7b.
 - Approval workflow for high-risk scripts — M7b.
 - Script marketplace and cross-deployment orchestration — post-v1.
