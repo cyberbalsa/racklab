@@ -1,0 +1,12 @@
+/* Filament 5 admin panel CSS entry.
+ *
+ * Filament 5 ships its own Tailwind-v4-based vendor styles; we just
+ * import them here. This file gets a separate Vite output so the
+ * admin panel doesn't ship daisyUI to end users and the public-UI
+ * bundle doesn't ship Filament's vendor styles to admins.
+ *
+ * Filament's filament:install command may rewrite this file later in
+ * the scaffold (task 9); if so, this comment block is harmless to
+ * keep at the top.
+ */
+@import "tailwindcss";
