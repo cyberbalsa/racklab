@@ -5,17 +5,22 @@
          colors="true"
 >
     <testsuites>
-        <testsuite name="Tiny">
+        <testsuite name="tiny">
             <directory>tests/Tiny</directory>
         </testsuite>
-        <testsuite name="Contract">
+        <testsuite name="contract">
             <directory>tests/Contract</directory>
         </testsuite>
-        <testsuite name="Integration">
+        <testsuite name="integration">
             <directory>tests/Integration</directory>
         </testsuite>
-        <testsuite name="Browser">
+        <testsuite name="browser">
             <directory>tests/Browser</directory>
+        </testsuite>
+        <testsuite name="default">
+            <directory>tests/Tiny</directory>
+            <directory>tests/Contract</directory>
+            <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
     <source>

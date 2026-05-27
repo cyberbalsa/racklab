@@ -22,7 +22,7 @@ use PHPStan\Rules\RuleErrorBuilder;
  */
 final class NoLintOverridesRule implements Rule
 {
-    private const FORBIDDEN_PATTERNS = [
+    private const array FORBIDDEN_PATTERNS = [
         '@phpstan-ignore',
         '@psalm-suppress',
         '@phpcs:ignore',
