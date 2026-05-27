@@ -46,6 +46,7 @@ composer test
 composer pest:tiny
 composer pest:contract
 composer pest:integration
+composer i18n:missing
 npm run build
 composer audit
 npm audit --omit=dev
@@ -55,6 +56,7 @@ Browser tests use Laravel Dusk and axe-core. They require a Chrome or Chromium b
 
 ```bash
 APP_URL=http://127.0.0.1:8000 composer pest:browser
+npm run a11y
 ```
 
 The committed Lefthook config runs Pint, Larastan, Rector, and the Tiny Pest suite before commits, plus default tests, asset build, and dependency audits before pushes.

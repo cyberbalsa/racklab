@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 use App\Livewire\Hello;
 
-it('renders a greeting with the configured site name', function (): void {
+it('stores the default greeting subject', function (): void {
     $component = new Hello;
     $component->mount();
 
-    expect($component->greeting)->toBe('Hello, RackLab');
+    expect($component->subject)->toBe('RackLab');
 });
 
-it('formats greeting with a custom subject', function (): void {
+it('stores a custom greeting subject', function (): void {
     $component = new Hello;
     $component->mount('Forrest');
 
-    expect($component->greeting)->toBe('Hello, Forrest');
+    expect($component->subject)->toBe('Forrest');
 });

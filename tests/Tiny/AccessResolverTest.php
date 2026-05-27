@@ -32,7 +32,7 @@ it('allows tenant-local access when binding visibility and permission all match'
     )->permitted(
         actor: new ActorIdentity('user-1'),
         permission: new Permission('project.read'),
-        resource: new FakeTenantResource(
+        resource: tenantResource(
             tenantId: 'tenant-a',
             resourceType: 'project',
             resourceId: 'project-a',
@@ -64,7 +64,7 @@ it('denies cross-tenant access when a binding covers the resource tenant but the
     )->permitted(
         actor: new ActorIdentity('user-1'),
         permission: new Permission('project.read'),
-        resource: new FakeTenantResource(
+        resource: tenantResource(
             tenantId: 'tenant-b',
             resourceType: 'project',
             resourceId: 'project-b',
@@ -96,7 +96,7 @@ it('denies cross-tenant shared resources when no role binding covers the owner t
     )->permitted(
         actor: new ActorIdentity('user-1'),
         permission: new Permission('project.read'),
-        resource: new FakeTenantResource(
+        resource: tenantResource(
             tenantId: 'tenant-b',
             resourceType: 'project',
             resourceId: 'project-b',
@@ -129,7 +129,7 @@ it('allows cross-tenant access only when binding visibility and permission all m
     )->permitted(
         actor: new ActorIdentity('user-1'),
         permission: new Permission('project.read'),
-        resource: new FakeTenantResource(
+        resource: tenantResource(
             tenantId: 'tenant-b',
             resourceType: 'project',
             resourceId: 'project-b',
@@ -153,78 +153,89 @@ it('allows cross-tenant access only when binding visibility and permission all m
  */
 function resolverWith(array $bindings, array $rolePermissions): AccessResolver
 {
+    $roleBindings = new readonly class($bindings) implements RoleBindingRepository
+    {
+        /**
+         * @param  list<RoleBindingRecord>  $bindings
+         */
+        public function __construct(private array $bindings) {}
+
+        public function forActorAndResource(ActorIdentity $actor, TenantScopedResource $resource): array
+        {
+            return array_values(array_filter(
+                $this->bindings,
+                static fn (RoleBindingRecord $binding): bool => $binding->principalId === $actor->id
+                    && $binding->resourceType === $resource->resourceType()
+                    && $binding->resourceId === $resource->resourceId(),
+            ));
+        }
+    };
+
+    $rolePermissionLookup = new readonly class($rolePermissions) implements RolePermissionLookup
+    {
+        /**
+         * @param  array<string, list<string>>  $rolePermissions
+         */
+        public function __construct(private array $rolePermissions) {}
+
+        public function roleGrants(string $role, Permission $permission): bool
+        {
+            return in_array($permission->code, $this->rolePermissions[$role] ?? [], strict: true);
+        }
+    };
+
     return new AccessResolver(
-        roleBindings: new FakeRoleBindingRepository($bindings),
-        rolePermissions: new FakeRolePermissionLookup($rolePermissions),
+        roleBindings: $roleBindings,
+        rolePermissions: $rolePermissionLookup,
     );
 }
 
-final readonly class FakeTenantResource implements TenantScopedResource
-{
-    /**
-     * @param  list<string>  $sharedWithTenantIds
-     */
-    public function __construct(
-        private string $tenantId,
-        private string $resourceType,
-        private string $resourceId,
-        private SharingScope $sharingScope,
-        private array $sharedWithTenantIds = [],
-    ) {}
-
-    public function tenantId(): string
+/**
+ * @param  list<string>  $sharedWithTenantIds
+ */
+function tenantResource(
+    string $tenantId,
+    string $resourceType,
+    string $resourceId,
+    SharingScope $sharingScope,
+    array $sharedWithTenantIds = [],
+): TenantScopedResource {
+    return new readonly class($tenantId, $resourceType, $resourceId, $sharingScope, $sharedWithTenantIds) implements TenantScopedResource
     {
-        return $this->tenantId;
-    }
+        /**
+         * @param  list<string>  $sharedWithTenantIds
+         */
+        public function __construct(
+            private string $tenantId,
+            private string $resourceType,
+            private string $resourceId,
+            private SharingScope $sharingScope,
+            private array $sharedWithTenantIds,
+        ) {}
 
-    public function resourceType(): string
-    {
-        return $this->resourceType;
-    }
+        public function tenantId(): string
+        {
+            return $this->tenantId;
+        }
 
-    public function resourceId(): string
-    {
-        return $this->resourceId;
-    }
+        public function resourceType(): string
+        {
+            return $this->resourceType;
+        }
 
-    public function sharingScope(): SharingScope
-    {
-        return $this->sharingScope;
-    }
+        public function resourceId(): string
+        {
+            return $this->resourceId;
+        }
 
-    public function sharedWithTenantIds(): array
-    {
-        return $this->sharedWithTenantIds;
-    }
-}
+        public function sharingScope(): SharingScope
+        {
+            return $this->sharingScope;
+        }
 
-final readonly class FakeRoleBindingRepository implements RoleBindingRepository
-{
-    /**
-     * @param  list<RoleBindingRecord>  $bindings
-     */
-    public function __construct(private array $bindings) {}
-
-    public function forActorAndResource(ActorIdentity $actor, TenantScopedResource $resource): array
-    {
-        return array_values(array_filter(
-            $this->bindings,
-            static fn (RoleBindingRecord $binding): bool => $binding->principalId === $actor->id
-                && $binding->resourceType === $resource->resourceType()
-                && $binding->resourceId === $resource->resourceId(),
-        ));
-    }
-}
-
-final readonly class FakeRolePermissionLookup implements RolePermissionLookup
-{
-    /**
-     * @param  array<string, list<string>>  $rolePermissions
-     */
-    public function __construct(private array $rolePermissions) {}
-
-    public function roleGrants(string $role, Permission $permission): bool
-    {
-        return in_array($permission->code, $this->rolePermissions[$role] ?? [], strict: true);
-    }
+        public function sharedWithTenantIds(): array
+        {
+            return $this->sharedWithTenantIds;
+        }
+    };
 }

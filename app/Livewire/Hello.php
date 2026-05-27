@@ -9,11 +9,11 @@ use Livewire\Component;
 
 final class Hello extends Component
 {
-    public string $greeting = '';
+    public string $subject = '';
 
     public function mount(string $subject = 'RackLab'): void
     {
-        $this->greeting = sprintf('Hello, %s', $subject);
+        $this->subject = $subject;
     }
 
     public function render(): View

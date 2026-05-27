@@ -88,6 +88,9 @@ jobs:
       - name: Pest snapshots
         run: composer pest:snapshots
 
+      - name: Translation coverage
+        run: composer i18n:missing
+
   assets:
     name: Assets
     runs-on: ubuntu-24.04
@@ -143,6 +146,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Build assets
+        run: npm run build
+
       - name: Match ChromeDriver to runner Chrome
         run: php artisan dusk:chrome-driver --detect
 
@@ -158,6 +164,9 @@ jobs:
         env:
           APP_URL: http://127.0.0.1:8000
         run: composer pest:browser
+
+      - name: Pa11y CI
+        run: npm run a11y
 
       - name: Stop Laravel server
         if: always()

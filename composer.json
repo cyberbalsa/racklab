@@ -21,6 +21,7 @@
         "racklab/plugin-hello": "dev-main"
     },
     "require-dev": {
+        "diglabby/laravel-find-missing-translations": "^1.7",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.9.6",
         "laravel/dusk": "^8.0",
@@ -63,6 +64,7 @@
     ],
     "scripts": {
         "larastan": "@php -d memory_limit=1G vendor/bin/phpstan analyse --no-progress",
+        "i18n:missing": "@php artisan translations:missing --base=en --only=es",
         "pest": "@php vendor/bin/pest --testsuite=default",
         "pest:browser": "@php vendor/bin/pest --testsuite=browser",
         "pest:contract": "@php vendor/bin/pest --testsuite=contract",

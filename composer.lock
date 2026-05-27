@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "035a357227ce584a1600f01bb6d91b56",
+    "content-hash": "1e552b5f1cf3d302ea6cc42d5b9b1a0e",
     "packages": [
         {
             "name": "blade-ui-kit/blade-heroicons",
@@ -8572,6 +8572,67 @@
                 }
             ],
             "time": "2024-05-06T16:37:16+00:00"
+        },
+        {
+            "name": "diglabby/laravel-find-missing-translations",
+            "version": "1.7.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/diglabby/laravel-find-missing-translations.git",
+                "reference": "10d5e16db2fae0cd10e770685650b66245fd17c7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/diglabby/laravel-find-missing-translations/zipball/10d5e16db2fae0cd10e770685650b66245fd17c7",
+                "reference": "10d5e16db2fae0cd10e770685650b66245fd17c7",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/console": "^12.0 || ^13.0",
+                "illuminate/support": "^12.0 || ^13.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.64",
+                "orchestra/testbench": "^10.0 || ^11.0",
+                "phpunit/phpunit": "^12.0 || ^13.0",
+                "psalm/plugin-laravel": "^4.0",
+                "vimeo/psalm": "^7.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Diglabby\\FindMissingTranslations\\ServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Diglabby\\FindMissingTranslations\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "A console command to find missing translations for Laravel projects",
+            "keywords": [
+                "diglabby",
+                "laravel",
+                "translation"
+            ],
+            "support": {
+                "issues": "https://github.com/diglabby/laravel-find-missing-translations/issues",
+                "source": "https://github.com/diglabby/laravel-find-missing-translations/tree/1.7.0"
+            },
+            "funding": [
+                {
+                    "url": "https://doika.falanster.by/#history",
+                    "type": "custom"
+                }
+            ],
+            "time": "2026-03-18T10:59:15+00:00"
         },
         {
             "name": "doctrine/deprecations",
