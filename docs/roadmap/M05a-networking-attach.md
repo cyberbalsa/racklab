@@ -47,7 +47,7 @@ RackLab can attach deployments to admin-published provider networks and persist 
 
 - **Tiny / unit**: reachability-capability resolution; catalog validation predicate; provider-network mapping normalization.
 - **Contract**: network provider Protocol against fake provider + Proxmox plugin mock; attach/detach idempotency contract.
-- **Integration**: deployment create → resolve offering → attach NIC → detach NIC against Pest + RefreshDatabase with Proxmox API mock covering bridge/VLAN/VNet endpoints.
+- **Integration**: deployment create → resolve offering → attach NIC → detach NIC against Pest 4 + Testcontainers (real Postgres + Redis) with Proxmox API mock covering bridge/VLAN/VNet endpoints.
 - **E2E**: admin publishes an offering, student deploys a VM attached to it, deployment detail shows network bindings and the SSH availability preview.
 
 ## Risks / open questions

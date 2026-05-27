@@ -45,7 +45,7 @@ Students and instructors create their own networks, routers, floating IPs, and s
 
 - **Tiny / unit**: subnet allocation from a `SubnetPool`; security-group rule normalization; provider-drift diff algorithm.
 - **Contract**: the writable network Protocol methods against the fake provider + Proxmox plugin; drift detection against fake "modified externally" provider state.
-- **Integration**: full self-service create → realize → modify → drift-detect → repair against Pest + RefreshDatabase with Proxmox API mock covering SDN + firewall endpoints.
+- **Integration**: full self-service create → realize → modify → drift-detect → repair against Pest 4 + Testcontainers (real Postgres + Redis) with Proxmox API mock covering SDN + firewall endpoints.
 - **E2E**: instructor creates a project network, attaches a VM, modifies the security group, sees the firewall update; admin reviews a drift case and adopts the external change.
 
 ## Risks / open questions
