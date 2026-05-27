@@ -1,7 +1,7 @@
 # Proxmox VE Client Library and Discipline
 
 **Date:** 2026-05-24
-**Status:** Decided — body written in Python (pre-Laravel-redesign); discipline carries forward verbatim to the Laravel stack.
+**Status:** Decided — body written in Python (pre-Laravel-redesign); discipline carries forward verbatim to the Laravel stack. Endpoint-mapping strategy updated 2026-05-27 to codegen-from-schema (see §1 and §5a).
 **Decision owner:** Forrest Fuqua
 **Scope:** How RackLab talks to Proxmox VE, how the rest of the codebase interacts with the client, and what operational discipline the provider plugin must enforce.
 
@@ -9,21 +9,21 @@
 >
 > | Python (this doc) | PHP (Laravel redesign) |
 > | --- | --- |
-> | `proxmoxer` 2.3.0 transport | Guzzle 7.10 HTTP client, no community PHP Proxmox package |
-> | Pydantic v2 typed models | PHP 8 `readonly` classes in `app/Providers/Proxmox/Models/` |
+> | `proxmoxer` 2.3.0 transport | Codegen-from-schema typed PHP client; Guzzle 7.10 is the HTTP transport |
+> | Pydantic v2 typed models | PHP 8 `readonly` DTOs emitted by the code generator under `app/Providers/Proxmox/Generated/`; hand-written domain models in `app/Providers/Proxmox/Models/` |
 > | `mypy --strict` + `django-stubs` + `drf-stubs` + `pyright`/`basedpyright` | Larastan PHPStan 2 max level + `declare(strict_types=1)` |
 > | `asyncio.to_thread` around blocking calls | Horizon worker job dispatch (`App\Jobs\PollProxmoxTask`); no in-process async needed because work happens in queue workers |
 > | `ThreadPoolExecutor` for bounded concurrency | Horizon queue concurrency knobs (`--max-processes`, queue tags) |
-> | `racklab/providers/proxmox/client.py` typed facade | `App\Providers\Proxmox\Client` (PHP class), wired in `ProxmoxServiceProvider` |
+> | `racklab/providers/proxmox/client.py` typed facade | `App\Providers\Proxmox\Client` (PHP class) — hand-written discipline layer over the generated client; wired in `ProxmoxServiceProvider` |
 > | `MockProxmoxClient` in-tree mock | `FakeProxmoxClient` in `app/Testing/Fakes/` |
 > | `proxmoxer.ResourceException` / `AuthenticationError` mapping | RackLab provider exception types mapped from `GuzzleHttp\Exception\*` |
 >
-> When the PHP scaffold lands (sub-plan `laravel-scaffold`), this spec's §5 (typed facade), §6 (owned polling), §7 (provider-agnostic interface), §8 (TLS trust), §9 (testing seam) translate row-by-row using the table above. Until then, treat the Python body as the canonical discipline statement.
+> When the PHP scaffold lands (sub-plan `laravel-scaffold`), this spec's §5 (typed facade), §5a (codegen architecture), §6 (owned polling), §7 (provider-agnostic interface), §8 (TLS trust), §9 (testing seam) translate row-by-row using the table above. Until then, treat the Python body as the canonical discipline statement.
 
 ## 1. Decision
 
-1. **Use Guzzle 7.10 directly** as the Proxmox VE HTTP transport (no community PHP Proxmox packages — they are too thin/unmaintained). Guzzle is already a hard Laravel dependency.
-2. **Wrap Guzzle behind a typed, in-tree PHP facade.** The rest of RackLab does not construct Guzzle clients directly. The facade (`App\Providers\Proxmox\Client`) owns PHP `readonly` domain models, Horizon worker dispatch, retry/backoff, the task state machine, structured error mapping, TLS and timeout configuration, PVE capability discovery, and the integration-test seam.
+1. **Generate the typed PHP client from Proxmox's `pve-doc-generator` JSON Schema dump**; Guzzle 7.10 is the HTTP transport. The code generator (an Artisan command, `php artisan racklab:proxmox:generate-client`) reads the authoritative Proxmox schema — the same source Proxmox's official `libpve-apiclient-perl` uses — and emits typed PHP classes: readonly DTOs for response models and typed methods grouped by API tree (`Access`, `Cluster`, `Nodes`, `Storage`, `Pools`, `Version`). Generated code lives under `app/Providers/Proxmox/Generated/`. No community PHP Proxmox packages — they are too thin/unmaintained.
+2. **Wrap the generated client behind a hand-written discipline layer.** The rest of RackLab does not call the generated client directly. The hand-written facade (`App\Providers\Proxmox\Client`) owns the `ProxmoxClientContract` interface, `TaskPoller`, structured error mapping, TLS trust composition, PVE capability discovery, and the integration-test seam. The generated layer handles the endpoint-to-PHP-class mapping; the discipline layer handles everything else.
 3. **Encode explicit task-polling and reconciliation discipline.** Any polling helper that lacks jitter, distributed concurrency limits, and per-operation timeouts is unsuitable at RackLab's scale. The facade owns the polling loop via `App\Jobs\PollProxmoxTask` (a Horizon job), persists task state durably in its own `ProviderTask` table, and distinguishes "stop waiting" from "retry the original operation."
 4. **Keep the provider abstraction Proxmox-agnostic.** The generic provider interface above the facade does not leak Proxmox-specific concepts (see §7).
 
@@ -38,21 +38,24 @@ The PRD's engineering quality section (`docs/prd/17-engineering-quality-typing-c
 Bottom line (PHP ecosystem):
 
 - **Community PHP Proxmox packages** (`Corsinvest/cv4pve-api-php`, `zzantares/proxmox`, others): thin wrappers, infrequently maintained, no strict typing, raw-array responses. Not suitable for Larastan-max compliance.
-- **Codegen from a community OpenAPI spec**: viable on paper but Proxmox's schema is Perl-flavored, community specs lag, and a generated client still needs hand-patches and cluster-version validation. High maintenance for one team.
+- **`jefersonflus/proxmox-php-sdk`** (community): rejected — bus-factor-1 (3 stars, 14 Packagist downloads as of 2026-05-27) and HTTP-client mismatch (uses `php-curl-class` instead of Guzzle).
+- **Perl sidecar daemon wrapping `libpve-apiclient-perl`** (Option A): rejected — requires a Perl runtime on every host and raises contributor-pool concerns for a PHP/Laravel project.
+- **Codegen from a community OpenAPI spec**: community Proxmox OpenAPI specs lag and are not authoritative. Rejected in favour of codegen from the canonical Proxmox schema below.
+- **Codegen from `pve-doc-generator` JSON Schema** (the Proxmox authoritative source, same as `libpve-apiclient-perl`): correct authoritative surface, typed PHP output, no Perl runtime, regenerates automatically on Proxmox version bumps. **Selected.**
 - **Upstream Proxmox PHP client**: does not exist. Proxmox ships Perl (`pvesh`, `PVE::APIClient::LWP`) and an embedded JS SDK in the web UI.
-- **Raw Guzzle 7.10**: already a hard Laravel dependency, supports all required features (async via `Pool`, `HttpClient::async()`, streaming, middleware, retry handler), and exposes `GuzzleHttp\Exception\*` which can be mapped cleanly to RackLab provider exception types.
+- **Guzzle 7.10**: already a hard Laravel dependency, supports all required features (async via `Pool`, `HttpClient::async()`, streaming, middleware, retry handler), and exposes `GuzzleHttp\Exception\*` which can be mapped cleanly to RackLab provider exception types.
 
-**Guzzle 7.10 with an in-tree typed PHP facade is the best fit.** Community packages are too thin; codegen is self-owned maintenance debt; Guzzle already exists in the dependency graph.
+**Codegen-from-schema with Guzzle 7.10 as the HTTP transport is the best fit.** The generator reads the same authoritative source as Proxmox's own Perl client; typed PHP output satisfies Larastan-max without hand-patching every endpoint; Guzzle already exists in the dependency graph; no Perl runtime required at any stage.
 
 ## 4. The typed facade
 
 ### 4.1 Where it lives
 
-`app/Providers/Proxmox/Client.php` exposes the typed API the rest of RackLab uses via the `ProxmoxClientContract` interface. Internal classes in `app/Providers/Proxmox/` hold the Guzzle-touching code and the PHP `readonly` domain models. Registered as a singleton in `App\Providers\ProxmoxServiceProvider` with per-tenant credential injection.
+`app/Providers/Proxmox/Client.php` exposes the typed API the rest of RackLab uses via the `ProxmoxClientContract` interface. The discipline layer (`Client`, `TaskPoller`, `Tls`, `CapabilityProbe`, `Exceptions/`) lives in `app/Providers/Proxmox/`. The generated layer (readonly DTOs + typed endpoint methods) lives in `app/Providers/Proxmox/Generated/` (see §5a). Registered as a singleton in `App\Providers\ProxmoxServiceProvider` with per-tenant credential injection.
 
 ### 4.2 What it owns
 
-- **PHP `readonly` domain models** for the response shapes RackLab actually uses: `Node`, `Vm` (config + status), `Task`, `Snapshot`, `NetworkInterface`, `StorageVolume`, `ConsoleAccessGrant`. Models are in `app/Providers/Proxmox/Models/`; constructed from Guzzle-decoded JSON via constructor property promotion + `readonly` enforcement. Extend as new endpoints are wrapped.
+- **PHP `readonly` domain models** for the response shapes RackLab actually uses: `Node`, `Vm` (config + status), `Task`, `Snapshot`, `NetworkInterface`, `StorageVolume`, `ConsoleAccessGrant`. RackLab-facing domain models are in `app/Providers/Proxmox/Models/`; raw response DTOs are in `app/Providers/Proxmox/Generated/` (emitted by the code generator). The discipline layer translates generated DTOs to domain models where shapes differ.
 - **Horizon worker dispatch** via `App\Jobs\PollProxmoxTask` for all task-polling work; no in-process async needed because work happens in queue workers. Concurrency against Proxmox is controlled by Horizon's `--max-processes` and queue tag configuration — a visible operational knob, not an emergent property.
 - **TLS and request transport configuration**: production requires `verify_ssl=true` with an operator-configured CA bundle. The facade must accept Proxmox endpoints whose server certificates were issued by any of:
   - **Let's Encrypt (or any public-trust CA)** — validated against the system trust store.
@@ -73,7 +76,7 @@ Bottom line (PHP ecosystem):
 
 ### 4.4 Why not a community PHP Proxmox package
 
-Community packages reach the Proxmox API cheaply but return raw `array` responses that poison Larastan-strict analysis. Wrapping the full surface — covering auth, uploads, errors, task logs, console proxy, cluster/version quirks, and integration tests — is the same work either way. The facade pattern means RackLab builds that surface incrementally against only the endpoints it uses; coverage expands with each new operation the provider plugin needs.
+Community packages reach the Proxmox API cheaply but return raw `array` responses that poison Larastan-strict analysis. The best-known community option (`jefersonflus/proxmox-php-sdk`) is bus-factor-1 and uses `php-curl-class` instead of Guzzle, which mismatch our transport. Codegen from `pve-doc-generator` produces typed PHP output that satisfies Larastan-max without hand-patching, and tracks Proxmox versions automatically on regeneration — the same guarantee community packages can't provide.
 
 ## 5. Task-polling and reconciliation discipline
 
@@ -97,6 +100,52 @@ The discipline:
 - **Cancellation discipline.** User-initiated cancellation or worker job-lease expiry does **not** automatically issue a Proxmox task cancel. The facade exposes an explicit, audited `cancel(task_row)` operation that issues the Proxmox cancel API call and logs both the request and the Proxmox-side outcome. Reconciler-initiated cleanup uses the same path.
 
 These are guardrails the facade enforces, not policies workers can opt out of.
+
+## 5a. Codegen architecture
+
+### Where the generator lives
+
+The generator is an Artisan command: `php artisan racklab:proxmox:generate-client`. It lives in `app/Console/Commands/Proxmox/GenerateClientCommand.php` and runs at build time (not at runtime). The output tree is committed to the repository under `app/Providers/Proxmox/Generated/`; the generator is the source of truth for that directory's contents, not manual edits.
+
+### How it consumes the JSON Schema
+
+Proxmox ships a machine-readable API schema via its `pve-doc-generator` tool. The authoritative dump is available at `GET /api2/json` (the `children` field) on any running PVE cluster, and as a static JSON file extracted from the `pve-doc-generator` Debian package. The generator reads the static JSON file — pinned by version — so generation is hermetic and does not require a live cluster.
+
+The schema describes every API endpoint as a path tree with HTTP method, parameter names and types, response shapes, and human-readable descriptions. The generator traverses this tree and maps Proxmox type annotations (`string`, `integer`, `boolean`, `array`, `object`) to PHP scalar and `readonly` class types. Nullable and optional parameters become nullable PHP types.
+
+### What it emits
+
+- **`app/Providers/Proxmox/Generated/`** — the generated tree. Structure mirrors the Proxmox API path tree:
+  - `Access/` — `AccessClient.php` with typed methods for every `/api2/json/access/*` endpoint.
+  - `Cluster/` — `ClusterClient.php` and sub-namespace classes.
+  - `Nodes/` — `NodesClient.php` and per-node sub-namespace classes.
+  - `Storage/` — `StorageClient.php`.
+  - `Pools/`, `Version/` — etc.
+- **`app/Providers/Proxmox/Generated/Dto/`** — readonly PHP 8 DTO classes for structured response models. Each DTO is a `readonly` class with constructor property promotion; all properties are typed. Arrays of structured objects are typed as `array<int, SomeDtoClass>`.
+- **`app/Providers/Proxmox/Generated/GeneratedProxmoxClient.php`** — the root client class that composes the namespace clients; implements `GeneratedProxmoxClientContract` (a sub-interface the discipline layer calls through).
+
+### Schema-version pinning discipline
+
+The generator reads a pinned schema file at `proxmox-schema.json` (committed to the repository root, excluded from the PHP autoloader). The pinned file is named with the PVE version it came from: `proxmox-schema-pve9.2.json`. Regenerating for a new PVE version requires:
+
+1. Extract the new schema JSON from the `pve-doc-generator` package for the target PVE version.
+2. Commit the new schema file alongside the old one.
+3. Run `php artisan racklab:proxmox:generate-client --schema=proxmox-schema-pveX.Y.json`.
+4. Review the generated diff — new endpoints, removed endpoints, changed parameter types.
+5. Update `proxmox-schema.json` symlink (or config entry) to the new version.
+6. Commit generated code and schema pin together.
+
+The `composer.json` (or a dedicated `proxmox-schema.json` config file) records the current pinned schema version so CI can assert that the generated code and the pinned schema are in sync.
+
+### Regeneration workflow
+
+A nightly CI job re-runs the generator against the latest schema extracted from the current PVE release and opens a PR if the output diff is non-empty. This surfaces API changes before they become gaps in coverage. The PR includes:
+
+- The new schema file.
+- The generated diff with a machine-readable summary of added/removed/changed endpoints.
+- A Larastan run against the new generated code.
+
+The discipline layer (`TaskPoller`, error mapping, `CapabilityProbe`) is not regenerated — it is hand-maintained and reviewed as part of any nightly-CI PR that touches generated code adjacent to those files.
 
 ## 6. Auth and credential handling
 
@@ -138,32 +187,35 @@ This section is short on purpose; the canonical place for these patterns is the 
 ## 9. Testing
 
 - **Unit tests** against `FakeProxmoxClient` in `app/Testing/Fakes/` (implementing the same `ProxmoxClientContract` interface as the real client). No network, no Guzzle-internal mocking.
+- **Generator snapshot test**: runs `GenerateClientCommand` against a committed schema fixture and asserts the output diff against the committed snapshot in `app/Providers/Proxmox/Generated/`. Fails CI if the generated code is not in sync with the pinned schema. Larastan runs against the generated output as part of the same CI gate.
 - **Guzzle-boundary tests** using Guzzle's `MockHandler` + `HandlerStack` to inject HTTP fixtures, validating that the facade correctly translates Proxmox raw JSON responses into PHP `readonly` models and correctly maps `GuzzleHttp\Exception\*` into RackLab provider exceptions.
 - **Integration tests** against a real Proxmox VE instance (env-var-gated, skipped in default CI, run nightly / on-demand). Cover: clone, snapshot create/restore/delete, power lifecycle, network attach/detach, console-grant issue, task polling under load, and the §5 distributed concurrency limit under a horizontally-scaled worker fleet.
 
-## 10. Migration path if Guzzle or the facade becomes inadequate
+## 10. Migration path if the generated client or transport becomes inadequate
 
-Because everything above the facade depends only on PHP `readonly` models + the `ProxmoxClientContract` interface:
+Because everything above the discipline layer depends only on PHP `readonly` domain models + the `ProxmoxClientContract` interface:
 
-1. Build an alternative `App\Providers\Proxmox\AlternativeClient` implementing the same `ProxmoxClientContract` interface (e.g., backed by a community PHP Proxmox package if one matures, or a Guzzle wrapper with a different shape).
+1. Build an alternative `App\Providers\Proxmox\AlternativeClient` implementing the same `ProxmoxClientContract` interface (e.g., backed by a regenerated client from an updated schema, a community PHP Proxmox package if one matures to strict-typed status, or a different HTTP transport).
 2. Port endpoint by endpoint, behind a feature flag, with the Guzzle-boundary test suite as the regression seam.
-3. Cut over when coverage is at parity for RackLab's wrapped endpoints; the fallback is the community package contingency (evaluate the current state of PHP Proxmox community packages at that time against strict-typing requirements).
+3. Cut over when coverage is at parity for RackLab's used endpoints; the fallback is the existing generated client until the alternative is stable.
 
-Estimated effort: **weeks for parity on RackLab's wrapped endpoints**. The typed facade is what makes this path tractable; full Proxmox-surface parity is a real project.
+Estimated effort: **days to weeks** depending on the scope of change. The discipline layer abstraction (`ProxmoxClientContract`) is what makes this path tractable — the rest of RackLab never calls the generated layer directly.
 
 ## 11. Open risks
 
-- **Raw Guzzle means no structural mapping from Proxmox paths.** The facade must explicitly define and test every endpoint it wraps; there is no dynamic path proxy. This is a feature (strict typing) but requires discipline to keep coverage current as Proxmox adds endpoints.
+- **Generator regeneration discipline.** The generated client falls behind Proxmox API changes if it is not regenerated after Proxmox cluster upgrades. Mitigation: (a) the nightly CI job re-runs the generator against the latest schema and opens a PR if the diff is non-empty; (b) schema version is pinned in `proxmox-schema.json` and the generator-snapshot CI gate fails if the committed generated code is not in sync with the pinned schema. Regeneration on a major PVE bump requires a review pass: new endpoints, removed/renamed parameters, changed response shapes.
+- **Schema-version pinning overhead.** Each PVE upgrade requires extracting the new schema, pinning it, regenerating, and reviewing the diff. This is intentional — the review step is what catches breaking API changes before they reach production. The nightly CI job automates detection; the human review step is the discipline.
+- **Generated DTO types may not capture all Proxmox response shape variants.** Proxmox uses loosely-typed Perl internally; some response fields are conditionally present (present only when a flag is set, absent otherwise). The generator emits nullable types for optional fields; the discipline layer validates shapes at runtime via constructor property promotion and treats missing optional fields as null. Integration tests against real PVE clusters surface shape mismatches.
 - **Guzzle concurrency is bounded by Horizon worker pool size.** The `--max-processes` and per-pool queue tag configuration is the visible knob; size it before load testing against a real Proxmox cluster.
-- **PVE version drift.** Capability discovery (§4.2) is the first-line mitigation; integration tests across at least two PVE major versions catch the rest.
-- **Community PHP Proxmox packages may mature.** Evaluate the ecosystem at §10 migration time; if a package achieves strict-typed coverage and active maintenance, it may be worth adopting inside the facade boundary.
-- **Don't bet on OpenAPI codegen as an escape hatch.** Community Proxmox OpenAPI specs lag and Proxmox's schema is Perl-flavored. The escape hatch is the alternative in-tree client per §10, not a generated SDK.
+- **PVE version drift.** Capability discovery (§4.2) is the first-line mitigation; integration tests across at least two PVE major versions (PVE 8.x and PVE 9.x) catch the rest. The nightly CI generator run also surfaces API additions/removals before they become gaps.
 
 ## 12. Confidence
 
-**High** on the transport choice — Guzzle 7.10 is already a hard Laravel dependency, covers all required features, and the typed-facade pattern ensures the rest of RackLab never touches raw HTTP or raw `array` responses.
+**High** on the transport choice — Guzzle 7.10 is already a hard Laravel dependency, covers all required features, and the discipline-layer pattern ensures the rest of RackLab never touches raw HTTP or raw `array` responses.
 
-**High** on the typed-facade pattern — it solves the Larastan-strict requirement, isolates the Guzzle boundary, and preserves the migration option in §10.
+**High** on the codegen strategy — reading from Proxmox's authoritative `pve-doc-generator` schema gives us the same endpoint surface as Proxmox's own `libpve-apiclient-perl`, with typed PHP output and no Perl runtime dependency. The nightly regeneration CI job keeps the client in sync automatically.
+
+**High** on the discipline-layer pattern — it solves the Larastan-strict requirement, isolates the generated-client boundary, and preserves the migration option in §10.
 
 **Medium** on the specific task-polling parameter values (500 ms initial, 2 s cap, 100 ms minimum floor, per-node poll budget). These are reasoned defaults that should be re-tuned against real Proxmox cluster behavior in early integration testing.
 

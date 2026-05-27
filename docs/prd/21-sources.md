@@ -9,7 +9,7 @@ Research sources used while shaping this PRD:
 - Spatie Laravel Permission (RBAC): https://spatie.be/docs/laravel-permission/
 - Laravel Horizon: https://laravel.com/docs/horizon
 - Laravel Reverb: https://laravel.com/docs/reverb
-- Proxmox VE API client (PHP, Guzzle-based): see `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md`
+- Proxmox VE API client (PHP, codegen-from-schema + Guzzle transport per the discipline spec): see `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md`
 - Proxmox VE documentation: https://pve.proxmox.com/pve-docs/
 - Proxmox SDN documentation: https://pve.proxmox.com/pve-docs/chapter-pvesdn.html
 - OpenStack Neutron concepts: https://docs.openstack.org/neutron/

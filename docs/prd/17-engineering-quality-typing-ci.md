@@ -145,7 +145,7 @@ Module-boundary tests verifying interface contracts. Use in-memory Laravel fakes
 
 - Plugin hookspec events: each hookspec event is tested with at least one fake listener that exercises every parameter shape and every documented failure mode.
 - `WorkerRuntime` Protocol: both Quadlet and Nomad runtimes pass the same Protocol-level test suite. Plugin code is tested against the narrow `PluginWorkerRuntime` interface.
-- `ProxmoxClient` facade: tests run against the typed PHP facade (`App\Providers\Proxmox\Client`) and assert on the public surface; the Guzzle-based HTTP transport boundary is tested separately.
+- `ProxmoxClient` facade: tests run against the typed PHP facade (`App\Providers\Proxmox\Client`) and assert on the public surface; the codegen-derived endpoint mapping is validated against a recorded Proxmox API schema (generator snapshot test); the Guzzle transport boundary is tested separately.
 - Provider plugin interface: every contributed provider plugin runs the same contract suite.
 - Console backend interface: same.
 - API controller round-trip (validation → Eloquent → response) at the API boundary.

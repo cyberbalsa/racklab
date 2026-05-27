@@ -53,7 +53,7 @@ The repo is now cleaned up — the previous stack's `src/`, `frontend/`, `tests/
 | Other Spatie packages | laravel-permission v7.4.1, laravel-settings v3.9.0, laravel-backup v10.2.1, laravel-medialibrary v11.22.1. **Dropped**: `spatie/laravel-activitylog` (overlaps custom AuditEvent + latest v5 requires PHP 8.4) | — |
 | Heavy JS islands | `@xterm/xterm@6.0.0`, `@novnc/novnc@1.7.0` (MPL-2.0), `chart.js@4.5.1`, `filepond@4.32.12`, `@tiptap/core@3.23.6` | latest |
 | Quality tooling | Pest 4 (v4.7.0) + Pint v1.29.1 + larastan/larastan v3.9.6 (PHPStan 2 max level) + rector/rector v2.4.5 + Laravel Dusk v8.6 | — |
-| Proxmox client | Guzzle 7.10 + custom typed client (community PHP Proxmox packages are too thin/old) | — |
+| Proxmox client | Codegen-from-schema PHP client (build-time generator reads Proxmox's `pve-doc-generator` JSON Schema dump and emits typed PSR + readonly DTO classes) + Guzzle 7.10 transport + hand-rolled discipline layer (task polling, retries, multi-issuer TLS trust, structured error mapping per `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md`). Same authoritative source as Proxmox's official `libpve-apiclient-perl`; PHP-only at runtime. | generator: RackLab core |
 | Script execution | Per-job ephemeral Podman/Docker containers; Ansible runs inside container substrate; nsjail dropped | — |
 | Plugin authoring | Composer packages + ServiceProvider + typed hookspec event bus over Laravel Events | RackLab core |
 
@@ -170,7 +170,7 @@ Standard Laravel layout with RackLab-specific modules under `app/` and first-par
 │   │   ├── AppServiceProvider
 │   │   ├── PluginServiceProvider    — discovers + boots installed plugins
 │   │   ├── HookspecServiceProvider  — registers hookspec catalog + dispatcher
-│   │   └── ProxmoxServiceProvider   — Guzzle client w/ multi-issuer TLS trust
+│   │   └── ProxmoxServiceProvider   — registers the codegen-from-schema Proxmox client w/ multi-issuer TLS trust; Guzzle transport
 │   ├── Plugins/                     — Plugin runtime: hook dispatcher, manifest loader
 │   └── Providers/Proxmox/           — Proxmox VE REST client (replaces proxmoxer)
 │
@@ -658,3 +658,4 @@ Sub-plans 2 → 7 can run in parallel after sub-plan 1 (PRD rewrite) sets the fu
 | 2026-05-26 | Custom append-only AuditEvent + hash chain (load-bearing); owen-it subordinate; drop spatie/laravel-activitylog | Server-owned provenance can't be delegated to a package |
 | 2026-05-26 | Pest 4 + Pint + larastan/larastan (PHPStan 2 max) + Rector + Dusk | Ecosystem-standard quality stack for Laravel 13 |
 | 2026-05-26 | Guzzle-direct against Proxmox REST API; reject community PHP Proxmox packages | Existing packages too thin / unmaintained |
+| 2026-05-27 | **REVISED**: codegen-from-schema PHP client (build-time generator reads Proxmox's `pve-doc-generator` JSON Schema dump and emits typed PSR + readonly DTOs) + Guzzle transport + hand-rolled discipline layer. Considered `libpve-apiclient-perl` sidecar daemon (Option A from the design discussion) and `jefersonflus/proxmox-php-sdk` community package (Option C); rejected: Perl-sidecar adds a runtime language dependency, the community package is bus-factor-1 (3 stars, 14 packagist downloads, uses `php-curl-class` not Guzzle). | Codegen gives us Proxmox's authoritative API surface (same source as `libpve-apiclient-perl`) without the Perl runtime, with type safety by construction, and matches our HTTP-client-family choice (Guzzle). Generator engineering cost is ~2-3 weeks; pays for itself by tracking Proxmox API versions automatically on regeneration. |

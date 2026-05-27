@@ -44,7 +44,7 @@ The stack was redesigned in May 2026 from Django 5.2 LTS + DRF + React islands t
    - Each milestone follows: Goal, In scope, Dependencies, Deliverables, Acceptance criteria, Test layers, Risks/open questions, Out of scope.
 4. **`docs/architecture/diagrams.md`** — Mermaid UML for system component overview, deployment lifecycle, console flow, etc.
 5. **`docs/superpowers/specs/2026-05-24-podman-orchestration.md`** — Baseline (Quadlets) + Scale (Nomad + Podman driver) profiles. Still applies; the Laravel redesign extends it with the per-job ephemeral container model.
-6. **`docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md`** — typed Proxmox client + task-polling discipline + multi-issuer TLS trust. Still applies; ports from `proxmoxer` (Python) to a Guzzle-based PHP client.
+6. **`docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md`** — typed Proxmox client + task-polling discipline + multi-issuer TLS trust. The strategy is codegen-from-Proxmox-schema + Guzzle transport + hand-rolled discipline layer; same authoritative source as Proxmox's official `libpve-apiclient-perl`.
 7. **`PROGRESS.md`** — what's shipped vs what's next. Updated at the end of every session that lands code or substantive docs.
 
 ## Repo layout
@@ -96,9 +96,10 @@ Standard Laravel layout with RackLab-specific modules under `app/` and first-par
 │   │   ├── AppServiceProvider
 │   │   ├── PluginServiceProvider    — discovers + boots installed (enabled) plugins
 │   │   ├── HookspecServiceProvider  — registers hookspec catalog + dispatcher
-│   │   └── ProxmoxServiceProvider   — Guzzle client w/ multi-issuer TLS trust
+│   │   └── ProxmoxServiceProvider   — codegen-from-schema Proxmox client w/ Guzzle transport + multi-issuer TLS trust
 │   ├── Plugins/                     — Plugin runtime: HookDispatcher, PluginRegistry, manifest loader
 │   └── Providers/Proxmox/           — Proxmox VE REST client (replaces proxmoxer)
+│       └── Generated/               — codegen output: readonly DTOs + typed namespace clients (from pve-doc-generator schema)
 │
 ├── packages/                        — first-party plugins developed in-monorepo
 │   ├── racklab/plugin-hello/        — reference plugin
@@ -167,7 +168,7 @@ From spec §2. **If the spec table changes, update this table with it.**
 | Other Spatie | laravel-permission v7.4.1, laravel-settings v3.9.0, laravel-backup v10.2.1, laravel-medialibrary v11.22.1. **Dropped**: `spatie/laravel-activitylog` (overlaps custom AuditEvent + latest v5 requires PHP 8.4) | — |
 | Heavy JS islands | `@xterm/xterm@6.0.0`, `@novnc/novnc@1.7.0`, `chart.js@4.5.1`, `filepond@4.32.12`, `@tiptap/core@3.23.6` | — |
 | Quality tooling | Pest 4 (v4.7.0) + Pint v1.29.1 + larastan/larastan v3.9.6 (PHPStan 2 max) + rector/rector v2.4.5 + Dusk v8.6 | — |
-| Proxmox client | Guzzle 7.10 + custom typed client | — |
+| Proxmox client | Codegen-from-`pve-doc-generator`-schema typed PHP client + Guzzle 7.10 transport + hand-written discipline layer | — |
 | Script execution | Per-job ephemeral Podman/Docker containers; nsjail dropped | — |
 | Plugin authoring | Composer packages + ServiceProvider + typed hookspec event bus over Laravel Events | RackLab core |
 

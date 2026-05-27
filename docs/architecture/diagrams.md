@@ -36,7 +36,7 @@ graph TB
     end
 
     subgraph External
-        Proxmox["Proxmox VE clusters<br/>via Guzzle typed facade"]
+        Proxmox["Proxmox VE clusters<br/>via codegen-from-schema typed PHP client"]
         VMs[Tenant VMs]
         ACME[ACME issuer]
         SMTP[Email / notify endpoints]
@@ -226,7 +226,7 @@ graph TB
 
 ## 5. Worker runtime + provider abstractions
 
-Class diagram for the load-bearing internal abstractions. `WorkerRuntime` splits into a plugin-facing narrow interface and a core-facing full interface. The Proxmox provider hides the Guzzle-based Proxmox client behind a typed facade.
+Class diagram for the load-bearing internal abstractions. `WorkerRuntime` splits into a plugin-facing narrow interface and a core-facing full interface. The Proxmox provider hides the codegen-from-schema Proxmox client behind a typed facade.
 
 ```mermaid
 classDiagram
@@ -288,7 +288,7 @@ classDiagram
         +structured error mapping
     }
 
-    class GuzzleProxmoxTransport {
+    class GuzzleHttpTransport {
         <<transport>>
         Guzzle 7.10 HTTP client
         REST calls to Proxmox API
@@ -297,7 +297,7 @@ classDiagram
 
     ProviderPlugin <|.. ProxmoxProviderPlugin
     ProxmoxProviderPlugin --> ProxmoxClient
-    ProxmoxClient --> GuzzleProxmoxTransport
+    ProxmoxClient --> GuzzleHttpTransport
 
     class ConsoleBackend {
         <<interface>>

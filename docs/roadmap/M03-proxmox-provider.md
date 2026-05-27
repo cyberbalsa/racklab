@@ -7,11 +7,11 @@
 
 ## Goal
 
-Replace the fake provider with the real Proxmox VE integration. After M3, a user deploys a real VM on a real Proxmox cluster from the RackLab dashboard. Clone, snapshot, power, and inventory operations all work end-to-end through the `App\Providers\Proxmox\Client` typed facade per the design spec. The client's task-polling discipline (distributed per-node concurrency, durable `ProviderTask` rows, "stop waiting" vs "retry" semantics) is exercised in production-shaped tests against a real Proxmox cluster.
+Replace the fake provider with the real Proxmox VE integration. After M3, a user deploys a real VM on a real Proxmox cluster from the RackLab dashboard. Clone, snapshot, power, and inventory operations all work end-to-end through the `App\Providers\Proxmox\Client` typed facade per the design spec. The endpoint mapping is generated from Proxmox's authoritative `pve-doc-generator` JSON Schema (same source as Proxmox's official `libpve-apiclient-perl`); Guzzle 7.10 is the HTTP transport. The client's task-polling discipline (distributed per-node concurrency, durable `ProviderTask` rows, "stop waiting" vs "retry" semantics) is exercised in production-shaped tests against a real Proxmox cluster.
 
 ## In scope
 
-- `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md` — the discipline applies through the PHP stack-carry-forward mapping note in the spec header; Python examples translate row-by-row to the PHP/Guzzle implementation described there.
+- `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md` — the discipline applies through the PHP stack-carry-forward mapping note in the spec header; Python examples translate row-by-row to the PHP codegen + Guzzle transport implementation described there.
 - PRD §12 Proxmox provider.
 - PRD §19 data model `ProviderTask` subtype (Proxmox UPID parts).
 - The `racklab/provider-proxmox` plugin per PRD §13.
@@ -24,9 +24,11 @@ Replace the fake provider with the real Proxmox VE integration. After M3, a user
 
 ## Deliverables
 
-- `app/Providers/Proxmox/` module: the typed facade per the spec.
-  - `Client.php` — the `ProxmoxClientContract` interface + `GuzzleProxmoxClient` concrete implementation backed by Guzzle 7.10 (no community PHP Proxmox packages — they are too thin/unmaintained). Registered as a singleton in `App\Providers\ProxmoxServiceProvider` with per-tenant credential injection.
-  - `Models/` — PHP readonly domain models (`Node`, `Vm`, `Task`, `Snapshot`, `NetworkInterface`, `StorageVolume`, `ConsoleAccessGrant`). Populated from Guzzle-decoded JSON; construction validated via constructor property promotion and `readonly` enforcement.
+- **Code generator** — `php artisan racklab:proxmox:generate-client` Artisan command (`app/Console/Commands/Proxmox/GenerateClientCommand.php`). Reads the pinned `proxmox-schema.json` (Proxmox's authoritative `pve-doc-generator` JSON Schema dump) and emits the generated tree under `app/Providers/Proxmox/Generated/`: readonly DTOs (`Generated/Dto/`), typed namespace clients (`Generated/Access/`, `Generated/Cluster/`, `Generated/Nodes/`, etc.), and the root `GeneratedProxmoxClient.php`. No community PHP Proxmox packages — they are too thin/unmaintained and bus-factor-1. `proxmox-schema.json` (or `proxmox-schema-pveX.Y.json`) is committed at the repo root; the active pinned version is recorded in `composer.json` or a dedicated config entry.
+- `app/Providers/Proxmox/` module: the discipline layer per the spec.
+  - `Client.php` — the `ProxmoxClientContract` interface + concrete implementation (`ProxmoxDisciplineClient`) that wraps the generated client, owns task dispatch, error mapping, and TLS trust. Registered as a singleton in `App\Providers\ProxmoxServiceProvider` with per-tenant credential injection.
+  - `Generated/` — the generated tree (emitted by the Artisan command above, committed to the repository).
+  - `Models/` — PHP readonly domain models (`Node`, `Vm`, `Task`, `Snapshot`, `NetworkInterface`, `StorageVolume`, `ConsoleAccessGrant`). Populated from generated DTOs; construction validated via constructor property promotion and `readonly` enforcement.
   - `Exceptions/` — structured exception hierarchy (`ProviderRequestTimeout`, `ProviderTaskWaitTimeout`, `ProviderOperationDeadlineExceeded`, `ProviderResourceConflict`, `ProviderNodeUnreachable`, `ProviderTaskFailed`, `ProviderAuthError`, `ProviderNotFound`, `ProviderTransient`, `ProviderBug`).
   - `TaskPoller.php` — the polling loop: backoff with jitter (500 ms start, 2 s cap, 100 ms floor), per-operation-class deadline registry, distributed per-node concurrency via Postgres advisory locks (keyed on `(node_id, slot)` where `slot ∈ [0..N)`), durable `ProviderTask` row updates, UPID decode via `Tasks::decodeUpid()`-equivalent static helper.
   - `Tls.php` — the multi-issuer CA bundle composition (Let's Encrypt / self-signed / custom ACME) per the spec §4.2. `verify_ssl=false` rejected by configuration validation outside dev mode.
@@ -35,12 +37,14 @@ Replace the fake provider with the real Proxmox VE integration. After M3, a user
 - `ProviderTask` model with Proxmox-specific fields per PRD §19: `upid`, `proxmox_node`, `proxmox_pid`, `proxmox_starttime`, `proxmox_type`, `proxmox_vm_id`, `proxmox_user`, `idempotency_key` (unique constraint), `lease_expires_at`, `attempt_count`, `last_polled_at`. The idempotency-key uniqueness constraint is the barrier that prevents duplicate Proxmox submissions on Horizon worker retry.
 - Capability/version discovery against the connected PVE cluster (SDN, backup, console, cloud-init capabilities probed at startup and surfaced as a typed `ClusterCapabilities` object).
 - Filament admin resource: Proxmox endpoint configuration (URL, API token id + secret, CA bundle upload for self-signed / custom ACME, `verify_ssl` toggle rejected in non-dev mode).
-- A `FakeProxmoxClient` shipped in `app/Testing/Fakes/` implementing `ProxmoxClientContract` — used for unit and contract tests so the actual Guzzle boundary is exercised separately.
+- A `FakeProxmoxClient` shipped in `app/Testing/Fakes/` implementing `ProxmoxClientContract` — used for unit and contract tests so the actual generated client and Guzzle boundary are exercised separately.
 - **Provider inventory models**: `Provider`, `ProviderEndpoint`, `ProviderCluster`, `ProviderNode`, `ProviderStorage`, `ProviderNetworkBinding`, `ProviderCapacitySnapshot` (per PRD §19 §Providers). The inventory-discovery side of the Proxmox plugin produces `ProviderCapacitySnapshot` rows on a Horizon scheduled job. M6 consumes them.
 - `App\Jobs\PollProxmoxTask` Horizon job: implements the "stop waiting / resume by UPID" discipline — consumes a `ProviderTask` row, polls the Proxmox API, updates the row, never re-submits the original operation; reconciler resumes polling by UPID on crash.
 
 ## Acceptance criteria
 
+- [ ] The code generator runs cleanly against the pinned `proxmox-schema.json`; the generated output passes Larastan PHPStan max; the schema version is recorded in `composer.json` or a dedicated config file.
+- [ ] The generator snapshot CI gate passes: running the generator against the pinned schema produces output identical to the committed `app/Providers/Proxmox/Generated/` tree (no uncommitted diff).
 - [ ] A user deploys a real VM from a Proxmox-template-backed catalog item; clone completes; the VM is powered on; the deployment reaches `running` with the real Proxmox VMID persisted on the `DeploymentResource` row.
 - [ ] The deployment's audit trail includes Proxmox UPIDs for every API action with target node + result + elapsed time per PRD §14.
 - [ ] The `GuzzleProxmoxClient` facade succeeds against a Proxmox endpoint whose server certificate was issued by: (a) Let's Encrypt (public-trust validation), (b) a self-signed CA (operator-pinned bundle), (c) a custom-ACME issuer (operator-supplied root + intermediates).
@@ -54,6 +58,7 @@ Replace the fake provider with the real Proxmox VE integration. After M3, a user
 ## Test layers
 
 - **Tiny / unit** (Pest 4): UPID parsing; CA-bundle composition logic; the polling backoff curve (assertions on retry timings); the exception mapping table; idempotency-key uniqueness assertion.
+- **Generator snapshot test** (Pest 4): runs `GenerateClientCommand` against the committed `proxmox-schema.json` fixture and asserts the output diff against the committed snapshot in `app/Providers/Proxmox/Generated/`. Fails CI if generated code is out of sync with the pinned schema. Larastan runs against the generated output as part of the same gate.
 - **Contract** (Pest 4 + `Http::fake()`): `FakeProxmoxClient` passes the same `ProxmoxClientContract` suite as the real client; Guzzle-boundary tests using `Http::fake()` with Proxmox API response fixtures, validating that the facade correctly translates raw JSON responses into PHP domain models and correctly maps Guzzle exceptions into RackLab provider exceptions.
 - **Integration** (Pest 4 + Testcontainers): real Guzzle client against a testcontainers-style Proxmox-API mock (a small HTTP server speaking enough of the Proxmox API for clone/snapshot/power/console-ticket — same mock RackLab uses in CI for E2E in M2 and later); distributed concurrency test with multiple Horizon worker processes against testcontainers Postgres for advisory locks.
 - **Integration (nightly)**: full suite against a real Proxmox VE 8.x and 9.x test cluster (operator-provided; skip-unless-env-vars-set). Same test code, real PVE.
@@ -61,9 +66,10 @@ Replace the fake provider with the real Proxmox VE integration. After M3, a user
 
 ## Risks / open questions
 
+- **Generator falls behind Proxmox API changes if not regenerated regularly.** Mitigation: a nightly CI job re-runs the generator against the latest schema extracted from the current PVE release and opens a PR if the output diff is non-empty. The PR includes the new schema file, the generated diff, and a Larastan run against the new generated code.
 - **Proxmox API token permissions**: the API token RackLab uses needs explicit permissions on every required path. Document the minimum-permission set; an Artisan command generates the right token.
 - **PVE 9.0 SDN behavior**: PVE 9.0 ships on Debian 13 with a newer kernel and the SDN behavior differs subtly from 8.x. Capability discovery handles known differences; unknown differences need integration tests against both.
-- **Guzzle-level task-poll defaults**: unlike `proxmoxer`, Guzzle is a general-purpose HTTP client — the polling loop is entirely owned by `TaskPoller.php` from day one. No inherited defaults to override; verify in CI that `PollProxmoxTask` never calls `POST` twice on the same idempotency key.
+- **Task-poll defaults**: the polling loop is entirely owned by `TaskPoller.php` from day one; neither the generated client nor Guzzle imposes polling defaults. No inherited defaults to override; verify in CI that `PollProxmoxTask` never calls `POST` twice on the same idempotency key.
 - **Guzzle connection pool sizing**: configure `GuzzleHttp\HandlerStack` with connection concurrency appropriate for a 4-core lab box and a 32-core production host. Default to `min(32, cpu_count() + 4)` with a config override.
 - **Octane singleton hazard for the Proxmox client**: `SetTenantContextForOctane` middleware must reset the Proxmox client singleton between requests if per-tenant credentials apply (codex P1 from the Laravel redesign spec §5). Contract test verifies two consecutive requests for different tenants get separate credentials.
 
