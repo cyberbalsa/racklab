@@ -45,7 +45,7 @@ Students and instructors create their own networks, routers, floating IPs, and s
 
 - **Tiny / unit**: subnet allocation from a `SubnetPool`; security-group rule normalization; provider-drift diff algorithm.
 - **Contract**: the writable network Protocol methods against the fake provider + Proxmox plugin; drift detection against fake "modified externally" provider state.
-- **Integration**: full self-service create → realize → modify → drift-detect → repair against testcontainers + Proxmox API mock with SDN + firewall endpoints.
+- **Integration**: full self-service create → realize → modify → drift-detect → repair against Pest + RefreshDatabase with Proxmox API mock covering SDN + firewall endpoints.
 - **E2E**: instructor creates a project network, attaches a VM, modifies the security group, sees the firewall update; admin reviews a drift case and adopts the external change.
 
 ## Risks / open questions
@@ -58,5 +58,5 @@ Students and instructors create their own networks, routers, floating IPs, and s
 
 - KubeVirt + Kube-OVN networking — future provider-plugin work, not core RackLab.
 - Plugin-managed EVPN object creation.
-- A network-topology visualization widget (Cytoscape.js via `react-cytoscapejs` per PRD §15, mounted as a React island, but the UI itself is M10a polish work).
+- A network-topology visualization widget (Cytoscape.js via `cytoscape` mounted inside a Livewire 4 component per PRD §15, but the UI itself is M10a polish work).
 - IPv6 as the default catalog stance — M5b supports IPv6 in the data model; making it the default is a release-hardening decision in M13d or later.

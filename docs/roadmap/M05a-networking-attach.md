@@ -24,7 +24,7 @@ RackLab can attach deployments to admin-published provider networks and persist 
 
 ## Deliverables
 
-- `racklab.networking` Django app with the M5a model subset: `ProviderNetwork`, `NetworkOffering`, admin-published `Network` / `Subnet`, and `DeploymentNetworkBinding`.
+- `racklab/networking` Laravel module with the M5a model subset: `ProviderNetwork`, `NetworkOffering`, admin-published `Network` / `Subnet`, and `DeploymentNetworkBinding`.
 - `NetworkOffering.reachability` field with values `routable_from_management`, `nat_from_management`, `isolated_no_ingress`. This is the single source of truth for SSH availability.
 - Provider capability flags for network attach: bridge, VLAN tag, VNet, SDN zone, NAT gateway metadata, and management reachability.
 - `Provider.network_attach()` and `Provider.network_detach()` operations on the provider Protocol; Proxmox implementation hooks VM NICs into the resolved provider network.
@@ -47,7 +47,7 @@ RackLab can attach deployments to admin-published provider networks and persist 
 
 - **Tiny / unit**: reachability-capability resolution; catalog validation predicate; provider-network mapping normalization.
 - **Contract**: network provider Protocol against fake provider + Proxmox plugin mock; attach/detach idempotency contract.
-- **Integration**: deployment create → resolve offering → attach NIC → detach NIC against testcontainers + Proxmox API mock with bridge/VLAN/VNet endpoints.
+- **Integration**: deployment create → resolve offering → attach NIC → detach NIC against Pest + RefreshDatabase with Proxmox API mock covering bridge/VLAN/VNet endpoints.
 - **E2E**: admin publishes an offering, student deploys a VM attached to it, deployment detail shows network bindings and the SSH availability preview.
 
 ## Risks / open questions
