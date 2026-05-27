@@ -43,6 +43,7 @@ A `StackDefinition` defines:
 - CPU, memory, disk, firmware, and device settings.
 - Boot order and startup dependencies.
 - Logical networks and VM ports.
+- Optional network-service components such as VPNaaS endpoints for isolated networks.
 - Cloud-init inputs.
 - Post-deployment actions.
 - Health checks.
@@ -67,7 +68,7 @@ A Stack Package contains:
 - Cloud-init snippets, scripts, console instruction markdown, and docs references when the exporter has permission to include them.
 - Manifest/checksum file and optional signature.
 
-Secrets are never exported as raw values. Secret references are exported as unresolved placeholders that must be rebound at import time. Provider-specific identifiers, MAC addresses, IP addresses, and storage paths are stripped or converted to import hints unless explicitly marked portable. ProjectSSHKey references, principal references, share defaults, RBAC bindings, guest links, and plugin-contributed access metadata are exported only as unresolved rebinding requirements; import never silently maps them to local users or keys.
+Secrets are never exported as raw values. Secret references are exported as unresolved placeholders that must be rebound at import time. Provider-specific identifiers, MAC addresses, IP addresses, public/service IP assignments, UDP ports, and storage paths are stripped or converted to import hints unless explicitly marked portable. ProjectSSHKey references, VPN client profiles, principal references, share defaults, RBAC bindings, guest links, and plugin-contributed access metadata are exported only as unresolved rebinding requirements; import never silently maps them to local users, keys, or VPN credentials.
 
 Exporting disk artifacts requires `catalog.stack_package.export` plus read access to every VM/disk artifact included in the package. Importing requires `catalog.stack_package.import` and creates a project-local StackDefinition by default. Publishing the imported Stack to the catalog is a separate approval-gated action. Import validates package schema, checksums, provider capability requirements, disk format support, network mappings, quota impact, required secret bindings, ProjectSSHKey rebinding, and access-metadata rebinding before the Stack can deploy. Export, import, failed validation, and rebinding decisions are audited.
 
@@ -91,7 +92,7 @@ The stack wizard supports instructors and allowed students.
 
 Wizard responsibilities:
 
-- Compose Stacks from templates, VMs, networks, scripts, SSH keys, and policies.
+- Compose Stacks from templates, VMs, networks, network-service components, scripts, SSH keys, and policies.
 - Validate quota impact.
 - Validate provider compatibility.
 - Validate network mappings.

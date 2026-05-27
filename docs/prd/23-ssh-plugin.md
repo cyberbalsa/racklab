@@ -16,7 +16,7 @@ It is the SSH parallel of the `racklab-console-proxmox` plugin: same xterm.js fr
 
 ## Non-Goals
 
-- SSH access to VMs on networks whose offering does not declare reachability from the management plane (`isolated_no_ingress` per PRD §09).
+- Browser SSH access to VMs on networks whose offering does not declare reachability from the management plane (`isolated_no_ingress` per PRD §09). User-side direct SSH over a VPNaaS client profile is a networking-plugin path, not the browser SSH console path.
 - Uploading, storing, or delivering users' SSH private keys to the browser, RackLab worker, or SSH proxy.
 - SFTP / file transfer in v1.
 - Multi-viewer same session.
@@ -32,7 +32,7 @@ The hard problem is not the WebSocket-to-SSH bridge; it is whether the console-w
 |---|---|
 | `routable_from_management` | SSH straight to the guest IP. Default for `provider-direct` and for `private-nat` / `double-nat` offerings whose routers expose routes to the management network. |
 | `nat_from_management` | SSH to the network's router at a stable port-forwarded address. The router is provisioned by the network plugin to expose the SSH port-forward; the SSH plugin connects to `<router-fip>:<port>`. |
-| `isolated_no_ingress` | **SSH not offered.** The catalog UI greys out SSH for deployments using this offering. Catalog templates that need SSH against an isolated network must include an instructor-controlled jump host inside the network; the SSH plugin then targets the jump host. |
+| `isolated_no_ingress` | **Browser SSH not offered.** The catalog UI greys out SSH for deployments using this offering. Catalog templates that need browser SSH against an isolated network must include an instructor-controlled jump host inside the network; the SSH plugin then targets the jump host. If the Stack includes VPNaaS, users may SSH from their own client through their per-user VPN profile, but RackLab's console-worker still cannot reach arbitrary isolated VMs. |
 
 Plumbing:
 
@@ -40,7 +40,7 @@ Plumbing:
 - The SSH plugin reads the persisted reachability when issuing a `ConsoleAccessGrant`. If the VM is `isolated_no_ingress`, grant issuance is refused with a clear error.
 - For `nat_from_management`, the `ConsoleAccessGrant` carries the gateway address; for `routable_from_management`, it carries the guest IP.
 
-This pushes the "how do I actually reach the VM" question onto the network layer where it belongs, and the SSH plugin becomes a thin gateway that speaks IP plus credentials. Per-tenant-network bastions are not deployed — the console-worker pool is the gateway for all tenant networks that declare reachability, and `isolated_no_ingress` deployments don't get SSH at all.
+This pushes the "how do I actually reach the VM" question onto the network layer where it belongs, and the SSH plugin becomes a thin gateway that speaks IP plus credentials. Per-tenant-network bastions are not deployed — the console-worker pool is the gateway for all tenant networks that declare reachability, and `isolated_no_ingress` deployments do not get browser SSH unless the Stack includes a jump host or another management-reachable path.
 
 ## Editor / Front-End
 
@@ -196,7 +196,7 @@ The plugin runs as a Laravel ServiceProvider registered into the main FrankenPHP
 
 ## Out of Scope for v1
 
-- SSH to deployments on `isolated_no_ingress` networks. Use an instructor-controlled jump host inside the network.
+- Browser SSH to deployments on `isolated_no_ingress` networks. Use an instructor-controlled jump host inside the network. User-side direct SSH through VPNaaS remains owned by the networking plugin.
 - Uploading or proxying user private keys. User-attributed browser SSH is deferred to v1.1 as the SSH CA design.
 - SFTP / file transfer (deferred to v1.1).
 - Multi-viewer same session (deferred to v2).

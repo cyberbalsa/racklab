@@ -97,6 +97,10 @@ Network:
 - Provider mapping.
 - Attachment.
 - Detachment.
+- VPN endpoint create/start/stop/delete/rotate.
+- VPN endpoint binding port allocation/release and provider drift.
+- VPN client profile issue/download/revoke/expire.
+- VPN session connect/disconnect/failed authentication.
 
 Script:
 

@@ -16,6 +16,8 @@ Research sources used while shaping this PRD:
 - OpenStack Network API v2 reference: https://docs.openstack.org/api-ref/network/v2/
 - OpenStack Compute API keypairs reference (used as product precedent for keypair-style VM public-key injection): https://docs.openstack.org/api-ref/compute/
 - DMTF Open Virtualization Format (OVF/OVA packaging precedent for Stack export): https://www.dmtf.org/standards/ovf
+- OpenVPN Ethernet Bridging documentation (TAP / Layer 2 VPN precedent): https://openvpn.net/community-docs/ethernet-bridging.html
+- OpenVPN 2.7 manual (TUN vs TAP device type): https://openvpn.net/community-docs/community-articles/openvpn-2-7-manual.html
 - openQA documentation: https://open.qa/docs/
 - openQA test API: https://open.qa/api/testapi
 - HashiCorp Packer Proxmox plugin: https://developer.hashicorp.com/packer/integrations/hashicorp/proxmox/latest/components/builder/iso

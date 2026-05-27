@@ -3,7 +3,7 @@
 **Status:** Not started.
 **Estimated effort:** 3–4 weeks.
 **Depends on:** M5a, M6 (quota dimensions for routers/FIPs/SG-rules are checked at create time).
-**Unblocks:** complete Neutron-shaped tenant networking.
+**Unblocks:** complete Neutron-shaped tenant networking, M5c VPNaaS.
 
 ## Goal
 
@@ -60,3 +60,4 @@ Students and instructors create their own networks, routers, floating IPs, and s
 - Plugin-managed EVPN object creation.
 - A network-topology visualization widget (Cytoscape.js via `cytoscape` mounted inside a Livewire 4 component per PRD §15, but the UI itself is M10a polish work).
 - IPv6 as the default catalog stance — M5b supports IPv6 in the data model; making it the default is a release-hardening decision in M13d or later.
+- VPNaaS OpenVPN endpoints for isolated networks — M5c.

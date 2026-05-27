@@ -134,7 +134,7 @@ Retention sweep is a `ReconcilerTask` that runs on a schedule, marks expired art
 ## Networking
 
 - `ProviderNetwork`
-- `NetworkOffering` — carries the **`reachability` capability** (see Networking PRD §09 and SSH plugin §23): `routable_from_management`, `nat_from_management`, `isolated_no_ingress`. Determines whether SSH-into-VM is offered for deployments using this network.
+- `NetworkOffering` — carries the **`reachability` capability** (see Networking PRD §09 and SSH plugin §23): `routable_from_management`, `nat_from_management`, `isolated_no_ingress`. Determines whether browser SSH is offered for deployments using this network; user-side VPNaaS access is modeled by `NetworkVpnEndpoint` and `VpnClientProfile`.
 - `Network`
 - `Subnet`
 - `SubnetPool`
@@ -143,6 +143,10 @@ Retention sweep is a `ReconcilerTask` that runs on a schedule, marks expired art
 - `FloatingIP`
 - `SecurityGroup`
 - `SecurityGroupRule`
+- `NetworkVpnEndpoint` (VPNaaS plugin) — logical endpoint attached to one deployed Stack network. Carries `tenant_id`, `project_id`, `deployment_id`, `network_id`, placement mode (`per_node_binding` or provider-advertised `cluster_l2_bridge`), state, and audit correlation.
+- `NetworkVpnEndpointBinding` (VPNaaS plugin) — concrete provider binding for a VPN endpoint. Carries `tenant_id`, endpoint id, provider node/hypervisor binding, dedicated public/service IP, random allocated UDP port, OpenVPN bridge/TAP binding metadata, firewall state, and provider task/audit correlation. Multi-node isolated networks create one binding per participating node unless the provider plugin advertises cluster-level L2 bridging.
+- `VpnClientProfile` (VPNaaS plugin) — per-user client configuration for one `NetworkVpnEndpoint`. Carries `tenant_id`, `project_id`, `deployment_id`, endpoint id, owner principal, issued_by, certificate serial/fingerprint, expiry, revoked_at/revoked_by, revoke reason, last_download_at, last_connect_at, and secret reference for encrypted client config material. Group-project users each get their own profile; profiles are never shared. Client config download is owner-only; admins can rotate/revoke but cannot read another user's private client key material.
+- `VpnSession` (VPNaaS plugin) — tenant-scoped connection ledger for audit and troubleshooting: `tenant_id`, `project_id`, `deployment_id`, endpoint id, profile id, user/principal, remote address, assigned client address/MAC where available, connected_at, disconnected_at, bytes in/out, and disconnect reason. Read access is gated by `network.vpnaas.session.read` and audit-view permissions.
 
 ## Quotas
 

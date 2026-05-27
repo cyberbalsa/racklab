@@ -49,14 +49,14 @@ The `racklab-console-ssh` plugin lands: a browser SSH terminal to any deployment
   - Abort-on-redaction-failure: malformed/unframed sequences that defeat pattern matching abort the recording but keep the session live.
   - Recordings land in `Artifact(kind=console_recording)` with the `recording_with_consent` legal-flag set.
   - Replay UI in the deployment-detail page, RBAC-gated by `deployment.console.replay`; surfaces `[REDACTED]` markers visibly.
-- Reachability-aware grant issuance: SSH grants are refused for deployments on `isolated_no_ingress` network offerings; the deployment-detail page greys out the SSH button for those.
+- Reachability-aware grant issuance: browser SSH grants are refused for deployments on `isolated_no_ingress` network offerings; the deployment-detail page greys out the SSH button for those. If the Stack includes VPNaaS from M5c, users can still direct-SSH from their own client through their per-user VPN profile; that path is outside M9.
 
 ## Acceptance criteria
 
 - [ ] A student creates a ProjectSSHKey, deploys a VM from a Stack using a `routable_from_management` network offering, and RackLab injects the selected public key into the guest with creator attribution visible in the Project SSH Keys list.
 - [ ] The same student clicks "SSH" on the deployment-detail page; an xterm.js session opens directly to the VM's guest IP using the cloud-init-injected gateway service key; the user types and the terminal responds.
 - [ ] A student deploys a VM from a Stack using a `nat_from_management` offering; clicks "SSH"; the session opens to the network's NAT gateway port-forward; same UX.
-- [ ] A student deploys a VM from a Stack using an `isolated_no_ingress` offering; the SSH button is greyed out with a "SSH not available for this network" tooltip; attempting to issue a grant via the API returns a 422 with a clear reason.
+- [ ] A student deploys a VM from a Stack using an `isolated_no_ingress` offering; the browser SSH button is greyed out with a "SSH not available for this network" tooltip; attempting to issue a grant via the API returns a 422 with a clear reason. If the Stack also includes VPNaaS, the UI points the user to their per-user VPN profile for direct client-side access instead of enabling browser SSH.
 - [ ] Host-key MITM test: a test that swaps the target VM's host key mid-deployment fires `console.ssh.host_key_mismatch`, terminates the session, and prevents reconnect until the admin re-captures.
 - [ ] Recording-redaction test: a script in the recorded session emits a stream containing a base64-encoded JWT-shaped string broken across chunks in a way that defeats the redactor; the redactor aborts the recording, the session stays alive, the abort is audit-logged.
 - [ ] Password-passthrough session: catalog enables it; user enters password in browser; session opens; recording is refused even if the catalog template tries to enable it (defensive enforcement).
@@ -85,4 +85,5 @@ The `racklab-console-ssh` plugin lands: a browser SSH terminal to any deployment
 - Multi-viewer same session — v2.
 - Signed short-lived SSH user certificates (RackLab as SSH CA) — v1.1, replaces the service-key default once shipped.
 - Apache Guacamole — out of scope; future `racklab-console-guacamole` plugin if RDP/VNC-via-Guacamole becomes a real ask.
-- SSH to `isolated_no_ingress` deployments via jump host — catalog templates can include a jump host as part of the stack; M9 supports SSHing to the jump host, but not to isolated VMs directly.
+- Browser SSH to `isolated_no_ingress` deployments via jump host — catalog templates can include a jump host as part of the stack; M9 supports SSHing to the jump host, but not to isolated VMs directly.
+- Direct user SSH through VPNaaS client profiles — M5c owns the VPN endpoint, profile issuance, revocation, and audit model.

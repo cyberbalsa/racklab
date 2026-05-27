@@ -25,7 +25,7 @@ RackLab can attach deployments to admin-published provider networks and persist 
 ## Deliverables
 
 - `racklab/networking` Laravel module with the M5a model subset: `ProviderNetwork`, `NetworkOffering`, admin-published `Network` / `Subnet`, and `DeploymentNetworkBinding`.
-- `NetworkOffering.reachability` field with values `routable_from_management`, `nat_from_management`, `isolated_no_ingress`. This is the single source of truth for SSH availability.
+- `NetworkOffering.reachability` field with values `routable_from_management`, `nat_from_management`, `isolated_no_ingress`. This is the single source of truth for browser SSH availability; user-side VPNaaS access is modeled separately in M5c.
 - Provider capability flags for network attach: bridge, VLAN tag, VNet, SDN zone, NAT gateway metadata, and management reachability.
 - `Provider.network_attach()` and `Provider.network_detach()` operations on the provider Protocol; Proxmox implementation hooks VM NICs into the resolved provider network.
 - Catalog validation: a catalog item referencing an unsupported offering is rejected before deployment with a clear capability error.
@@ -62,5 +62,6 @@ RackLab can attach deployments to admin-published provider networks and persist 
 - Self-service tenant network creation — M5b.
 - RackLab-created routers, floating IPs, security groups, and writable Proxmox SDN objects — M5b.
 - Provider-drift repair/adoption for networking objects — M5b.
+- VPNaaS for isolated networks — M5c.
 - Physical switch management — explicit PRD non-goal.
 - KubeVirt + Kube-OVN networking — future provider plugin, not v1 core.

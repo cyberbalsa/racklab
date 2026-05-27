@@ -98,6 +98,17 @@ Example permissions:
 - `network.create_nat`
 - `network.attach_provider`
 - `network.allocate_public_ip`
+- `network.vpnaas.endpoint.read`
+- `network.vpnaas.endpoint.create`
+- `network.vpnaas.endpoint.update`
+- `network.vpnaas.endpoint.delete`
+- `network.vpnaas.profile.read`
+- `network.vpnaas.profile.create`
+- `network.vpnaas.profile.update`
+- `network.vpnaas.profile.delete`
+- `network.vpnaas.profile.download`
+- `network.vpnaas.profile.revoke`
+- `network.vpnaas.session.read`
 - `script.openqa.create`
 - `script.cloudinit.create`
 - `script.advanced_code.create`

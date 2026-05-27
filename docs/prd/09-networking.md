@@ -13,6 +13,8 @@ RackLab networking is Neutron-inspired, not Neutron-compatible. It uses cloud ne
 - `SecurityGroup`: optional port-level firewall policy where backend support exists.
 - `SubnetPool`: admin-approved address pool for self-service subnets.
 - `NetworkOffering`: admin-defined productized network choice available to projects, courses, roles, or catalog items.
+- `NetworkVpnEndpoint`: plugin-provided VPN endpoint attached to a project network, used when a Stack explicitly includes VPN access.
+- `VpnClientProfile`: per-user VPN client configuration for one endpoint; never shared between group members.
 
 ## Network Offerings
 
@@ -34,9 +36,19 @@ Each `NetworkOffering` advertises a **reachability capability** that determines 
 
 - `routable_from_management` — RackLab's management hosts can reach guest IPs directly. Default for `provider-direct` and for `private-nat` / `double-nat` offerings whose router has a documented route from the management network. The SSH console plugin can SSH straight to the guest IP.
 - `nat_from_management` — RackLab's management hosts cannot reach guest IPs directly, but the network's router exposes an SSH-port-forward at a stable address. The SSH console plugin connects to the router's exposed port. Used for default `private-nat` deployments where exposing routes from management would violate isolation.
-- `isolated_no_ingress` — no path from the management plane to any VM on this network. SSH console is not offered for deployments using this offering. Catalog templates that need both this offering and SSH must spin up an instructor-controlled jump host inside the network as part of the stack; the SSH console plugin then targets that jump host, not arbitrary VMs.
+- `isolated_no_ingress` — no path from the management plane to any VM on this network. SSH console is not offered for deployments using this offering. Catalog templates that need both this offering and browser SSH must spin up an instructor-controlled jump host inside the network as part of the stack; the SSH console plugin then targets that jump host, not arbitrary VMs. A Stack may separately include VPNaaS for user-side direct access, but that does not change management-plane reachability.
 
 The reachability capability is admin-configured on each `NetworkOffering` and is the single source of truth for which deployments expose the SSH console plugin. The capability is published into the catalog so catalog authors and deployment-time UI can show "SSH supported / not supported" before the user commits.
+
+## VPNaaS For Isolated Networks
+
+Isolated-network VPN access is delivered by a first-party plugin, `racklab-network-vpnaas-openvpn`. A Stack may include a VPNaaS component that attaches an OpenVPN TAP endpoint to a selected isolated network, giving authorized users direct Layer 2 access to that network from their own VPN client.
+
+Each VPN endpoint is scoped to one deployed Stack network. The logical endpoint has one or more per-node bindings. Each binding allocates a random unused UDP port and binds it to a dedicated per-hypervisor-node public/service IP for that isolated network. The public/service IP comes from an admin-managed pool, and the provider plugin opens only the assigned VPN port for that endpoint binding. For isolated networks spanning multiple hypervisor nodes, the provider plugin must either create one binding per participating node or explicitly advertise a provider-level L2 bridge mode that makes one binding sufficient. The endpoint bridges only the selected isolated network; it does not create general management-plane ingress, cross-project connectivity, or access to other Stack networks.
+
+Group projects require per-user VPN client profiles. Each authorized user receives their own OpenVPN client configuration with unique certificate/key material, owner attribution, expiry, and revocation state. Profiles are never shared between users. Downloading the client configuration is owner-only: project admins and instructors can issue, rotate, and revoke another user's profile when RBAC allows, but they cannot retrieve another user's private client key material. Removing a user from the Project, revoking a share/guest grant, or otherwise losing the role that authorized VPN access automatically revokes that user's active VPN profiles for the Stack. Revoking one user's profile does not affect other group members attached to the same Stack, and every profile issue, download, connect, disconnect, and revoke event is audited.
+
+VPNaaS changes the user's client-side reachability, not RackLab's management-plane reachability. Users can reach VMs directly through their VPN client when the guest firewall and Project SSH keys allow it. RackLab browser SSH still follows `NetworkOffering.reachability`; `isolated_no_ingress` remains unavailable to the SSH console plugin unless the Stack includes a jump host or another management-reachable path.
 
 ## RBAC And Quota
 
@@ -51,6 +63,19 @@ Example permissions:
 - `network.allocate_public_ip`
 - `network.manage_security_group`
 - `network.share`
+- `network.vpnaas.endpoint.read`
+- `network.vpnaas.endpoint.create`
+- `network.vpnaas.endpoint.update`
+- `network.vpnaas.endpoint.delete`
+- `network.vpnaas.profile.read`
+- `network.vpnaas.profile.create`
+- `network.vpnaas.profile.update`
+- `network.vpnaas.profile.delete`
+- `network.vpnaas.profile.download`
+- `network.vpnaas.profile.revoke`
+- `network.vpnaas.session.read`
+
+`network.vpnaas.profile.download` is additionally constrained by ownership: it only authorizes downloading the caller's own client configuration. Administrative permissions can rotate or revoke another user's profile, but they never expose that user's private client key material.
 
 Quota dimensions include:
 
@@ -59,6 +84,8 @@ Quota dimensions include:
 - Ports.
 - Routers/NAT gateways.
 - Floating/public IPs.
+- VPN endpoint public/service IPs and UDP ports.
+- VPN client profiles.
 - Provider-direct NICs.
 - Security group rules.
 

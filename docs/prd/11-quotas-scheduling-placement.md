@@ -13,6 +13,9 @@ RackLab quotas cover:
 - Ports.
 - Routers/NAT gateways.
 - Floating/public IPs.
+- VPN endpoint public/service IPs.
+- VPN endpoint UDP ports.
+- VPN client profiles.
 - Provider-direct NICs.
 - Security group rules.
 - Script runtime.

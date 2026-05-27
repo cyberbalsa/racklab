@@ -4,7 +4,7 @@ The PRD (`docs/prd/`) describes the full target product. The design specs (`docs
 
 ## Milestones
 
-The work breaks into 22 shippable milestone slices. The numbered sequence still follows M0–M13, but the high-risk milestones are split so dependencies and acceptance criteria stay executable.
+The work breaks into 23 shippable milestone slices. The numbered sequence still follows M0–M13, but the high-risk milestones are split so dependencies and acceptance criteria stay executable.
 
 | # | File | Scope | Estimate |
 |---|---|---|---|
@@ -18,6 +18,7 @@ The work breaks into 22 shippable milestone slices. The numbered sequence still 
 | M5a | [M05a-networking-attach.md](M05a-networking-attach.md) | Admin-published provider networks, `NetworkOffering.reachability`, NIC attach/detach, and deployment-visible network bindings. | 2–3 weeks |
 | M5b | [M05b-networking-managed.md](M05b-networking-managed.md) | Self-service networks, routers, floating IPs, security groups, drift repair/adoption, and writable Proxmox SDN/firewall realization. | 3–4 weeks |
 | M6 | [M06-quotas-scheduling.md](M06-quotas-scheduling.md) | Quota policies, reservations, usage tracking, scheduling/placement, leases. | 3–4 weeks |
+| M5c | [M05c-network-vpnaas-openvpn.md](M05c-network-vpnaas-openvpn.md) | `racklab-network-vpnaas-openvpn` plugin: OpenVPN TAP endpoints for isolated Stack networks, per-user client profiles, random UDP port allocation, and audit. | 2–3 weeks |
 | M7a | [M07a-cloud-init-provisioning.md](M07a-cloud-init-provisioning.md) | Cloud-init provisioning plugin, ProjectSSHKey injection, host-key phone-home, gateway-service-key injection, script-worker scaffold, and base script data model. | 2–3 weeks |
 | M7b | [M07b-script-sandbox.md](M07b-script-sandbox.md) | Ephemeral Podman container runner, containerized `racklab/ansible-runner:v1` integration, openQA-style console automation, approval workflow, runner artifacts. | 3–4 weeks |
 | M8 | [M08-docs-plugin.md](M08-docs-plugin.md) | `racklab-docs` plugin per PRD §22 (TipTap WYSIWYG, Markdown source, `racklabRef` cross-link node, `racklab_docs_ref_resolver` hookspec). | 3–4 weeks |
@@ -32,7 +33,7 @@ The work breaks into 22 shippable milestone slices. The numbered sequence still 
 | M13c | [M13c-backup-restore-upgrade.md](M13c-backup-restore-upgrade.md) | Full backup/restore across Postgres, Redis, artifacts, plugin config, secrets, TLS state, plus Baseline/Scale upgrade drills. | 2–3 weeks |
 | M13d | [M13d-release-hardening.md](M13d-release-hardening.md) | Mutation testing, 24-hour soak, capacity planning, final security review, and v1 GA release gates. | 2–3 weeks |
 
-**Total estimated effort: ~55–80 person-weeks** of focused work. AI-assisted parallelism can shrink wall-clock time on stages with low cross-dependency, but the split milestones make the critical path explicit instead of hiding installer, TLS, networking, scripting, and operational work inside broad catch-all milestones.
+**Total estimated effort: ~57–83 person-weeks** of focused work. AI-assisted parallelism can shrink wall-clock time on stages with low cross-dependency, but the split milestones make the critical path explicit instead of hiding installer, TLS, networking, scripting, and operational work inside broad catch-all milestones.
 
 ## Dependency graph
 
@@ -47,6 +48,7 @@ graph TD
     M4[M4 Console plugin<br/>noVNC + xterm.js]
     M5a[M5a Network attach + reachability]
     M5b[M5b Managed networking]
+    M5c[M5c OpenVPN VPNaaS]
     M6[M6 Quotas + scheduling]
     M7a[M7a Cloud-init provisioning]
     M7b[M7b Script sandbox]
@@ -75,6 +77,8 @@ graph TD
     M5a --> M6
     M3 --> M6
     M6 --> M5b
+    M5b --> M5c
+    M6 --> M5c
     M2 --> M7a
     M7a --> M7b
     M4 --> M7b
@@ -91,6 +95,7 @@ graph TD
     M3 --> M10a
     M4 --> M10a
     M5b --> M10a
+    M5c --> M10a
     M6 --> M10a
     M7b --> M10a
     M8 --> M10a
@@ -111,7 +116,7 @@ The graph focuses on hard dependencies; some transitive dependencies are omitted
 
 - **PRD** (`docs/prd/`) — the long-term product specification. Each milestone references the PRD sections it implements.
 - **Design specs** (`docs/superpowers/specs/`) — the load-bearing technical decisions (Proxmox client, Podman orchestration, TLS/ACME). Milestones reference them where applicable.
-- **Plugin PRDs** (`docs/prd/22-docs-plugin.md`, `docs/prd/23-ssh-plugin.md`) — first-party plugins with their own roadmap milestones (M8 and M9 respectively).
+- **Plugin PRDs** (`docs/prd/22-docs-plugin.md`, `docs/prd/23-ssh-plugin.md`, plus VPNaaS requirements in `docs/prd/09-networking.md`) — first-party plugins with their own roadmap milestones (M8, M9, and M5c respectively).
 - **Codex review** — earlier audit whose findings were folded into the PRD and specs; this roadmap inherits the corrected state. (The source file was removed during the stack-pivot cleanup.)
 - **CI + linting discipline** (pre-commit hooks, `CONTRIBUTING.md`) — every milestone's deliverables must pass through these gates. The TDD discipline in PRD §17 is the non-negotiable test contract.
 

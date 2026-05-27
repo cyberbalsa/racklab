@@ -24,7 +24,7 @@ The stack was redesigned in May 2026 from Django 5.2 LTS + DRF + React islands t
    - `06-auth-rbac-sharing-tokens.md` — auth + tokens (two-track: signed JWT + opaque PAT)
    - `07-api-openapi-sse.md` — API surface + Last-Event-ID replay semantics
    - `08-catalog-stacks-deployments.md` — catalog items + stack templates + deployment lifecycle
-   - `09-networking.md` — provider networks + `NetworkOffering.reachability`
+   - `09-networking.md` — provider networks + `NetworkOffering.reachability` + VPNaaS
    - `10-scripting-automation-sandboxing.md` — per-job ephemeral containers; nsjail dropped
    - `11-quotas-scheduling-placement.md` — OpenStack-triangle quota model, placement
    - `12-proxmox-provider.md`
@@ -39,7 +39,7 @@ The stack was redesigned in May 2026 from Django 5.2 LTS + DRF + React islands t
    - `21-sources.md`
    - `22-docs-plugin.md` — TipTap-vanilla in Livewire 4 + Filament RichEditor
    - `23-ssh-plugin.md` — xterm.js + noVNC vanilla; cloud-init host-key phone-home
-3. **`docs/roadmap/`** — 22 milestone slices M0 → M13d with explicit acceptance criteria.
+3. **`docs/roadmap/`** — 23 milestone slices M0 → M13d with explicit acceptance criteria.
    - `README.md` — milestone table + Mermaid dependency graph
    - Each milestone follows: Goal, In scope, Dependencies, Deliverables, Acceptance criteria, Test layers, Risks/open questions, Out of scope.
 4. **`docs/architecture/diagrams.md`** — Mermaid UML for system component overview, deployment lifecycle, console flow, etc.

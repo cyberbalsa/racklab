@@ -3,7 +3,7 @@
 **Status:** Not started.
 **Estimated effort:** 3–4 weeks.
 **Depends on:** M3, M5a.
-**Unblocks:** M5b, M7a, multi-user readiness.
+**Unblocks:** M5b, M5c, M7a, multi-user readiness.
 
 ## Goal
 
@@ -53,7 +53,7 @@ Multi-user RackLab is safe to use. Every deployment passes through quota reserva
 
 ## Risks / open questions
 
-- **Quota dimensions multiply**: PRD §11 lists 14 quota dimensions. Pricing the full matrix is overkill for v1; pick the v1 default set (vCPU, memory, disk, concurrent deployments, lease duration, provider-direct NICs, private networks, floating IPs) and ship the rest as plugin-extensible. M6 defines the dimensions; M5b proves the writable networking ones.
+- **Quota dimensions multiply**: PRD §11 lists 18 quota dimensions. Pricing the full matrix is overkill for v1; pick the v1 default set (vCPU, memory, disk, concurrent deployments, lease duration, provider-direct NICs, private networks, floating IPs, VPN endpoint IPs/ports, VPN client profiles) and ship the rest as plugin-extensible. M6 defines the dimensions; M5b proves the writable networking ones and M5c proves plugin-owned VPN dimensions.
 - **Scheduler determinism vs spread**: predictable placement helps debugging, but always-pick-the-same-node creates hotspots. Default to weighted-random among the top-3 candidates; document.
 - **Capacity-snapshot freshness**: 30-second poll cadence is a compromise between accuracy and Proxmox-API load. Under bursty deploys, the scheduler may pick a node that's just-filled. Mitigation: reserve capacity at scheduling time so subsequent decisions see the reservation; provider-side reconciliation catches drift.
 - **Maintenance-window UX**: admins need a way to schedule maintenance that excludes a node for a window. The data model is clear; the admin UX is M10a territory but the underlying field lands in M6.

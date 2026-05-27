@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rewrite all stack-specific RackLab documentation (CLAUDE.md/AGENTS.md, the 8 heavy-rewrite PRD sections, light sweeps of the remaining PRD sections, all 22 roadmap milestones, and architecture diagrams) so the docs accurately describe the PHP/Laravel 13 + Octane + Filament 5 + Livewire 4 stack chosen in `docs/superpowers/specs/2026-05-26-laravel-redesign.md`. Functional requirements stay; implementation prescriptions move to the Laravel ecosystem.
+**Goal:** Rewrite all stack-specific RackLab documentation (CLAUDE.md/AGENTS.md, the 8 heavy-rewrite PRD sections, light sweeps of the remaining PRD sections, roadmap milestones, and architecture diagrams) so the docs accurately describe the PHP/Laravel 13 + Octane + Filament 5 + Livewire 4 stack chosen in `docs/superpowers/specs/2026-05-26-laravel-redesign.md`. Functional requirements stay; implementation prescriptions move to the Laravel ecosystem.
 
 **Architecture:** This is the first of 7 sub-plans in the portfolio described in §10 of the redesign spec. It sets the documented functional ground truth that the other 6 sub-plans (laravel-scaffold, tenancy-auth, plugin-lifecycle, realtime-replay, script-containers, ci-gates) implement against. No application code is written or modified in this plan — the working tree's Django-era code was already removed in commit `a6bc105`.
 
@@ -33,7 +33,7 @@ In scope:
 - `docs/prd/18-security.md` (light: DRF references, server-owned provenance verbiage)
 - `docs/prd/19-data-model.md` (light: model class wording → Eloquent; AuditEvent three-tenant schema confirmation)
 - `docs/prd/{01,02,03,04,08,09,11,12,16,20,21,README}.md` — sweep for stack mentions
-- `docs/roadmap/{M00,M00.5,M01,M02,M02.5,M03,M04,M05a,M05b,M06,M07a,M07b,M08,M09,M10a,M10b,M11a,M11b,M12,M13a,M13b,M13c,M13d,README}.md` — Deliverables / Test layers / Risks rewrites
+- `docs/roadmap/{M00,M00.5,M01,M02,M02.5,M03,M04,M05a,M05b,M05c,M06,M07a,M07b,M08,M09,M10a,M10b,M11a,M11b,M12,M13a,M13b,M13c,M13d,README}.md` — Deliverables / Test layers / Risks rewrites
 - `docs/architecture/diagrams.md` — node labels and process boxes
 
 Out of scope (handled by other sub-plans):
@@ -151,7 +151,7 @@ Structure of the replacement (use this exact section order):
 
 1. **`docs/superpowers/specs/2026-05-26-laravel-redesign.md`** — the architectural spec (this is the source of truth for HOW RackLab is built)
 2. **`docs/prd/`** — functional requirements (source of truth for WHAT RackLab does); 23 numbered sections
-3. **`docs/roadmap/`** — 22 milestone slices M0 → M13d with explicit acceptance criteria
+3. **`docs/roadmap/`** — 23 milestone slices M0 → M13d with explicit acceptance criteria
 4. **`docs/architecture/diagrams.md`** — Mermaid UML for system component overview, deployment lifecycle, console flow
 5. **`docs/superpowers/specs/2026-05-24-podman-orchestration.md`** — Baseline (Quadlets) + Scale (Nomad + Podman driver) profiles; still applies
 6. **`docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md`** — typed Proxmox client + task polling + multi-issuer TLS trust; still applies (ports to PHP via Guzzle)
@@ -1640,7 +1640,7 @@ EOF
 
 ## Self-review notes (writing-plans skill checklist)
 
-1. **Spec coverage:** Every bullet of spec §10 sub-plan-1 scope is covered — orientation files (Task 2), 8 heavy PRD rewrites (Tasks 3–10), light PRD sweeps (Tasks 11–15), 22 roadmap milestones (Tasks 16–29), architecture diagrams (Task 30), integrity sweep (Task 31). Out-of-scope items (code, composer.json, CI workflows) explicitly listed in the Scope section.
+1. **Spec coverage:** Every bullet of spec §10 sub-plan-1 scope is covered — orientation files (Task 2), 8 heavy PRD rewrites (Tasks 3–10), light PRD sweeps (Tasks 11–15), roadmap milestones (Tasks 16–29), architecture diagrams (Task 30), integrity sweep (Task 31). Out-of-scope items (code, composer.json, CI workflows) explicitly listed in the Scope section.
 2. **Placeholder scan:** No `TBD` / `TODO` / `fill in details`. Every "Apply replacements" step has a concrete substitution table inline. Every grep verification has the exact command + expected output.
 3. **Type consistency:** Naming consistent across tasks — `AccessResolver` (always under `app/Domain/Tenancy/`), `HookDispatcher`, `PluginRegistry`, `ProviderConsoleProxy`, `TrackAIssuer`, `JwksController`, `broadcast_event_log` (always Postgres). Hookspec event path format `app/Events/Hookspecs/<Domain>/<Verb>Event.php` used consistently.
 4. **Out-of-order safety:** Every task is self-contained — file paths, grep patterns, replacement guidance, commit commands all complete per task. No "see Task N" cross-references.

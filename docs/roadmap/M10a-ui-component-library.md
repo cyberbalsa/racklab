@@ -2,7 +2,7 @@
 
 **Status:** Not started.
 **Estimated effort:** 3–4 weeks.
-**Depends on:** M1 through M9 (including M5a/M5b and M7a/M7b).
+**Depends on:** M1 through M9 (including M5a/M5b/M5c and M7a/M7b).
 **Unblocks:** M10b.
 
 ## Goal
@@ -21,7 +21,7 @@ Every Key Screen from PRD §15 that is not an admin panel exists as a Livewire 4
 
 - M0 Livewire 4 + daisyUI 5 toolchain skeleton (Vite entries, Tailwind v4.1+ config, Alpine.js, Pest 4, Dusk baseline).
 - M1 baseline branding data model — M10a builds the public branding component on top.
-- M2–M9 — the underlying features. M10a is the polish + completeness pass for the public UI on top of them.
+- M2–M9 — the underlying features, including the M5c VPNaaS plugin UI. M10a is the polish + completeness pass for the public UI on top of them.
 
 ## Deliverables
 
@@ -39,7 +39,7 @@ Every Key Screen from PRD §15 that is not an admin panel exists as a Livewire 4
   - Served from `BrandingSettings` (spatie/laravel-settings) and cached; invalidated on admin change.
   - Light/dark theme toggle per-user stored in `UserPreferences`; cookie fallback for guests.
 - Laravel i18n wiring:
-  - `resources/lang/en/` catalog complete for every translatable string in every Livewire component surfaced by M0–M9 (including plugin-published translation files).
+  - `resources/lang/en/` catalog complete for every translatable string in every Livewire component surfaced by M0–M9 (including M5c and plugin-published translation files).
   - Custom artisan command `racklab:lang:check` (working name) detects untranslated strings by diffing `trans()` call sites against the `en/` catalog; catalog drift fails CI.
   - Plugin authors publish their translation files to `resources/lang/vendor/<plugin>/en/`; the `racklab:lang:check` command covers vendor catalogs.
 
