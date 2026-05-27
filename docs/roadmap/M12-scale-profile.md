@@ -7,21 +7,21 @@
 
 ## Goal
 
-Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver schedules every RackLab container (`web`, all worker pools) across multiple hosts. Horizon queue-depth-driven autoscaling adjusts worker replica counts via Nomad Autoscaler + Prometheus (scraping Pulse metrics or a Horizon-status exporter). The Scale profile's TLS uses an external `lego` cert agent writing PEMs to a shared volume that Traefik consumes via `tls.certificates` (sidesteps Traefik OSS's multi-instance ACME restriction). The same `WorkerRuntime` abstraction that powered M2's `QuadletWorkerRuntime` powers M12's `NomadWorkerRuntime`; no plugin code changes.
+Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver schedules every RackLab container (FrankenPHP replicas, Horizon worker pools, Reverb daemon replicas with sticky sessions via Pusher cluster ID, per-job ephemeral containers as Nomad batch jobs) across multiple hosts. Horizon queue-depth-driven autoscaling adjusts worker replica counts via Nomad Autoscaler + Prometheus (scraping Pulse metrics or a Horizon-status exporter). The Scale profile's TLS is handled by Caddy's built-in TLS inside each FrankenPHP replica, or by a load balancer that terminates TLS upstream of the FrankenPHP fleet; ACME issuance profiles are configured against Caddy/FrankenPHP rather than a standalone Traefik instance. The same `WorkerRuntime` abstraction that powered M2's `QuadletWorkerRuntime` powers M12's `NomadWorkerRuntime`; no plugin code changes.
 
 ## In scope
 
 - `docs/superpowers/specs/2026-05-24-podman-orchestration.md` Scale profile — every section.
 - The `NomadWorkerRuntime` concrete implementation.
 - The Horizon queue-depth autoscaling pipeline: Prometheus (scraping Pulse metrics or a Horizon-status exporter) + Nomad Autoscaler + the warmed-replica metric export.
-- The Scale-profile ACME architecture from the TLS spec §6.1 — external `lego` cert agent + shared volume + load-balancer HTTP-01 challenge routing.
+- The Scale-profile TLS architecture: Caddy built-in TLS per FrankenPHP replica with coordinated ACME state, and/or load-balancer upstream TLS termination; ACME issuance profiles (manual cert upload, internal CA, ACME-DNS-01) configured via Caddy TLS directives.
 
 ## Dependencies
 
 - M0 `WorkerRuntime` Protocol — M12 ships the second concrete implementation.
 - M2 `QuadletWorkerRuntime` works for Baseline.
 - M3 real Proxmox provider — the provider work isn't affected by the scheduler.
-- M11a Traefik integration — Scale extends it with the `tls.certificates` static-cert mode and the cert-agent design.
+- M11a TLS/ACME integration — Scale extends it: Caddy TLS runs inside each FrankenPHP replica, or a load balancer terminates TLS upstream and routes to the FrankenPHP fleet.
 
 ## Deliverables
 
@@ -31,9 +31,9 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 - Prometheus Quadlet scraping the Redis exporter + the Horizon-status exporter + the new RackLab warmed-replica gauge.
 - Nomad Autoscaler Quadlet with the Prometheus APM plugin enabled.
 - The warmed-replica metric exporter in the RackLab web tier (or a small standalone exporter Quadlet): emits `racklab_worker_pool_replicas{pool, state}` gauges per the Podman spec §7.2.
-- `lego` cert agent Quadlet on a dedicated cert-management host: ACME HTTP-01 challenge handler on port 80, writes PEMs to a shared volume mounted into all Traefik replicas.
-- Load-balancer config (HAProxy or nginx in front of Traefik) that routes `/.well-known/acme-challenge/*` to the cert-agent host and everything else to the Traefik fleet.
-- Traefik dynamic config in Scale mode references `tls.certificates` entries pointing at the shared PEM paths; file-watch picks up renewals.
+- TLS in Scale mode: each FrankenPHP replica uses Caddy's built-in TLS with coordinated ACME state (shared storage or load-balancer termination). ACME issuance follows the profiles from the TLS spec — manual cert upload, internal CA, or ACME-DNS-01 — configured via Caddy TLS directives.
+- Load-balancer config (HAProxy or nginx in front of the FrankenPHP fleet): routes traffic to live FrankenPHP replicas; Reverb replicas use sticky sessions via Pusher cluster ID for WebSocket continuity.
+- FrankenPHP Nomad job spec includes TLS configuration; renewals are picked up per Caddy's file-watch / ACME renewal semantics without replica restart.
 - `racklab.toml` setting `runtime.kind = "nomad"` selects the `NomadWorkerRuntime` at startup; switching from Baseline → Scale is a deliberate operational migration documented in the runbook.
 - Autoscaling enabled on **one pool first** (`provider-worker`) per the spec; other pools run with static `count` until policies are tuned.
 - Per-pool policy parameters (min, max, cooldown, evaluation interval, max-step) live in HCL alongside the Nomad job specs.
@@ -49,9 +49,9 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 - [ ] The warmed-replica metric is observable in Prometheus and is being consumed by the Nomad Autoscaler policy as the denominator in `num_ack_pending / warmed_replicas`.
 - [ ] A deliberately-introduced poison job (always fails) is detected via the Horizon `failed` queue and the per-job `attempts` count on the `Job` row; the affected pool is capped at `poison_cap` by the scheduler-reconciler; an audit alert fires; autoscaler refuses to add more replicas.
 - [ ] Killing a worker mid-scale-up does not corrupt state; the reconciler resumes pending `Job` rows; no operation is silently re-submitted.
-- [ ] The Scale-profile cert flow: `lego` issues a real LE cert; both Traefik replicas pick up the PEM via file-watch within ~5 seconds; HTTPS works through either replica.
-- [ ] Renewal via `lego` cron triggers a fresh PEM; Traefik replicas pick it up without restart.
-- [ ] An attempt to share `acme.json` directly across Traefik replicas (without the cert-agent path) fails the design review — verified by the documented runbook.
+- [ ] The Scale-profile cert flow: Caddy ACME (or manual cert upload) provisions a LE/internal cert; all FrankenPHP replicas serve HTTPS within the documented convergence window; HTTPS works through any replica.
+- [ ] TLS renewal completes without replica restart; certificate replacement is observable in Prometheus (cert-expiry metric updates).
+- [ ] Reverb WebSocket sessions remain connected through a FrankenPHP replica restart; sticky-session routing via Pusher cluster ID is verified under load.
 - [ ] Switching `runtime.kind = "nomad"` in `racklab.toml` and restarting RackLab routes new deployments through `NomadWorkerRuntime`; existing Quadlet-managed workers drain cleanly.
 
 ## Test layers
@@ -59,7 +59,7 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 - **Tiny / unit**: PromQL warmup arithmetic (warmed-replica denominator handles zero / divide-by-zero); the Nomad job-spec template renderer (`WorkerPoolSpec` → HCL); the poison-job advisory event parser.
 - **Contract**: `NomadWorkerRuntime` passes the same `WorkerRuntime` Protocol suite the `QuadletWorkerRuntime` does (so plugin code is identical across profiles); the warmed-replica exporter against a fake `list_replicas` source.
 - **Integration**: testcontainers-style Nomad-in-docker + Podman driver + a real `provider-worker` job; sustained queue-depth load test verifying autoscale up + down; poison-job detection; failed worker recovery.
-- **E2E** (nightly): full Scale-profile install on two hosts, run the M2/M3 deployment flow against it, verify autoscaling behavior, exercise the `lego` cert agent against LE staging.
+- **E2E** (nightly): full Scale-profile install on two hosts, run the M2/M3 deployment flow against it, verify autoscaling behavior, exercise Caddy TLS issuance against LE staging.
 
 ## Risks / open questions
 
@@ -67,7 +67,7 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 - **Nomad version vs Podman driver version**: pin known-good pairs. Document the upgrade-pair procedure.
 - **Operational learning curve**: Nomad needs at least one operator who knows it. The Baseline profile remains the supported fallback for teams without that.
 - **BSL license**: PRD records the BSL acceptance per the spec §10. Re-verify with RIT counsel before production use.
-- **Autoscaling on more pools**: only `provider-worker` autoscales in v1. Adding `script-worker` autoscaling requires careful policy tuning because script-worker concurrency interacts with nsjail process limits; budget that as a post-M12 iteration.
+- **Autoscaling on more pools**: only `provider-worker` autoscales in v1. Adding `script-worker` autoscaling requires careful policy tuning because script-worker concurrency interacts with per-job container resource limits and Nomad task group constraints; budget that as a post-M12 iteration.
 - **HA Postgres path**: deferred to M13a. The Scale profile uses single-instance Postgres on a Quadlet; that's a single point of failure. Document the failure mode prominently.
 
 ## Out of scope (deferred)

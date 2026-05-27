@@ -24,7 +24,7 @@ RackLab is ready to tag v1.0. M13d closes the final quality gates: mutation test
 
 ## Deliverables
 
-- Mutation testing in nightly CI on critical modules:
+- Mutation testing via `pest --mutate` in nightly CI on critical modules:
   - RBAC enforcement.
   - quota reservation.
   - universal `Job` state machine.
@@ -38,17 +38,19 @@ RackLab is ready to tag v1.0. M13d closes the final quality gates: mutation test
   - Redis/Postgres/artifact-storage sizing.
   - first bottleneck under load.
 - Final security review:
-  - dependency audit clean.
-  - Bandit clean.
+  - `composer audit` + `roave/security-advisories` clean (no known-vulnerable Composer deps).
+  - `enlightn/security-checker` clean (Laravel-specific security checks: HTTPS enforcement, CORS config, session security, queue serialization, etc.).
+  - `npm audit` clean (no known-vulnerable JS deps).
   - Semgrep clean.
   - no audit-event catalog gaps.
-  - no lint/type overrides in production code.
+  - no lint/type overrides in production code (`# type: ignore`, `@phpstan-ignore`, `// eslint-disable` all prohibited in non-generated code per PRD §17).
   - SBOM and license-policy outputs attached to release artifacts.
 - Release checklist and automation:
   - version bump.
   - migration smoke.
   - SBOM generation.
   - image build/provenance.
+  - codex review trigger: `codex review --uncommitted --dangerously-bypass-approvals-and-sandbox` runs as a required pre-release gate; P0/P1 findings block tagging; findings recorded in the release notes.
   - release notes.
   - upgrade notes.
   - rollback notes.
@@ -59,7 +61,7 @@ RackLab is ready to tag v1.0. M13d closes the final quality gates: mutation test
 - [ ] Mutation testing thresholds meet the configured per-module bar, with a default target of at least 80% mutation kill rate on critical modules.
 - [ ] 24-hour Scale-profile soak completes with zero deadlocks, zero permanently stuck `Job` rows, zero unexpected data loss, and p99 deployment latency within the documented target.
 - [ ] Load test reaches 10x expected v1 user count or documents the first bottleneck with a mitigation plan.
-- [ ] Final security review passes: dependency audit, Bandit, Semgrep, SBOM/license policy, and audit-event coverage all clean.
+- [ ] Final security review passes: `composer audit`, `roave/security-advisories`, `enlightn/security-checker`, `npm audit`, Semgrep, SBOM/license policy, and audit-event coverage all clean.
 - [ ] Release checklist can be run by a maintainer other than the author and produces a reproducible v1.0 release candidate.
 - [ ] Upgrade notes from the previous release candidate are verified against M13c's upgrade drill.
 
@@ -67,7 +69,7 @@ RackLab is ready to tag v1.0. M13d closes the final quality gates: mutation test
 
 - **Tiny / unit**: final gap-filling tests for any module below target coverage.
 - **Contract**: release-checklist validators and SBOM/license-policy parsers.
-- **Integration**: mutation-test CI job; release-candidate build and install smoke.
+- **Integration**: `pest --mutate` nightly CI job on critical modules; release-candidate build and install smoke.
 - **E2E**: 24-hour soak; full release-candidate install + upgrade + rollback.
 - **Non-functional**: load test and capacity-planning benchmark suite.
 

@@ -7,7 +7,7 @@
 
 ## Goal
 
-Every signal in PRD §14 is scrapeable from Prometheus. Tracing covers the deployment lifecycle end-to-end via OpenTelemetry. Grafana dashboards for system health / providers / workers / deployments / audit volume / TLS / plugins ship as JSON in the repo. Alerting rules cover the load-bearing SLOs.
+Every signal in PRD §14 is scrapeable from Prometheus. In-product observability uses **Pulse** (v1.7.3) for real-time metrics dashboards, **spatie/laravel-health** (v1.39.3) for health-check endpoints, and **sentry/sentry-laravel** (v4.25.1) for error tracking and performance monitoring. Tracing covers the deployment lifecycle end-to-end via OpenTelemetry. Grafana dashboards for system health / providers / workers / deployments / audit volume / TLS / plugins ship as JSON in the repo. Alerting rules cover the load-bearing SLOs. An optional OpenTelemetry exporter (deferred from M13b scope if the operator does not enable it, but the exporter implementation lands here when enabled) ships as a configurable Quadlet.
 
 ## In scope
 
@@ -24,6 +24,9 @@ Every signal in PRD §14 is scrapeable from Prometheus. Tracing covers the deplo
 
 ## Deliverables
 
+- **Pulse** integration: in-product metrics dashboard mounted at `/pulse` (admin-only via Filament or standalone Pulse dashboard); covers queue throughput, cache hit rate, job failure rates, and slow requests. Custom `PulseRecorder` entries for deployment latency, provider health, and quota pressure.
+- **spatie/laravel-health** integration: `/up` health endpoint consumed by load balancers and Nomad health checks; registered checks cover Postgres connectivity, Redis connectivity, Reverb reachability, Horizon supervisor status, disk space, CPU load, and artifact storage availability.
+- **sentry/sentry-laravel** integration: error tracking with tenant context tag, performance monitoring (transaction sampling configurable via `racklab.toml`), breadcrumbs for Horizon job dispatch + provider API calls.
 - Prometheus metric coverage per PRD §14: request latency, error rates, queue depth, worker health, worker concurrency, provider health, deployment latency, deployment failure rates, script failure rates, quota pressure, Redis health, PostgreSQL health, artifact storage health. RackLab's `web` tier exposes a `/metrics` endpoint with all the application metrics; the infrastructure tier (Postgres, Redis, Patroni) uses standard exporters.
 - OpenTelemetry SDK wired across web + workers + the Proxmox client; spans cover HTTP request → service-layer calls → Horizon dispatch (with span context propagated in the job payload) → worker pickup → provider call.
 - Correlation IDs propagate per PRD §14 across HTTP request, DB job, Horizon job, worker execution, provider API task, and UI-visible event.

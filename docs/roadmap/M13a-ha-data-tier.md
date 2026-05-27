@@ -13,20 +13,21 @@ The Scale profile has a tested high-availability story for stateful infrastructu
 
 - PRD §16 container operations — HA and stateful-tier operating requirements.
 - PRD §14 observability inputs needed for data-tier health, but dashboards/alerts land in M13b.
-- M12 Scale profile stateful components: Postgres, Redis (Horizon queue + cache + session + Reverb backplane), artifact storage mount assumptions, plugin wheelhouse/config storage.
+- M12 Scale profile stateful components: Postgres, Redis (Horizon queue + cache + session + Reverb backplane), artifact storage mount assumptions, plugin Composer vendor dir/config storage.
+- Laravel Octane state-leak hazards (spec §5 + §8): `max_requests` cap, reload-on-deploy discipline, tenant-context-leak contract tests.
 
 ## Dependencies
 
 - M12 — Nomad/Podman Scale profile and Redis Sentinel / Cluster Quadlet configuration exist.
 - M2.5 — backup/restore command shape and Baseline operational conventions exist.
-- M0.5 — persistent plugin wheelhouse/config and state directories exist.
+- M0.5 — persistent plugin Composer vendor dir/config and state directories exist.
 
 ## Deliverables
 
 - Supported HA Postgres pattern for v1, with one blessed implementation:
   - Patroni recommended unless implementation research selects another pattern.
   - Quadlets / Nomad job specs as appropriate for the selected profile.
-  - connection-string and failover behavior documented for Django/web/workers.
+  - connection-string and failover behavior documented for Laravel/web/workers.
 - HA Postgres runbook: bootstrap, add/remove node, planned switchover, unplanned primary loss, rejoin failed node, credential rotation, backup interaction.
 - Redis HA operational drills for the Sentinel / Cluster configuration introduced in M12:
   - node loss and recovery.
@@ -36,9 +37,10 @@ The Scale profile has a tested high-availability story for stateful infrastructu
 - Data-tier client behavior:
   - web and worker processes survive transient DB/Redis disconnects within documented bounds.
   - worker jobs fail/retry explicitly rather than silently duplicating provider operations.
-- Stateful storage requirements for artifact storage, plugin wheelhouse/config, secret backend, Traefik/lego TLS state, and backups.
+- Stateful storage requirements for artifact storage, plugin Composer vendor dir/config, secret backend, Caddy TLS state, and backups.
+- Laravel Octane state-leak mitigations: `max_requests` cap configured per deployment profile; `SetTenantContextForOctane` middleware verified to reset on response (`terminate()`); Pest contract test that boots Octane, hits the same worker with consecutive requests for different tenants, and asserts no cross-tenant context bleed; Horizon workers exempt (they are short-lived pcntl-forked processes, not persistent Octane workers).
 - Data-tier failure injection test harness used by M13b/M13c.
-- Runbooks for known failure modes: Postgres primary loss, Redis node loss, Redis state corruption, shared storage unavailable, plugin wheelhouse unavailable.
+- Runbooks for known failure modes: Postgres primary loss, Redis node loss, Redis state corruption, shared storage unavailable, plugin Composer vendor dir unavailable.
 
 ## Acceptance criteria
 
@@ -46,7 +48,7 @@ The Scale profile has a tested high-availability story for stateful infrastructu
 - [ ] Planned Postgres switchover completes without data loss; active workers drain or retry in a documented way.
 - [ ] Redis Sentinel / Cluster HA configuration: kill one node; replication continues; no job loss verified by cross-checking the Horizon queue depth against the Postgres `jobs` table.
 - [ ] Redis leader promotion during active deployment jobs does not duplicate provider operations and leaves no `Job` row permanently stuck.
-- [ ] Shared-storage outage for the plugin wheelhouse fails plugin operations closed while existing enabled plugins keep serving from already-loaded code where safe.
+- [ ] Shared-storage outage for the plugin Composer vendor dir fails plugin operations closed while existing enabled plugins keep serving from already-loaded code where safe.
 - [ ] Data-tier runbooks are rehearsed by someone who did not write them; missing command or ambiguous step is fixed before promotion.
 
 ## Test layers
