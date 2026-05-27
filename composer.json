@@ -67,6 +67,7 @@
         "pest:browser": "@php vendor/bin/pest --testsuite=browser",
         "pest:contract": "@php vendor/bin/pest --testsuite=contract",
         "pest:integration": "@php vendor/bin/pest --testsuite=integration",
+        "pest:snapshots": "@php vendor/bin/pest --testsuite=snapshots",
         "pest:tiny": "@php vendor/bin/pest --testsuite=tiny",
         "pint": "@php vendor/bin/pint",
         "pint:test": "@php vendor/bin/pint --test",

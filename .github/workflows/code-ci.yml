@@ -85,6 +85,9 @@ jobs:
       - name: Pest integration
         run: composer pest:integration
 
+      - name: Pest snapshots
+        run: composer pest:snapshots
+
   assets:
     name: Assets
     runs-on: ubuntu-24.04

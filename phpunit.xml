@@ -14,6 +14,9 @@
         <testsuite name="integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <testsuite name="snapshots">
+            <directory>tests/Snapshots</directory>
+        </testsuite>
         <testsuite name="browser">
             <directory>tests/Browser</directory>
         </testsuite>
@@ -21,6 +24,7 @@
             <directory>tests/Tiny</directory>
             <directory>tests/Contract</directory>
             <directory>tests/Integration</directory>
+            <directory>tests/Snapshots</directory>
         </testsuite>
     </testsuites>
     <source>
