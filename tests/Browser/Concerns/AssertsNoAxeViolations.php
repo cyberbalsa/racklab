@@ -6,6 +6,7 @@ namespace Tests\Browser\Concerns;
 
 use Facebook\WebDriver\Exception\ScriptTimeoutException;
 use Laravel\Dusk\Browser;
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\AssertionFailedError;
 
 trait AssertsNoAxeViolations
@@ -68,6 +69,8 @@ trait AssertsNoAxeViolations
                 implode("\n", $summary),
             ));
         }
+
+        Assert::assertCount(0, $violations, 'axe-core reported no accessibility violations.');
 
         return $browser;
     }
