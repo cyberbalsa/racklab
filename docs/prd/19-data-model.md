@@ -6,7 +6,7 @@ This is a high-level model outline, not a final migration design. Three cross-cu
 
 ## Multi-tenancy
 
-`Tenant` is the top-level scoping object — RIT is the default tenant; partner schools or RIT departments running their own catalogs are separate tenants. All tenant-scoped models carry a `tenant` FK; the universal `Job` ledger, `Artifact`, `Deployment`, `Reservation`, and `AuditEvent` additionally carry an **immutable denormalized `tenant_id` column** populated on insert. Denormalisation lets audit queries, retention sweeps, quarantine flows, and cross-tenant accounting partition cleanly without joining through the scoping row. Updating `tenant_id` post-insert raises a model-level validation error.
+`Tenant` is the top-level scoping object — RIT is the default tenant; partner schools or RIT departments running their own catalogs are separate tenants. All tenant-scoped models carry a `tenant` FK; the universal `Job` ledger, `Artifact`, `Deployment`, and `Reservation` additionally carry an **immutable denormalized `tenant_id` column** populated on insert. Denormalisation lets retention sweeps, quarantine flows, and cross-tenant accounting partition cleanly without joining through the scoping row. Updating `tenant_id` post-insert raises a model-level validation error. `AuditEvent` uses a three-column schema (`actor_tenant`, `resource_tenant`, `target_tenant_set`) instead of a single `tenant_id`; see the Audit section below.
 
 Soft isolation is enforced by tenant-aware managers + RBAC, not by schema separation. One Postgres schema, one migration graph, one backup.
 
@@ -112,7 +112,7 @@ The previously-named tables `ScriptArtifact` and `LogArtifact` collapse into `Ar
 - `Deployment` — carries denormalized `tenant_id` (immutable, set at insert).
 - `DeploymentResource`
 - `DeploymentStateTransition`
-- `DeploymentEvent` (carries `id` for SSE `Last-Event-ID` replay)
+- `DeploymentEvent` (carries `id` as a ULID cursor for `broadcast_event_log` replay)
 - `Lease`
 - `Snapshot`
 
@@ -198,7 +198,7 @@ The previously-named tables `ScriptArtifact` and `LogArtifact` collapse into `Ar
 
 - `TLSConfig` (current state of the §System Settings → TLS panel; versioned for rollback)
 - `TLSConfigVersion`
-- `CertEvent` (renewal success/failure events parsed from Traefik logs or `lego` exit, with verbatim upstream error in audit and sanitized text for UI)
+- `CertEvent` (renewal success/failure events from Caddy/FrankenPHP TLS renewal probes or manual cert upload operations, with verbatim upstream error in audit and sanitized text for UI)
 
 ## Audit
 

@@ -59,11 +59,11 @@ Tenancy is enforced in soft (RBAC) mode (PRD §19). Security requirements that f
 
 - **No silent cross-tenant data leaks.** Authorization is **server-owned**: `App\Domain\Tenancy\AccessResolver` (called from controllers / Livewire components / Filament resources) computes the access decision for every row in the response and the envelope carries an explicit per-row `access_provenance` field — one of `tenant_local`, `binding:<binding_id>:<scope_type>`, or `sharing:<sharing_scope>:<owner_tenant>` (spec §5). Each row's provenance is signed (HMAC over `(tenant_id, row_id, actor, provenance, timestamp)` with a server-rotating secret); Livewire 4 components rendering server-side already trust server-computed provenance — no client-side verification needed there. Client-side verification only matters for the vanilla JS islands (xterm/noVNC/Chart/TipTap), which use a tiny vanilla-JS helper to verify the HMAC before rendering and discard rows whose provenance fails verification, but do **not** decide authorization themselves. If the server emits a row without provenance, or with provenance that doesn't pass server-side re-verification on the next round-trip, the island emits a sentinel audit call and the server logs `tenant.cross_access` (`result=denied, reason=missing_or_invalid_provenance`). Legitimate cross-tenant rows (shared catalog templates, multi-tenant binding access) carry the matching provenance and render normally; their access is audited via the standard `tenant.cross_access` path at server-side issuance time, not at client-side render time.
 - **Tenant context on every Horizon job and broadcast event.** Every Horizon job payload and every Reverb-broadcast event carries an explicit `tenant_id`. Worker handlers re-establish the tenant context from the job payload via `BindTenantContext` middleware, not from any inherited request state.
-- **Cross-tenant access audited.** Every cross-tenant read or write (via `multi_tenant` / `global` role bindings, or via `shared_with_tenants` / `global` resource visibility) emits a `tenant.cross_access` audit event with actor tenant, resource tenant, binding scope, binding id, action, and outcome.
+- **Cross-tenant access audited.** Every cross-tenant read emits a `tenant.cross_access` access variant with actor tenant, resource tenant, binding scope, binding id, action, and outcome. Every cross-tenant binding, token, or share-link issuance emits a `tenant.cross_access` issuance variant. Both variants are bidirectionally surfaced to actor tenant and resource-owner tenant.
 - **Issuance containment.** A `multi_tenant` or `global` role binding can only be issued by an actor holding a binding of equal or broader scope. Attempts to escalate emit `tenant.cross_access` with `result=denied, reason=insufficient_scope`.
 - **Quota isolation.** Cross-tenant resource uses count against the **consumer** tenant's quota, never the owner's. Quota tables carry the consumer-tenant FK.
 - **No cross-tenant cache spillover.** Cached query state (Livewire component state, Laravel cache backend) is keyed by tenant; cache invalidation respects tenant boundaries.
-- **Backups partition by tenant.** Per-tenant backup/restore is supported even though the underlying DB is shared (one schema). Backup tooling filters by `tenant_id`.
+- **Backups partition by tenant.** Per-tenant backup/restore is supported even though the underlying DB is shared (one schema). Backup tooling filters by `tenant_id` for most tables; for `AuditEvent` (which uses the three-tenant `actor_tenant` / `resource_tenant` / `target_tenant_set` schema per PRD §19 Audit), the backup query uses `actor_tenant = :tenant OR resource_tenant = :tenant OR :tenant IN target_tenant_set`.
 
 ## Upload security
 
@@ -88,7 +88,7 @@ Requirements:
 - HTML injection blocked unless explicitly trusted by admin policy.
 - CSRF protection for browser flows.
 - Secure cookie settings.
-- Permission checks on every AJAX fragment endpoint and SSE stream.
+- Permission checks on every AJAX fragment endpoint, Reverb channel auth callback, and replay endpoint.
 
 ## Provider Safety
 

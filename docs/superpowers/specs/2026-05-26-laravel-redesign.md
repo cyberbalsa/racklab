@@ -14,13 +14,13 @@ The original RackLab design (Django 5.2 LTS + DRF + React islands via django-vit
 
 This document fixes the architectural shape of the new stack. It is the source of truth for *how* RackLab is built going forward. The PRD remains the source of truth for *what* RackLab does; sections of the PRD that prescribe Python-specific implementation choices are superseded by this document and will be rewritten in a follow-up task tracked by the implementation plan.
 
-At the time this is written, only `docs/` is committed under the new direction — `src/`, `frontend/`, `tests/` etc. in the working tree are leftover artifacts from the previous stack that will be removed when the implementation plan is executed.
+The repo is now cleaned up — the previous stack's `src/`, `frontend/`, `tests/` etc. have been removed. Only `docs/` and the new-direction files remain.
 
 **Relationship to existing specs in `docs/superpowers/specs/`:**
 
 - `2026-05-24-podman-orchestration.md` — **still applies**. The Baseline (Quadlets) + Scale (Nomad + Podman driver) dual-profile model carries forward unchanged; this spec extends it by adding the per-job ephemeral container model in §7.
 - `2026-05-24-proxmox-client-discipline.md` — **still applies**. The typed-client + task-polling + multi-issuer TLS-trust discipline is identical regardless of language; it ports from `proxmoxer` (Python) to a Guzzle-based PHP client.
-- `2026-05-24-server-side-tls-acme.md` — **partially superseded**. Caddy's built-in TLS in FrankenPHP supersedes the *standard public-cert ACME profile* for Baseline. The three remaining issuance profiles (manual cert upload, custom internal CA, ACME-DNS-01 for private domains) still apply for both Baseline and Scale and are configured via Caddy's TLS directives; see §3. The original spec file was removed in the cleanup commit, but its profile semantics carry forward in the new Laravel scaffold's Caddy configuration.
+- `2026-05-24-server-side-tls-acme.md` — **partially superseded**. Caddy's built-in TLS in FrankenPHP supersedes the *standard public-cert ACME profile* for Baseline. The three remaining issuance profiles (manual cert upload, custom internal CA, ACME-DNS-01 for private domains) still apply for both Baseline and Scale and are configured via Caddy's TLS directives; see §3 of this document. The original spec file was removed in the cleanup commit; its profile semantics carry forward in §3 here.
 
 ## 2. Stack (final, verified late May 2026)
 
@@ -34,7 +34,7 @@ At the time this is written, only `docs/` is committed under the new direction �
 | CSS — admin UI | Tailwind v4.1+ + Filament 5 (MIT) vendor styles | Filament v5.6.5 |
 | Vite entries | Separate `app.css` (Tailwind + daisyUI, public) and `filament.css` (Filament vendor, admin) | — |
 | Multi-tenancy scaffolding | spatie/laravel-multitenancy + Filament 5 tenancy (with `isPersistent: true`) | spatie v4.1.3 |
-| Multi-tenancy security | Custom — `tenant_id` columns, global scopes, `@untenanted` Larastan rule, cross-tenant audit, queue context, channel auth | RackLab core |
+| Multi-tenancy security | Custom — `tenant_id` columns, global scopes, `#[Untenanted]` Larastan rule, cross-tenant audit, queue context, channel auth | RackLab core |
 | Real-time | Laravel Reverb (MIT, WebSockets, Pusher protocol) + Echo client + Livewire 4 broadcasting | ^1.10.2 |
 | Real-time replay | Custom `GET /api/v1/replay?channel=…&since=…` endpoint backed by Postgres `broadcast_event_log` table with `ShouldBroadcastAfterCommit` persist-before-broadcast discipline (matches PRD §07 Last-Event-ID semantics; see §7 for the table schema) | RackLab core |
 | Auth — session/cookie | Sanctum | v4.3.2 |
@@ -46,7 +46,7 @@ At the time this is written, only `docs/` is committed under the new direction �
 | Auth — SAML | socialiteproviders/saml2 | v4.8.0 |
 | Queue + jobs | Horizon (Redis) — requires `pcntl` + `posix`. Also runs all script-container orchestration (NOT Octane request workers) | v5.47 |
 | Audit | Custom append-only `AuditEvent` + hash chain (load-bearing core) + owen-it/laravel-auditing as subordinate model-change feed | owen-it v14 |
-| OpenAPI | knuckleswtf/scribe (Scramble as fallback if Scribe annotations get tedious) | Scribe v5.10 |
+| OpenAPI | knuckleswtf/scribe | Scribe v5.10 |
 | File uploads | spatie/livewire-filepond + custom chunk/retry/checksum design for VM/artifact flows | spatie v1.7.1 |
 | Storage backends | Flysystem + plugin family (`racklab/storage-s3`, `racklab/storage-gcs`, `racklab/storage-azure`, `racklab/storage-proxmox-shared`) | Flysystem v3.34 |
 | Observability | Pulse v1.7.3 (in-product) + Telescope v5.20 (dev only) + sentry/sentry-laravel v4.25.1 + spatie/laravel-health v1.39.3 | — |
@@ -115,7 +115,7 @@ At the time this is written, only `docs/` is committed under the new direction �
 - **Baseline (1–~50 users)**: single host. FrankenPHP, Postgres, Redis, Reverb daemon, Horizon workers, container-runtime — all on one box. Systemd units (Quadlets) for non-PHP pieces. FrankenPHP binary runs directly. Backup is a Postgres dump + Redis snapshot + filesystem tar.
 - **Scale (50+ users, multi-host)**: Nomad with the Podman driver schedules everything — FrankenPHP replicas behind a Nomad load balancer, Horizon worker pools, Reverb daemon replicas (sticky sessions via Pusher cluster ID), per-job containers as Nomad batch jobs, Postgres + Redis as managed services (or Nomad-scheduled if self-hosting).
 
-**Supersession**: the Traefik 3.x ACME design in `2026-05-24-server-side-tls-acme.md` is superseded by Caddy's built-in TLS in FrankenPHP for Baseline. For Scale, the four ACME issuance profiles still apply but are configured against Caddy/FrankenPHP rather than Traefik, or fronted by a load balancer that terminates TLS upstream.
+**Supersession**: the Traefik 3.x ACME design in the deleted `2026-05-24-server-side-tls-acme.md` is superseded by Caddy's built-in TLS in FrankenPHP for Baseline. For Scale, the four ACME issuance profiles still apply but are configured against Caddy/FrankenPHP rather than Traefik, or fronted by a load balancer that terminates TLS upstream. The profile details are in §3 of this document.
 
 ## 4. Application layering & repo layout
 
@@ -494,7 +494,7 @@ CREATE TABLE broadcast_event_log (
   payload       JSONB NOT NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
   -- BRIN index on created_at (sweep efficiency), btree on (channel, id) for replay
-  -- GIN on tenant_id for cross-tenant audit query joins
+  -- btree on tenant_id for partition filtering; GIN reserved for JSONB fields like target_tenant_set
 );
 ```
 

@@ -12,7 +12,7 @@ This PRD is split into focused files so each section can be reviewed independent
 4. [Full Target Requirements](04-full-target-requirements.md)
 5. [Architecture](05-architecture.md)
 6. [Auth, RBAC, Sharing, And Tokens](06-auth-rbac-sharing-tokens.md)
-7. [Public API, OpenAPI, And SSE](07-api-openapi-sse.md)
+7. [Public API, OpenAPI, And Real-Time Push](07-api-openapi-sse.md)
 8. [Catalog, Stacks, And Deployments](08-catalog-stacks-deployments.md)
 9. [Neutron-Inspired Networking](09-networking.md)
 10. [Scripting, Automation, And Sandboxing](10-scripting-automation-sandboxing.md)

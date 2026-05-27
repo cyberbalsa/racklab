@@ -19,14 +19,14 @@ The work breaks into 22 shippable milestone slices. The numbered sequence still 
 | M5b | [M05b-networking-managed.md](M05b-networking-managed.md) | Self-service networks, routers, floating IPs, security groups, drift repair/adoption, and writable Proxmox SDN/firewall realization. | 3–4 weeks |
 | M6 | [M06-quotas-scheduling.md](M06-quotas-scheduling.md) | Quota policies, reservations, usage tracking, scheduling/placement, leases. | 3–4 weeks |
 | M7a | [M07a-cloud-init-provisioning.md](M07a-cloud-init-provisioning.md) | Cloud-init provisioning plugin, host-key phone-home, service-key injection, script-worker scaffold, and base script data model. | 2–3 weeks |
-| M7b | [M07b-script-sandbox.md](M07b-script-sandbox.md) | Ephemeral Podman container runner, Ansible Runner integration, openQA-style console automation, approval workflow, runner artifacts. | 3–4 weeks |
+| M7b | [M07b-script-sandbox.md](M07b-script-sandbox.md) | Ephemeral Podman container runner, containerized `racklab/ansible-runner:v1` integration, openQA-style console automation, approval workflow, runner artifacts. | 3–4 weeks |
 | M8 | [M08-docs-plugin.md](M08-docs-plugin.md) | `racklab-docs` plugin per PRD §22 (TipTap WYSIWYG, Markdown source, `racklabRef` cross-link node, `racklab_docs_ref_resolver` hookspec). | 3–4 weeks |
 | M9 | [M09-ssh-plugin.md](M09-ssh-plugin.md) | `racklab-console-ssh` per PRD §23 (Reverb + server-side SSH relay, host-key capture via cloud-init, redacted asciinema recording with abort-on-failure). | 3–4 weeks |
 | M10a | [M10a-ui-component-library.md](M10a-ui-component-library.md) | Livewire 4 + Tailwind/daisyUI component coverage for every PRD §15 Key Screen; Filament admin panel shell; vanilla JS islands wired into Livewire components; Laravel built-in i18n catalogs for en-US complete. | 3–4 weeks |
 | M10b | [M10b-a11y-i18n-hardening.md](M10b-a11y-i18n-hardening.md) | Full WCAG 2.2 AA pass (axe-core + pa11y + manual NVDA/VoiceOver/Orca); one additional locale (es-ES) at 100% coverage; RTL verified via Arabic; high-contrast theme variant; audit-search admin UI; release-blocking a11y gates green. | 2–3 weeks |
 | M11a | [M11a-tls-backend.md](M11a-tls-backend.md) | Caddy/FrankenPHP TLS Baseline integration, self-signed bootstrap certs, dynamic Caddyfile generation, TLS issuance backends, force-renew CLI, audit events. | 1–2 weeks |
-| M11b | [M11b-tls-admin-gui.md](M11b-tls-admin-gui.md) | System Settings → TLS admin GUI, restart/hot-reload UX, ACME status SSE, certificate upload, HSTS controls, E2E TLS journey. | 1–2 weeks |
-| M12 | [M12-scale-profile.md](M12-scale-profile.md) | Nomad + Podman driver Scale profile per the orchestration spec, Horizon queue-depth autoscaling via Prometheus + Nomad Autoscaler, `lego` cert agent for Scale ACME, multi-host runbooks. | 4–6 weeks |
+| M11b | [M11b-tls-admin-gui.md](M11b-tls-admin-gui.md) | System Settings → TLS admin GUI, restart/hot-reload UX, ACME status via Livewire polling/Reverb broadcast, certificate upload, HSTS controls, E2E TLS journey. | 1–2 weeks |
+| M12 | [M12-scale-profile.md](M12-scale-profile.md) | Nomad + Podman driver Scale profile per the orchestration spec, Horizon queue-depth autoscaling via Prometheus + Nomad Autoscaler, Caddy/FrankenPHP TLS or upstream load-balancer TLS for Scale, multi-host runbooks. | 4–6 weeks |
 | M13a | [M13a-ha-data-tier.md](M13a-ha-data-tier.md) | HA Postgres, Redis failure drills, stateful-tier failover runbooks, and data-tier operational tests. | 2–3 weeks |
 | M13b | [M13b-observability.md](M13b-observability.md) | Prometheus metrics, OpenTelemetry traces, Grafana dashboards, alert rules, and observability fault-injection tests. | 1–2 weeks |
 | M13c | [M13c-backup-restore-upgrade.md](M13c-backup-restore-upgrade.md) | Full backup/restore across Postgres, Redis, artifacts, plugin config, secrets, TLS state, plus Baseline/Scale upgrade drills. | 2–3 weeks |
@@ -112,8 +112,8 @@ The graph focuses on hard dependencies; some transitive dependencies are omitted
 - **PRD** (`docs/prd/`) — the long-term product specification. Each milestone references the PRD sections it implements.
 - **Design specs** (`docs/superpowers/specs/`) — the load-bearing technical decisions (Proxmox client, Podman orchestration, TLS/ACME). Milestones reference them where applicable.
 - **Plugin PRDs** (`docs/prd/22-docs-plugin.md`, `docs/prd/23-ssh-plugin.md`) — first-party plugins with their own roadmap milestones (M8 and M9 respectively).
-- **Codex review** (`docs/architecture/2026-05-24-codex-e2e-review.md`) — earlier audit whose findings were folded into the PRD and specs; this roadmap inherits the corrected state.
-- **CI + linting discipline** (`.pre-commit-config.yaml`, `CONTRIBUTING.md`) — every milestone's deliverables must pass through these gates. The TDD discipline in PRD §17 is the non-negotiable test contract.
+- **Codex review** — earlier audit whose findings were folded into the PRD and specs; this roadmap inherits the corrected state. (The source file was removed during the stack-pivot cleanup.)
+- **CI + linting discipline** (pre-commit hooks, `CONTRIBUTING.md`) — every milestone's deliverables must pass through these gates. The TDD discipline in PRD §17 is the non-negotiable test contract.
 
 ## Milestone file contract
 

@@ -21,7 +21,7 @@ RackLab ships first-class container images for:
 - `reverb`
 - `postgres`
 - Optional local `object-storage` / MinIO
-- (Scale only) `traefik`, `lego` cert agent, `nomad-server`, `nomad-client`, `prometheus`, `prometheus-redis-exporter`, `nomad-autoscaler`
+- (Scale only) FrankenPHP/Caddy TLS edge or upstream load balancer (TLS termination), `nomad-server`, `nomad-client`, `prometheus`, `prometheus-redis-exporter`, `nomad-autoscaler`
 
 Worker types use separate entrypoints so the orchestrator (Quadlets in Baseline, Nomad in Scale) can scale and isolate them independently.
 
@@ -59,7 +59,7 @@ Configuration supports:
 - Graceful shutdown for web and workers (worker SIGTERM handler stops pulling new messages, finishes the current one, exits 0).
 - Queue drain support for workers — `WorkerRuntime.drain_replica` and `drain_pool` for both runtime implementations.
 - Explicit migration command (`racklab migrate` for core; `racklab plugin migrate <name>` for plugins per the plugin migration lifecycle).
-- Backup/restore documentation for PostgreSQL, Redis (queue snapshot), artifact storage, plugin config, and ACME state (Traefik `acme.json` and `lego`-managed PEMs). The `broadcast_event_log` and outbox tables are included in the Postgres backup.
+- Backup/restore documentation for PostgreSQL, Redis (queue snapshot), artifact storage, plugin config, and TLS state (Caddy certificate storage and config). The `broadcast_event_log` and outbox tables are included in the Postgres backup.
 - Upgrade documentation for both profiles (Quadlet image refresh + rollback; Nomad rolling deploy via `update` stanza with `auto_revert`).
 - Development docker-compose file as a convenience.
 - Production-oriented Quadlets shipped for Baseline.

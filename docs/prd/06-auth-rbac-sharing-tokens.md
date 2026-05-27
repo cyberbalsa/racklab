@@ -133,7 +133,7 @@ Guest links can grant console, view, or temporary lab access without creating a 
 
 ## API Tokens
 
-RackLab issues tokens on two tracks with different lifetimes and different shapes. See [Public API, OpenAPI, And SSE](07-api-openapi-sse.md) for the wire-protocol details.
+RackLab issues tokens on two tracks with different lifetimes and different shapes. See [Public API, OpenAPI, And Real-Time Push](07-api-openapi-sse.md) for the wire-protocol details.
 
 **Track A — Short-lived signed JWTs** (console grant, share/guest link, short-lived deployment token; optionally also for stateless browser-session bearers in place of a session cookie). RS256-signed via `firebase/php-jwt` (`^7.0`); issued by `App\Auth\Jwt\TrackAIssuer`; verifying public key exposed at `/.well-known/jwks.json` via `App\Http\Controllers\JwksController`. Sidecar services — noVNC websockify proxy, SSH-plugin gateway, the `ProviderConsoleProxy` localhost service — verify Track A JWTs against this JWKS endpoint without holding the signing key. Tokens carry standard `iss`/`aud`/`sub`/`exp`/`iat`/`nbf`/`jti` claims plus RackLab-specific grant id, scope, tenant, project/course constraints, and permission set.
 

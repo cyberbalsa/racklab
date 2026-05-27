@@ -7,7 +7,7 @@
 
 ## Goal
 
-Users can open a console pane to any deployment they have access to: noVNC for KVM graphical consoles, xterm.js for LXC and serial consoles. Both paths share the `ConsoleAccessGrant` flow (short-lived Track A JWT, RBAC-scoped, audit-logged). The browser **never holds Proxmox API credentials**; the `ProviderConsoleProxy` unix-socket service (running in the Horizon worker) is the sole holder of provider creds and proxies on behalf of the `racklab/console-script:v1` container. The console pane chrome (markdown instructions above/beside/below the terminal, keyboard focus-release shortcut, screen-reader announcements) is the canonical layout the SSH plugin reuses in M9.
+Users can open a console pane to any deployment they have access to: noVNC for KVM graphical consoles, xterm.js for LXC and serial consoles. Both paths share the `ConsoleAccessGrant` flow (short-lived Track A JWT, RBAC-scoped, audit-logged). The browser **never holds Proxmox API credentials**; the `ProviderConsoleProxy` unix-socket service (running in the Horizon worker) is the sole holder of provider creds. For **browser-interactive** console use, the Horizon worker itself holds and uses the `ConsoleAccessGrant` to proxy the noVNC/xterm session; the `racklab/console-script:v1` container kind is the per-job ephemeral path for **scripted** console automation (lands in M7b) and is a separate concern. The console pane chrome (markdown instructions above/beside/below the terminal, keyboard focus-release shortcut, screen-reader announcements) is the canonical layout the SSH plugin reuses in M9.
 
 ## In scope
 
@@ -21,7 +21,7 @@ Users can open a console pane to any deployment they have access to: noVNC for K
 
 - M3 Proxmox client + provider plugin (the source of the underlying VNC/term tickets).
 - M2 Horizon worker infrastructure; M4 wires in the `ProviderConsoleProxy` service as a long-lived process alongside the provider worker.
-- M2 `racklab/console-script:v1` container kind registered via `KindResolving` contributor hookspec (container manifest must be registered before M4 can use it).
+- The `racklab/console-script:v1` container kind (for scripted console automation) registers via the `KindResolving` contributor hookspec in M7b. M4 does not depend on it — browser-interactive console in M4 uses the Horizon worker process directly, not a per-job container.
 
 ## Deliverables
 
@@ -31,7 +31,7 @@ Users can open a console pane to any deployment they have access to: noVNC for K
   - Accepts incoming requests from `racklab/console-script:v1` containers (bound-mounted `/run/racklab/console-proxy.sock`).
   - Authenticates each request by verifying the container's narrow-scope Track A JWT (scoped to a single `(tenant, deployment_resource, op_set, expiry)` tuple) against the JWKS.
   - Makes the actual Proxmox API call (`sendkey`, `vncproxy`, `vncwebsocket`, `termproxy`) on the container's behalf.
-  - Proxies the noVNC WebSocket to the browser via Reverb for live-watch through the same trust boundary.
+  - Proxies the noVNC WebSocket to the browser via the app/Caddy WebSocket proxy path (not Reverb — Reverb is for events only; noVNC uses a direct WebSocket connection proxied through the Horizon worker).
   - Never lets containers reach Proxmox directly; container network policy is `via-console-proxy` (not egress).
 - `racklab/console-script:v1` container kind: registered via `KindResolving` contributor; carries only the narrow Track A JWT; communicates exclusively through the bind-mounted `console-proxy.sock`.
 - The `ConsoleAccessGrant` token model: short-lived Track A JWT (5-minute default TTL, configurable), RS256, scoped to a single deployment + a single console kind, issued by `App\Auth\Jwt\TrackAIssuer`, revocable via `jti`.

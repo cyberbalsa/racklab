@@ -14,7 +14,7 @@ RackLab is specified as a full target product. Implementation may be phased late
 - Users can restore from snapshots or deploy fresh from templates.
 - Post-deployment automation can run through cloud-init, console automation, network automation, or advanced code.
 - Public API access can automate every UI capability under the same authorization rules.
-- SSE provides live status for deployments, scripts, logs, workers, providers, approvals, quotas, and audits where appropriate.
+- Reverb WebSocket + `GET /api/v1/replay` provide live status for deployments, scripts, logs, workers, providers, approvals, quotas, and audits where appropriate.
 
 ## System Requirements
 

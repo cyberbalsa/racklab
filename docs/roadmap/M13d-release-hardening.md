@@ -2,7 +2,7 @@
 
 **Status:** Not started.
 **Estimated effort:** 2–3 weeks.
-**Depends on:** M10, M13c.
+**Depends on:** M10a, M10b, M13c.
 **Unblocks:** v1 GA.
 
 ## Goal
@@ -18,7 +18,7 @@ RackLab is ready to tag v1.0. M13d closes the final quality gates: mutation test
 
 ## Dependencies
 
-- M10a — production-quality UI component library + page shells. M10b — full a11y + i18n hardening pass.
+- M10a — production-quality UI component library + page shells. M10b — full a11y + i18n hardening pass. Both M10a and M10b must be complete.
 - M13c — backup/restore/upgrade drills are already passing.
 - Every functional milestone M0–M12 has shipped its test layers.
 
@@ -43,14 +43,14 @@ RackLab is ready to tag v1.0. M13d closes the final quality gates: mutation test
   - `npm audit` clean (no known-vulnerable JS deps).
   - Semgrep clean.
   - no audit-event catalog gaps.
-  - no lint/type overrides in production code (`# type: ignore`, `@phpstan-ignore`, `// eslint-disable` all prohibited in non-generated code per PRD §17).
+  - no lint/type overrides in production code (`@phpstan-ignore`, `@psalm-suppress`, `// eslint-disable` all prohibited in non-generated code per PRD §17).
   - SBOM and license-policy outputs attached to release artifacts.
 - Release checklist and automation:
   - version bump.
   - migration smoke.
   - SBOM generation.
   - image build/provenance.
-  - codex review trigger: `codex review --uncommitted --dangerously-bypass-approvals-and-sandbox` runs as a required pre-release gate; P0/P1 findings block tagging; findings recorded in the release notes.
+  - codex review trigger: `codex exec --dangerously-bypass-approvals-and-sandbox "Review the release candidate. Goal: pre-release gate. Findings: correctness bugs, security issues, missing edge cases. Be terse, prioritize by severity."` runs as a required pre-release gate; P0/P1 findings block tagging; findings recorded in the release notes.
   - release notes.
   - upgrade notes.
   - rollback notes.

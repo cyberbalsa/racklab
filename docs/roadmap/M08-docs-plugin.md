@@ -44,7 +44,7 @@ The `racklab-docs` plugin lands — a built-in document store for guides, how-to
 
 ## Acceptance criteria
 
-- [ ] `php artisan racklab:plugin:install racklab-docs && php artisan racklab:plugin:migrate racklab-docs && php artisan racklab:plugin:enable racklab-docs` succeeds; the plugin's health check reports OK; docs surface appears in the UI.
+- [ ] `php artisan racklab:plugin install racklab/docs-plugin && php artisan racklab:plugin migrate racklab/docs-plugin && php artisan racklab:plugin enable racklab/docs-plugin` succeeds; the plugin's health check reports OK; docs surface appears in the UI.
 - [ ] An instructor creates a document, embeds an image (uploaded), inserts `[[deployment:abc-123]]`, saves; the rendered page shows the document with the image and a live-polling deployment status pill that resolves the deployment label + status from the resolver endpoint.
 - [ ] A student who has access to the document but not to `deployment:abc-123` sees a "redacted reference" pill instead of the status; the audit log records the redacted resolution with sampling per the codex P2 note.
 - [ ] A provider plugin contributes a resolver for `kind=cluster` via the `racklab_docs_ref_resolver` plugin hook; documents can `[[cluster:xyz]]` and the new pill type works.

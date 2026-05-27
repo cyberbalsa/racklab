@@ -31,7 +31,7 @@ Initial plugins:
 - `racklab/plugin-script-cloudinit`
 - `racklab/plugin-script-console-openqa`
 - `racklab/plugin-script-ansible`
-- `racklab/plugin-auth-allauth`
+- `racklab/plugin-auth-sanctum-ext` (optional Sanctum auth extensions, e.g., SSO provider bridging)
 - `racklab/plugin-notify-email`
 - `racklab/plugin-audit-jsonlog`
 - `racklab/plugin-quota-default`

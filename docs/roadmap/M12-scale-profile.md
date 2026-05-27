@@ -38,13 +38,13 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 - Autoscaling enabled on **one pool first** (`provider-worker`) per the spec; other pools run with static `count` until policies are tuned.
 - Per-pool policy parameters (min, max, cooldown, evaluation interval, max-step) live in HCL alongside the Nomad job specs.
 - Graceful scale-down: SIGTERM handler on each worker pool finishes the current message before exiting; Nomad `kill_timeout` exceeds the drain deadline.
-- Poison-job protection: scheduler-reconciler subscribes to `$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.>`; sustained redelivery caps replicas and emits an alert.
+- Poison-job protection: scheduler-reconciler monitors the Horizon `failed` queue + per-job `attempts` count on the `Job` row; sustained failure triggers replica-cap and audit alert via the reconciler's poison-detection logic.
 
 ## Acceptance criteria
 
 - [ ] A **non-HA smoke install** (one Nomad-server host, one worker host; Postgres + Redis as Quadlets on the server host) completes from the runbook in under 45 minutes and proves the Nomad scheduling + autoscaler PromQL path. The smoke install is labeled non-HA explicitly because two hosts can't prove Raft quorum.
 - [ ] A **production install** with the documented **3-node Nomad Raft cluster** + a separate worker host + Redis Sentinel or Cluster Quadlet completes from the runbook in under 90 minutes and proves the HA control-plane (server-failure drill: kill one Nomad server, scheduling continues; kill one Redis node, replication continues).
-- [ ] A user deploys a VM (M2/M3 flow); the deployment lands on a Nomad-scheduled `provider-worker` job; SSE events stream live; the M2 acceptance criteria still pass.
+- [ ] A user deploys a VM (M2/M3 flow); the deployment lands on a Nomad-scheduled `provider-worker` job; Reverb WebSocket events stream live + replay endpoint serves missed events; the M2 acceptance criteria still pass.
 - [ ] Generated a sustained queue-depth spike (200 simultaneous deployment requests); `provider-worker` autoscales up to `max_replicas` within the configured cooldown; backlog drains; replica count returns to baseline.
 - [ ] The warmed-replica metric is observable in Prometheus and is being consumed by the Nomad Autoscaler policy as the denominator in `num_ack_pending / warmed_replicas`.
 - [ ] A deliberately-introduced poison job (always fails) is detected via the Horizon `failed` queue and the per-job `attempts` count on the `Job` row; the affected pool is capped at `poison_cap` by the scheduler-reconciler; an audit alert fires; autoscaler refuses to add more replicas.
@@ -56,7 +56,7 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 
 ## Test layers
 
-- **Tiny / unit**: PromQL warmup arithmetic (warmed-replica denominator handles zero / divide-by-zero); the Nomad job-spec template renderer (`WorkerPoolSpec` → HCL); the poison-job advisory event parser.
+- **Tiny / unit**: PromQL warmup arithmetic (warmed-replica denominator handles zero / divide-by-zero); the Nomad job-spec template renderer (`WorkerPoolSpec` → HCL); the poison-job detection logic (Horizon failed-queue + `Job.attempts` threshold).
 - **Contract**: `NomadWorkerRuntime` passes the same `WorkerRuntime` Protocol suite the `QuadletWorkerRuntime` does (so plugin code is identical across profiles); the warmed-replica exporter against a fake `list_replicas` source.
 - **Integration**: testcontainers-style Nomad-in-docker + Podman driver + a real `provider-worker` job; sustained queue-depth load test verifying autoscale up + down; poison-job detection; failed worker recovery.
 - **E2E** (nightly): full Scale-profile install on two hosts, run the M2/M3 deployment flow against it, verify autoscaling behavior, exercise Caddy TLS issuance against LE staging.

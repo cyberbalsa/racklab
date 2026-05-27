@@ -15,9 +15,9 @@
 - Support cloud-init, openQA-style console automation, network automation, and advanced scripts.
 - Run untrusted student automation in isolated script worker pools.
 - Provide a public API that can automate everything the UI can do.
-- Provide SSE for live deployment, worker, script, quota, and provider status.
+- Provide Reverb WebSocket live status with durable replay via Postgres `broadcast_event_log` for deployment, worker, script, quota, and provider events.
 - Use strong typing, strong linting, strict CI, and Laravel-aware static analysis.
-- Make Docker/Podman Compose the first-class operational model.
+- Baseline uses Podman Quadlets; Scale uses Nomad + Podman; Compose is dev/example only.
 
 ## Non-Goals
 

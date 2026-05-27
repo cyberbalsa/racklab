@@ -11,7 +11,7 @@ System Settings → TLS becomes the canonical operator surface for all routine T
 
 ## In scope
 
-- The full TLS admin GUI surface from the original TLS-ACME spec (§5), redesigned as a Filament 5 admin page in `app/Filament/Pages/TlsSettings.php`.
+- The full TLS admin GUI surface (profiles and fields documented in the M11a backend section and `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §3), implemented as a Filament 5 admin page in `app/Filament/Pages/TlsSettings.php`.
 - The named E2E user journey "admin-configure-ACME-issuer" from PRD §17.
 
 ## Dependencies
@@ -68,6 +68,6 @@ System Settings → TLS becomes the canonical operator surface for all routine T
 
 ## Out of scope (deferred)
 
-- Scale-profile TLS via the `lego` cert agent — M12.
+- Scale-profile TLS (Caddy/FrankenPHP replicas or upstream load-balancer TLS termination) — M12.
 - Custom Caddy admin API dashboard replacement — the RackLab admin GUI's TLS panel is the canonical view; Caddy's admin API stays on `localhost` only.
 - Per-deployment SAN management beyond the install-time domain — a v1.1 concern.

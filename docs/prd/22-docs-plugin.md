@@ -4,7 +4,7 @@
 
 The `racklab-docs` plugin is RackLab's built-in document store: markdown-source guides, how-tos, runbooks, and lab instructions written by instructors and admins, optionally readable by students, and cross-linkable to live RackLab objects.
 
-It serves two purposes. First, it gives operators and instructors a place to write durable, searchable, RBAC-controlled documentation without standing up a separate wiki. Second, it deliberately exercises the full RackLab plugin contract — entry-point discovery, capability declaration, RBAC contributions, audit emission, artifact storage, and defining its own extension point that other plugins can extend — so the plugin system is validated end-to-end against a real consumer.
+It serves two purposes. First, it gives operators and instructors a place to write durable, searchable, RBAC-controlled documentation without standing up a separate wiki. Second, it deliberately exercises the full RackLab plugin contract — Composer manifest discovery, capability declaration, RBAC contributions, audit emission, artifact storage, and defining its own extension point that other plugins can extend — so the plugin system is validated end-to-end against a real consumer.
 
 ## Goals
 
@@ -135,7 +135,7 @@ The plugin demonstrates every piece of the contract from PRD §13. It lives at `
 
 - **Discovery**: registered as a Composer package with `"extra.racklab.plugin": true`; `PluginRegistry` discovers it via this flag, not Laravel's default package auto-discovery.
 - **Capability declaration**: `Manifest.php` declares capability `docs:v1`, supported RackLab API range, the permissions it contributes, the migration set it ships, and its health check (`docs.health` returns "ok" if the database and artifact storage are reachable).
-- **Migration shipping**: contributes Eloquent models (`Doc`, `DocVersion`, `DocImage`) with migrations in `database/migrations/` under the plugin package, namespaced per the standard plugin convention. Migrations run on `racklab plugin enable racklab-docs`.
+- **Migration shipping**: contributes Eloquent models (`Doc`, `DocVersion`, `DocImage`) with migrations in `database/migrations/` under the plugin package, namespaced per the standard plugin convention. Migrations run via `php artisan racklab:plugin migrate racklab/docs-plugin`; `enable` only boots the ServiceProvider and registers listeners.
 - **RBAC contribution**: contributes the six `docs.*` permissions listed above, integrated with Sanctum/Fortify and the share-link primitive (no parallel auth path).
 - **Audit emission**: emits structured audit events for create, edit, publish, share, ref-resolve, image-upload, version-restore, and version-prune. Events follow the audit schema in PRD §14.
 - **Artifact storage integration**: image uploads land in the artifact storage configured per PRD §14 (filesystem or S3 backend, selected via the storage-backend plugin family described in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §6). The plugin does not run its own storage; it calls `ArtifactBackend::store()` and `ArtifactBackend::signedUrl()` from the active storage backend.
@@ -151,8 +151,9 @@ The plugin does **not** declare any worker pools and does not interact with per-
 The plugin ships as a Composer package: `racklab/docs-plugin`. Installation is the standard RackLab plugin path:
 
 ```sh
-racklab plugin install racklab/docs-plugin
-racklab plugin enable racklab/docs-plugin
+php artisan racklab:plugin install racklab/docs-plugin
+php artisan racklab:plugin migrate racklab/docs-plugin
+php artisan racklab:plugin enable racklab/docs-plugin
 ```
 
 The plugin runs as part of the main RackLab FrankenPHP container — no separate container, no separate process. The TipTap editor JS (`@tiptap/core@3.23.6`) is bundled via the Vite entry at `resources/js/islands/tiptap-editor.ts` and served from RackLab's static-files pipeline (or a CDN configured per deployment).

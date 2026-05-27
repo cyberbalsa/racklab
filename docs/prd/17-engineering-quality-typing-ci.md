@@ -8,14 +8,14 @@ RackLab should be built as a production-grade Laravel project with strict qualit
 
 - PHP 8.3+.
 - Composer for package management and lockfile control.
-- Laravel 13.x LTS.
-- Laravel Octane (FrankenPHP driver — ASGI-equivalent persistent worker model; required for the SSH console plugin's WebSocket consumers and any future bidirectional console plugins; SSE remains a controller concern over HTTP).
+- Laravel 13.x.
+- Laravel Octane (FrankenPHP driver — ASGI-equivalent persistent worker model; required for the SSH console plugin's WebSocket consumers and any future bidirectional console plugins; real-time push is handled by Reverb WebSocket + `broadcast_event_log` replay).
 - Laravel Reverb (WebSocket server for real-time; Eloquent-backed event log with `Last-Event-ID` replay semantics).
 - PostgreSQL.
 - Redis (queue, cache, rate-limiting).
 - Laravel REST API layer + Scribe for OpenAPI schema generation.
-- Frontend: Blade templates + Livewire 4 islands for CRUD surfaces + React islands (via Vite) for interactive terminals/viewers. Vite 8 + `@vitejs/plugin-react-swc`. TypeScript strict mandatory for the React tree. See PRD §15 for the full slate.
-- Plugin system via PHP entry points (Composer `extra.racklab` convention) + hookspec event bus.
+- Frontend: Blade templates + Livewire 4 components for CRUD surfaces + vanilla JS islands (via Vite) for interactive terminals/viewers (xterm.js, noVNC, TipTap). TypeScript strict mandatory for the vanilla JS islands. See PRD §15 for the full slate.
+- Plugin system via Composer manifest (`extra.racklab` convention) + `PluginRegistry` + typed hookspec event bus.
 - `phpseclib` / SSH client (SSH console plugin).
 - Pest 4 (test runner at all layers).
 - Laravel model factories (Eloquent).
@@ -167,7 +167,7 @@ Multi-module flows with real infrastructure. Postgres 16 via Testcontainers (PHP
 - Deployment lifecycle: catalog selection → quota reservation → queue dispatch → Horizon pickup → fake provider clone → reconciliation → status reaches `running`. Includes a deliberate worker crash mid-job and verifies the reconciler resumes without re-submitting.
 - Plugin lifecycle: install → migrate → enable → run hook → disable → uninstall. Migration rollback verified end-to-end.
 - Reverb replay: client disconnects mid-stream with `Last-Event-ID = N`; reconnect resumes from `N+1`; events older than the retention window produce the sentinel.
-- TLS admin GUI: switch issuance profile triggers the static-config rewrite + Traefik restart; uploaded cert hot-reloads; force-renew rate-limited to 1/hour.
+- TLS admin GUI: switch issuance profile triggers the Caddyfile rewrite + FrankenPHP/Caddy reload-or-restart; uploaded cert hot-reloads; force-renew rate-limited to 1/hour.
 - SSH plugin: `ConsoleAccessGrant` validated, SSH client connects with pinned host keys, redaction pipeline replaces patterns, abort-on-redaction-failure terminates recording but keeps session live.
 - Universal `Job` ledger: every job kind (provider/script/console/notify/reconciler/docs) writes to `Job` with the right subtype and is observable by reconciliation queries.
 
@@ -180,7 +180,7 @@ Multi-module flows with real infrastructure. Postgres 16 via Testcontainers (PHP
 
 ### End-to-end (E2E)
 
-Full system, browser-driven. Real Postgres, real Redis, real Horizon workers (Quadlets in CI), real Traefik, a fake Proxmox (a small PHP HTTP server speaking the Proxmox API for the endpoints RackLab uses), a real RackLab core. Browser automation via **Laravel Dusk v8.6** with **axe-core** integration (every Dusk test asserts no axe-core violations on the page-load snapshot).
+Full system, browser-driven. Real Postgres, real Redis, real Horizon workers (Quadlets in CI), real FrankenPHP/Caddy, a fake Proxmox (a small PHP HTTP server speaking the Proxmox API for the endpoints RackLab uses), a real RackLab core. Browser automation via **Laravel Dusk v8.6** with **axe-core** integration (every Dusk test asserts no axe-core violations on the page-load snapshot).
 
 Named user journeys covered:
 
@@ -196,7 +196,7 @@ Named user journeys covered:
 
 - `ConsoleProxyAuthDeniedTest` — A console-script container with an expired Track A JWT receives 401 from `console-proxy.sock`; xterm shows the error.
 
-### Frontend (React-island) layers
+### Livewire / JS-island layers
 
 Required for any Livewire 4 component or vanilla JS island:
 

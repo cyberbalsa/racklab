@@ -17,7 +17,7 @@ graph TB
 
     Browser["Browser<br/>Livewire 4 + Alpine.js (Vite + daisyUI)<br/>@xterm/xterm / @novnc/novnc / @tiptap/core"]
 
-    Traefik["Traefik 3.x / FrankenPHP (Caddy)<br/>TLS edge + ACME<br/>LE / custom ACME / uploaded / self-signed"]
+    Edge["FrankenPHP (Caddy built-in TLS)<br/>TLS edge + ACME<br/>LE / custom ACME / uploaded / self-signed"]
 
     subgraph Core [Control plane]
         Web["web (Laravel 13 + Octane + Livewire 4)<br/>RBAC / quota / audit / API / broadcast"]
@@ -65,14 +65,14 @@ graph TB
     SchedW --> Redis
     NotifW --> SMTP
 
-    Traefik -- "HTTP-01 challenge" --> ACME
+    Edge -- "HTTP-01 challenge (built-in ACME)" --> ACME
 
     Web -- "broadcast permission-filtered" --> Browser
 ```
 
 ## 2. Plugin landscape
 
-Plugin families and the initial plugins that exercise them. Plugins are PHP packages discovered via entry points; contracts are `HookDispatcher` events.
+Plugin families and the initial plugins that exercise them. Plugins are Composer packages discovered via `PluginRegistry` (reading `"extra.racklab.plugin": true`); contracts are `HookDispatcher` events.
 
 ```mermaid
 graph LR
@@ -100,7 +100,7 @@ graph LR
         ScriptCI["racklab-script-cloudinit"]
         ScriptOQA["racklab-script-console-openqa"]
         ScriptA["racklab-script-ansible"]
-        AuthA["racklab-auth-allauth"]
+        AuthA["racklab/plugin-auth-sanctum-ext"]
         NotifE["racklab-notify-email"]
         AuditJ["racklab-audit-jsonlog"]
         QuotaD["racklab-quota-default"]
@@ -131,10 +131,10 @@ graph TB
     subgraph Host [Single Podman host - Baseline]
         direction TB
 
-        T["traefik.container<br/>TLS edge"]
+        T["FrankenPHP/Caddy<br/>TLS edge (port 80/443)"]
 
         subgraph App [RackLab app]
-            W["racklab-web.container"]
+            W["racklab-web.container<br/>(Octane workers)"]
             PW["racklab-provider-worker@N.container"]
             SW["racklab-script-worker@N.container<br/>(isolated runner profile)"]
             CW["racklab-console-worker@N.container"]
@@ -166,20 +166,19 @@ graph TB
 
 ## 4. Deployment topology — Scale profile
 
-Multi-host with Nomad scheduling RackLab containers. External cert agent emits PEMs to a shared volume that Traefik replicas consume.
+Multi-host with Nomad scheduling RackLab containers. FrankenPHP/Caddy replicas handle TLS natively, or an upstream load balancer terminates TLS and passes plain HTTP to FrankenPHP.
 
 ```mermaid
 graph TB
     User[Browser]
 
     subgraph Edge [Edge hosts]
-        LB["External load balancer<br/>routes /.well-known/acme-challenge/*<br/>to cert agent"]
-        T1[Traefik replica 1]
-        T2[Traefik replica 2]
-        CA["lego cert agent<br/>(ACME HTTP-01)"]
+        LB["External load balancer (optional)<br/>or FrankenPHP/Caddy with built-in TLS<br/>ACME HTTP-01 / DNS-01 / manual cert"]
+        F1["FrankenPHP replica 1<br/>(Caddy TLS)"]
+        F2["FrankenPHP replica 2<br/>(Caddy TLS)"]
     end
 
-    SharedPEMs[("Shared volume<br/>cert PEMs<br/>NFS / Ceph")]
+    CaddyState[("Caddy TLS state<br/>shared volume or<br/>upstream LB cert config")]
 
     subgraph NomadCP [Nomad control plane]
         NS1[Nomad server 1]
@@ -203,15 +202,13 @@ graph TB
     end
 
     User --> LB
-    LB --> T1
-    LB --> T2
-    LB --> CA
-    CA --> SharedPEMs
-    SharedPEMs -. file watch .-> T1
-    SharedPEMs -. file watch .-> T2
+    LB --> F1
+    LB --> F2
+    F1 -. TLS state .-> CaddyState
+    F2 -. TLS state .-> CaddyState
 
-    T1 --> Pool
-    T2 --> Pool
+    F1 --> Pool
+    F2 --> Pool
 
     Pool <--> PG
     Pool <--> RD
@@ -284,18 +281,18 @@ classDiagram
     class ProxmoxClient {
         <<typed facade>>
         +clone, snapshot, power, ...
-        +Pydantic v2 models
-        +async via asyncio.to_thread
+        +PHP readonly models (App\Providers\Proxmox\Models)
+        +Horizon job dispatch (PollProxmoxTask)
         +task state machine
         +distributed per-node poll cap
         +structured error mapping
     }
 
     class GuzzleProxmoxTransport {
-        <<external>>
-        Guzzle HTTP client
+        <<transport>>
+        Guzzle 7.10 HTTP client
         REST calls to Proxmox API
-        no types, no async
+        raw JSON decoded to arrays
     }
 
     ProviderPlugin <|.. ProxmoxProviderPlugin
@@ -378,7 +375,7 @@ sequenceDiagram
     autonumber
     actor U as Student
     participant B as Browser
-    participant T as Traefik
+    participant T as FrankenPHP/Caddy
     participant W as web (Laravel)
     participant DB as PostgreSQL
     participant RD as Redis (Horizon)
@@ -398,7 +395,7 @@ sequenceDiagram
     W->>DB: insert provider_task row (status=dispatching, idempotency_key)
     W->>DB: insert broadcast_event_log row
     W->>DB: COMMIT
-    W->>RD: ShouldBroadcastAfterCommit dispatch (after commit)
+    W->>RD: afterCommit() job dispatch (after commit)
     W-->>B: 202 Accepted (deployment id)
     B->>RV: Echo subscribe to private-tenant.{tid}.deployment.{did}
     RV-->>B: WebSocket open
@@ -438,7 +435,7 @@ sequenceDiagram
     participant W as web (Laravel + Octane)
     participant DB as PostgreSQL
     participant SD as systemd
-    participant TR as Traefik
+    participant CD as FrankenPHP/Caddy
     participant LE as Let's Encrypt
 
     A->>B: Open System Settings → TLS
@@ -449,21 +446,18 @@ sequenceDiagram
     B->>W: POST /admin/tls
     W->>W: validate (DNS resolves, port 80 reachable, email valid)
     W->>DB: insert tls_config_version row (audit)
-    W->>W: render new static traefik.yml (le resolver, email, storage)
-    W->>W: render new dynamic routes.yml + tls.yml (route uses le resolver)
-    W->>W: atomic write static + dynamic config files
-    W->>SD: systemctl restart traefik
-    SD->>TR: SIGTERM (graceful drain)
-    SD->>TR: start
-    TR->>TR: load static config (le resolver)
-    TR->>TR: load dynamic config (routes use le)
-    TR->>LE: HTTP-01 challenge for {domain}
-    LE-->>TR: validation response
-    LE-->>TR: cert + chain
-    TR->>TR: store in /acme/acme.json
-    W-->>B: SSE status: "Traefik restarted, cert issued, ready"
+    W->>W: render new Caddyfile TLS block (ACME email, staging/production)
+    W->>W: atomic write Caddyfile
+    W->>SD: systemctl reload frankenphp (or restart if required)
+    SD->>CD: SIGUSR1 (graceful reload) or SIGTERM + start
+    CD->>CD: load new Caddyfile TLS config
+    CD->>LE: HTTP-01 challenge for {domain}
+    LE-->>CD: validation response
+    LE-->>CD: cert + chain
+    CD->>CD: store in Caddy certificate storage
+    W-->>B: Livewire poll / Reverb broadcast: "Caddy reloaded, cert issued, ready"
 
-    Note over W,TR: subsequent hot-reload changes (HSTS toggle,<br/>uploaded cert swap, router edits) do not require restart;<br/>Traefik picks them up via file-watch within ~2s.
+    Note over W,CD: subsequent hot-reload changes (HSTS toggle,<br/>uploaded cert swap) do not require restart;<br/>Caddy picks them up via config reload within ~2s.
 ```
 
 ## How these were generated
@@ -473,6 +467,6 @@ Each diagram is a hand-written mermaid block reflecting the design decisions cap
 - `docs/prd/` (the long-term product specification, especially §05 architecture, §13 plugin system, §15 UI/UX, §22 docs plugin, §23 SSH plugin)
 - `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md` (Proxmox client facade)
 - `docs/superpowers/specs/2026-05-24-podman-orchestration.md` (Baseline + Scale + `WorkerRuntime`)
-- `docs/superpowers/specs/2026-05-24-server-side-tls-acme.md` (Traefik + ACME)
+- `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §3 (Caddy/FrankenPHP TLS — supersedes the deleted TLS-ACME spec)
 
 If a diagram drifts from the specs, the specs win — update the diagrams.

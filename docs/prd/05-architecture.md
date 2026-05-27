@@ -61,8 +61,12 @@ RackLab uses a PHP/Laravel control plane with durable async workers behind it.
         │  Proxmox VE cluster │
         │  (REST API via      │
         │  Guzzle from app +  │
-        │  workers + console- │
-        │  script containers) │
+        │  trusted workers    │
+        │  only; console-     │
+        │  script containers  │
+        │  reach only the     │
+        │  ProviderConsole-   │
+        │  Proxy unix socket) │
         └─────────────────────┘
 ```
 

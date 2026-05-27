@@ -148,7 +148,7 @@ From spec §2. **If the spec table changes, update this table with it.**
 | CSS — admin UI | Tailwind v4.1+ + Filament 5 (MIT) vendor styles | Filament v5.6.5 |
 | Vite entries | Separate `app.css` (Tailwind + daisyUI, public) and `filament.css` (Filament vendor, admin) | — |
 | Multi-tenancy scaffolding | spatie/laravel-multitenancy + Filament 5 tenancy (`isPersistent: true`) | spatie v4.1.3 |
-| Multi-tenancy security | Custom — `tenant_id` columns, global scopes, `@untenanted` Larastan rule, cross-tenant audit, queue context, channel auth | RackLab core |
+| Multi-tenancy security | Custom — `tenant_id` columns, global scopes, `#[Untenanted]` Larastan rule, cross-tenant audit, queue context, channel auth | RackLab core |
 | Real-time | Laravel Reverb (MIT, WebSockets, Pusher protocol) + Echo client + Livewire 4 broadcasting | ^1.10.2 |
 | Real-time replay | Custom `GET /api/v1/replay?channel=…&since=…` backed by Postgres `broadcast_event_log` | RackLab core |
 | Auth — session/cookie | Sanctum | v4.3.2 |

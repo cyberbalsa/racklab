@@ -58,7 +58,7 @@ The original PRD §15 jQuery slate was replaced first by React equivalents, and 
 
 ## File uploads
 
-Multi-GB ISOs / OVAs / stack tarballs cannot go through standard multipart — the application server never handles those bytes in production. Two-tier protocol:
+Multi-GB ISOs / OVAs / stack tarballs require careful handling. Standard multipart does not buffer large payloads in PHP; chunked uploads are streamed and coordinated by Laravel so the application server never buffers the entire body. Two-tier protocol:
 
 - **Small / medium files (≤ 50 MB)**: standard multipart via FilePond into the artifact backend.
 - **Large files (≥ 1 GB)**: FilePond chunked upload protocol (`chunkUploads: true` core option; HEAD + PATCH with `Upload-Offset`/`Upload-Length` headers, tus-style — *not* the S3 multipart protocol; single presigned PUT direct-to-S3 caps at 5 GB). Laravel is the upload coordinator for every backend: filesystem backend streams chunks via `fread()` on the incoming stream (never buffering the entire body) under a per-`UploadSession` advisory lock; S3-compatible backend initialises an `S3 CreateMultipartUpload` on first chunk, calls `UploadPart` per FilePond chunk, and `CompleteMultipartUpload` on finalisation. sha256 is computed during streaming for filesystem; post-upload via `GetObject` for S3.
@@ -196,4 +196,4 @@ Requirements:
 
 ## Plugin-shipped UI contributions
 
-Plugins that contribute UI ship their own Livewire components, Blade views, Filament Resources/Pages/Widgets, and vanilla JS island files. Per-plugin CI hooks: ESLint a11y plugin, axe-core in Dusk, Pest browser tests. Plugin components enforce tenant-aware data access and never render cross-tenant data unless the actor's binding scope explicitly allows it.
+Plugins that contribute UI ship their own Livewire components, Blade views, Filament Resources/Pages/Widgets, and vanilla JS island files. Per-plugin CI hooks: axe-core in Dusk (rendered Livewire/Filament pages), Pest browser tests via Laravel Dusk. Plugin components enforce tenant-aware data access and never render cross-tenant data unless the actor's binding scope explicitly allows it.

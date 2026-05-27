@@ -4,7 +4,7 @@
 
 - Which storage backend should be recommended for artifacts in production: filesystem, S3-compatible storage, or both equally?
 - Should RackLab ship a real `openqa`/`os-autoinst` runner plugin early, or start with a native openQA-inspired console automation runner?
-- Which JWT signing algorithm and key management approach should be the default for small installs?
+- What is the right Track A JWT key rotation cadence and grace-period for small installs (RS256 via `firebase/php-jwt` is decided; rotation policy and old-`kid` grace period are not)?
 - How much Proxmox SDN object management should be supported beyond consuming configured networks?
 - Should IPAM be fully internal for v1 networking, delegated to Proxmox where available, or plugin-based from the start?
 - Should direct provider network attachment require instructor/admin approval even when a student role grants the permission?

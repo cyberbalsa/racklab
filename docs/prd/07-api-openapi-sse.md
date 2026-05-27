@@ -161,7 +161,7 @@ CREATE TABLE broadcast_event_log (
   payload       JSONB NOT NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
   -- BRIN index on created_at (sweep efficiency), btree on (channel, id) for replay
-  -- GIN on tenant_id for cross-tenant audit query joins
+  -- btree on tenant_id for partition filtering; GIN reserved for JSONB fields like target_tenant_set
 );
 ```
 

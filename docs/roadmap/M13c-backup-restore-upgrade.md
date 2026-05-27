@@ -35,7 +35,7 @@ Operators can recover RackLab and upgrade it with evidence, not hope. M13c turns
   - integrity verification: manifest version, sha256, schema version, dependency/plugin lock match.
   - restore to a fresh install.
   - partial restore where supported.
-  - explicit refusal when plugin wheels or schema versions are incompatible.
+  - explicit refusal when pinned Composer packages or schema versions are incompatible.
 - Upgrade runbooks:
   - Baseline image refresh via `podman auto-update` with rollback.
   - Scale upgrade via Nomad update stanzas with `auto_revert`.
@@ -50,7 +50,7 @@ Operators can recover RackLab and upgrade it with evidence, not hope. M13c turns
 - [ ] Full restore drill: simulate disk loss on the Postgres host; restore from backup + WAL; verify zero data loss for committed deployments before the backup point.
 - [ ] Redis restore drill: restore from snapshot; pending Horizon jobs are either resumed from the restored queue or explicitly reconciled via the Postgres `jobs` table without duplicate provider operations.
 - [ ] Artifact storage restore drill: deployment artifacts, screenshots/logs, and audit exports referenced by DB rows resolve after restore.
-- [ ] Plugin restore drill: enabled plugins and their pinned wheels/config restore on a fresh install without fetching from the internet.
+- [ ] Plugin restore drill: enabled plugins and their pinned Composer vendor directory/config restore on a fresh install without fetching from the internet.
 - [ ] TLS state restore drill: Baseline Caddy certificate storage restores; HTTPS works after restart without re-issuance (or re-issues cleanly if the stored cert is missing).
 - [ ] Upgrade drill: deploy v1.0.0-like fixture → upgrade to v1.0.1-like fixture with schema/plugin migration → verify rollback path and documented downtime bounds.
 - [ ] Backup archive with tampered sha256 or mismatched schema version is refused with a clear operator error.

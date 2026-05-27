@@ -8,14 +8,14 @@
 ## 1. Decision
 
 1. **Podman is the runtime substrate for RackLab itself** — control plane and all worker pools. Provider backends (the VMs RackLab manages) stay on Proxmox.
-2. **Two deployment profiles, both based on Podman**: a **Baseline profile** using Podman Compose / Quadlets + systemd with no orchestrator, and a **Scale profile** layering HashiCorp Nomad (BSL 1.1) with the Podman task driver on top of the same Podman hosts. The Baseline is the default; the Scale profile is opt-in via configuration.
+2. **Two deployment profiles, both based on Podman**: a **Baseline profile** using Podman Quadlets + systemd (no orchestrator; Compose is a dev/example surface only, not the deployment runtime), and a **Scale profile** layering HashiCorp Nomad (BSL 1.1) with the Podman task driver on top of the same Podman hosts. The Baseline is the default; the Scale profile is opt-in via configuration.
 3. **All worker dispatch goes through an internal `WorkerRuntime` interface.** The rest of RackLab — including every plugin under `docs/prd/13-plugin-system.md` — never imports Nomad or Podman APIs directly. There are two concrete implementations: `QuadletWorkerRuntime` (Baseline) and `NomadWorkerRuntime` (Scale).
 4. **Horizon queue-depth is the primary autoscaling signal** in the Scale profile, sourced via Pulse metrics or a Horizon-status exporter and consumed by Nomad Autoscaler's built-in Prometheus APM plugin for the metric-driven core. The policy-and-discipline layer above the signal — including poison-job detection and per-job-age awareness — uses Horizon's `failed` queue + RackLab's own job state in Postgres, not Prometheus alone (§7).
 5. **No cross-scheduler placement decisions**: Nomad schedules RackLab containers only. RackLab's *provider scheduler* (which decides where a VM lands on Proxmox per `docs/prd/11-quotas-scheduling-placement.md`) is a separate, RackLab-owned concern. The two may exchange read-only operational signals (e.g., provider health affects worker usefulness) but neither makes placement decisions on the other's behalf.
 
 ## 2. Context
 
-The PRD specifies "container-first deployment with Docker Compose or Podman Compose as the primary operations path" and "Kubernetes support is optional and must not drive baseline complexity" (`docs/prd/04-full-target-requirements.md`, `docs/prd/05-architecture.md`). RackLab must scale from 1-2 users on one host to thousands of users across many hosts. Worker pools are separated by responsibility (`provider-worker`, `script-worker`, `console-worker`, `scheduler-reconciler`, `notification-worker`) and must scale horizontally.
+The PRD specifies "Baseline uses Podman Quadlets; Scale uses Nomad + Podman; Compose is dev/example only" and "Kubernetes support is optional and must not drive baseline complexity" (`docs/prd/04-full-target-requirements.md`, `docs/prd/05-architecture.md`). RackLab must scale from 1-2 users on one host to thousands of users across many hosts. Worker pools are separated by responsibility (`provider-worker`, `script-worker`, `console-worker`, `scheduler-reconciler`, `notification-worker`) and must scale horizontally.
 
 The user-stated requirements for orchestration:
 
@@ -60,28 +60,33 @@ A single setting in `racklab.toml` (or env var) selects which `WorkerRuntime` im
 
 ## 4. The `WorkerRuntime` abstraction
 
-`racklab/runtime/__init__.py` exposes the interface that RackLab uses to spawn, scale, drain, and remove workers. The interface is split into two Protocols: a narrow `PluginWorkerRuntime` exposed to plugins, and the full `WorkerRuntime` used by core RackLab, operators, and the autoscaler.
+`App\Domain\Runtime\WorkerRuntime` (PHP interface) exposes the contract that RackLab uses to spawn, scale, drain, and remove workers. The interface is split into two contracts: a narrow `PluginWorkerRuntime` interface exposed to plugins, and the full `WorkerRuntime` interface used by core RackLab, operators, and the autoscaler.
 
 ### 4.1 The contracts
 
-```python
-class PluginWorkerRuntime(Protocol):
-    """Plugin-facing surface. Plugins can declare pools and observe state.
-    They cannot scale, drain, or otherwise direct runtime resource allocation.
-    """
-    async def declare_pool(self, pool: WorkerPoolSpec) -> None: ...
-    async def remove_pool(self, pool_name: str) -> None: ...
-    async def list_replicas(self, pool_name: str) -> list[ReplicaStatus]: ...
-    async def runtime_capabilities(self) -> RuntimeCapabilities: ...
+```php
+interface PluginWorkerRuntime
+{
+    /** Plugin-facing surface. Plugins can declare pools and observe state.
+     *  They cannot scale, drain, or otherwise direct runtime resource allocation.
+     */
+    public function declarePool(WorkerPoolSpec $pool): void;
+    public function removePool(string $poolName): void;
+    /** @return list<ReplicaStatus> */
+    public function listReplicas(string $poolName): array;
+    public function runtimeCapabilities(): RuntimeCapabilities;
+}
 
-
-class WorkerRuntime(PluginWorkerRuntime, Protocol):
-    """Full contract used by RackLab core, operators, and the autoscaler."""
-    async def set_replicas(self, pool_name: str, count: int) -> ScaleResult: ...
-    async def drain_replica(self, pool_name: str, replica_id: str) -> None: ...
-    async def drain_pool(self, pool_name: str) -> None: ...
-    async def host_capacity(self) -> list[HostCapacity]: ...
-    async def healthy(self) -> RuntimeHealth: ...
+interface WorkerRuntime extends PluginWorkerRuntime
+{
+    /** Full contract used by RackLab core, operators, and the autoscaler. */
+    public function setReplicas(string $poolName, int $count): ScaleResult;
+    public function drainReplica(string $poolName, string $replicaId): void;
+    public function drainPool(string $poolName): void;
+    /** @return list<HostCapacity> */
+    public function hostCapacity(): array;
+    public function healthy(): RuntimeHealth;
+}
 ```
 
 Supporting types:
@@ -275,7 +280,7 @@ The Scale profile ships with autoscaling enabled on **one pool first** (default:
 
 Every plugin under `docs/prd/13-plugin-system.md` declares its worker pool needs (if any) as a `WorkerPoolSpec` and calls `runtime.declare_pool(spec)` via the `PluginWorkerRuntime` Protocol (§4.1). No plugin imports Nomad or Podman APIs. The plugin contract version is independent of the runtime kind.
 
-Lint rules in the plugin SDK reject `import nomad`, `from podman`, and similar — `PluginWorkerRuntime` is the only path. Plugin contract tests assert the narrow interface.
+Larastan rules in the plugin SDK reject `use Nomad\`, `use Podman\`, and similar namespaces in plugin packages — `PluginWorkerRuntime` is the only path. Plugin contract tests assert the narrow interface.
 
 ### 8.2 Two schedulers, two scopes
 
@@ -348,7 +353,7 @@ The Baseline profile v1 ships with the Quadlet layout in §5, the `auto-update` 
 - **Image refresh footguns.** `podman auto-update` defaults to `:latest`; if RackLab ships `:latest`, every host updates on its own cadence. Use explicit tags + a controlled rollout from the registry side.
 - **Postgres outside Nomad means Postgres HA is its own project.** v1 has single-instance Postgres. HA Postgres (Patroni, repmgr, etc.) is a future spec.
 - **Horizon exporter cardinality.** Many worker pools with many queue names can produce a label explosion in Prometheus. Tune label policy before adding more pools to the autoscaler.
-- **Plugin authors will try to import Podman or Nomad APIs.** The plugin SDK must make `PluginWorkerRuntime` the obvious and only path; lint rules should reject `import podman` / `from nomad` in plugin packages.
+- **Plugin authors will try to import Podman or Nomad APIs.** The plugin SDK must make `PluginWorkerRuntime` the obvious and only path; Larastan rules should reject `use Podman\` / `use Nomad\` in plugin package namespaces.
 - **ACL and secret handling complexity.** A v1 deployment that gets ACLs/TLS/secrets wrong is worse than one that runs Baseline. The Scale profile install path must produce a securely-configured cluster by default; "secure by default" is a hard requirement, not a documentation footnote.
 - **BSL tail risk.** IBM tightens terms or stops 4-year MPL conversion. Mitigation is fork-from-last-MPL or runtime swap; both are substantial.
 

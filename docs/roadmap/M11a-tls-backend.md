@@ -11,7 +11,7 @@ RackLab's Baseline profile serves HTTPS from first boot and has a backend TLS/AC
 
 ## In scope
 
-- Four ACME issuance profiles (see below) configured via Caddy's TLS directives; semantic carry-forward from the deleted `docs/superpowers/specs/2026-05-24-server-side-tls-acme.md`.
+- Four ACME issuance profiles (see below) configured via Caddy's TLS directives; semantic carry-forward from the superseded TLS-ACME spec (profiles documented in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §3).
 - PRD §18 security — TLS termination, HSTS defaults, secure cookies, OCSP, modern TLS profile.
 - PRD §16 Baseline container operations — FrankenPHP Quadlet and install-script integration.
 
@@ -22,7 +22,7 @@ The four profiles from the original TLS-ACME spec carry forward, configured agai
 1. **Public ACME (Baseline default)** — Caddy's built-in ACME via FrankenPHP handles the standard HTTP-01/TLS-ALPN-01 flow automatically on first request for a real hostname. No extra `lego` agent needed.
 2. **Manual cert upload** — operator supplies a pre-issued cert + key pair; Caddy consumes them via `tls.certificates` directive without restart (hot-reload).
 3. **Custom internal CA / ACME with EAB** — custom ACME directory URL + EAB credentials + uploaded CA bundle; configured in Caddy `tls` block with `ca` + `ca_root` + `eab` directives.
-4. **ACME-DNS-01 for private domains** — DNS challenge provider configured in Caddy; `lego` cert agent writes PEMs to a shared volume consumed by Caddy via `tls.certificates` when Caddy's built-in DNS plugin is not available for the provider.
+4. **ACME-DNS-01 for private domains** — DNS challenge provider configured in Caddy's built-in DNS plugin when available; when Caddy's built-in DNS support does not cover the provider, an external cert agent (e.g., `lego` or equivalent) writes PEMs to a shared volume consumed by Caddy via `tls.certificates`. Prefer Caddy's built-in DNS provider first.
 
 For Scale, all four profiles apply against the Caddy/FrankenPHP replicas, or fronted by an external load balancer that terminates TLS upstream and passes plain HTTP to FrankenPHP.
 
@@ -45,7 +45,7 @@ For Scale, all four profiles apply against the Caddy/FrankenPHP replicas, or fro
   - Public ACME (Caddy built-in): ACME email, staging vs. production toggle.
   - Manual upload: cert path, key path, SAN list.
   - Custom ACME with EAB: directory URL, EAB key ID + HMAC, CA bundle path.
-  - DNS-01 via `lego`: DNS provider slug, credentials, shared PEM volume path.
+  - DNS-01 via Caddy DNS provider (preferred) or external cert agent: DNS provider slug, credentials, shared PEM volume path (if external agent).
 - Artisan command surface:
   - `racklab tls:validate` — validate active TLS config.
   - `racklab tls:render` — render Caddyfile TLS block to stdout.
@@ -86,6 +86,6 @@ For Scale, all four profiles apply against the Caddy/FrankenPHP replicas, or fro
 ## Out of scope (deferred)
 
 - TLS admin GUI and E2E admin journey — M11b.
-- Scale-profile `lego` cert agent and shared PEM volume — M12.
+- Scale-profile TLS (Caddy/FrankenPHP replicas or upstream load-balancer TLS termination) — M12.
 - DNS-01 challenges and wildcard certificates — post-v1 (DNS-01 via `lego` is the M11a groundwork; full wildcard support deferred).
 - HA Caddy/FrankenPHP for Baseline — Baseline remains single-host.

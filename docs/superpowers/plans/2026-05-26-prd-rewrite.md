@@ -534,7 +534,7 @@ grep -nE 'React|Vite|django-vite|Mantine|Radix|LinguiJS|TanStack|Zustand|Zod|Typ
 | --- | --- |
 | Django + React islands via django-vite | Blade + Livewire 4 components (server-rendered, reactive over the wire) + Filament 5 for admin |
 | Mantine + Radix gaps | Tailwind v4 + daisyUI 5 for public UI; Filament 5 for admin (Tailwind 4 internally) |
-| LinguiJS sharing .po with gettext | Laravel's built-in i18n (`resources/lang/*`); `php artisan lang:check` for catalog drift CI |
+| LinguiJS sharing .po with gettext | Laravel's built-in i18n (`resources/lang/*`); `php artisan racklab:lang:check` for catalog drift CI |
 | TanStack Query + Zustand + Zod | Livewire 4 (handles server state) + Alpine.js bundled (client state) + Laravel FormRequest + spatie/laravel-data (server-side typed payloads) |
 | TypeScript 5.5+ strict, React 19+ | Vanilla JS islands compiled via Vite; TypeScript only for the islands themselves (xterm config, noVNC adapter). No React. |
 | `@tiptap/react` + `@mantine/tiptap` for docs editor | `@tiptap/core` vanilla mounted via `wire:ignore` in a Livewire component (public), Filament's built-in TipTap-based `RichEditor` (admin) |
@@ -618,7 +618,7 @@ Replace the custom CI gates:
 - Audit-emission test (carry forward)
 - `@untenanted` gate — Python decorator → PHP attribute `#[Untenanted]` + custom Larastan rule
 - New: `NoBareScopeBypassRule`, `NoSpatieBypassRule`, `NoBareEventDispatchOnHookspecsRule` (from spec §8)
-- New: OpenAPI schema-drift gate, axe-core a11y, `lang:check` i18n drift
+- New: OpenAPI schema-drift gate, axe-core a11y, `racklab:lang:check` i18n drift
 
 Add the CI matrix from spec §8.
 
@@ -641,7 +641,7 @@ audit + npm audit; pre-commit → lefthook/captainhook; pytest →
 Pest 4; Vitest/RTL/Playwright → Pest browser layer via Dusk +
 axe-core. Coverage gates (90/80/70 + named E2E) unchanged. New
 custom Larastan rules and CI gates from spec §8 added (OpenAPI
-schema drift, semgrep, axe-core a11y, lang:check i18n drift).
+schema drift, semgrep, axe-core a11y, racklab:lang:check i18n drift).
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 EOF
@@ -1344,7 +1344,7 @@ grep -nE 'Mantine|Radix|LinguiJS|TanStack|React|Vitest|Playwright|axe-core(?! in
 - [ ] **Step 2: Apply replacements**
 
 - M10a (UI component library): rewrite the goal — from "Mantine + Radix gaps" to "public-facing Livewire 4 + daisyUI 5 component library, plus admin uses Filament 5 stock components." Deliverables: shared Livewire components (Header, Sidebar, DataTable, Modal, Toast, FormControl, etc.), each Tailwind-styled with daisyUI primitives.
-- M10b (a11y/i18n): Lingui → Laravel i18n + `php artisan lang:check` for catalog drift; axe-core via Dusk; vitest-axe → Pest browser layer + axe-core integration; Playwright → Dusk.
+- M10b (a11y/i18n): Lingui → Laravel i18n + `php artisan racklab:lang:check` for catalog drift; axe-core via Dusk; vitest-axe → Pest browser layer + axe-core integration; Playwright → Dusk.
 
 - [ ] **Step 3: Verify and commit**
 
@@ -1374,7 +1374,7 @@ grep -nE 'Traefik|Django|DRF|React|Mantine|lego' /home/fffics/Documents/projects
 
 - [ ] **Step 2: Apply replacements**
 
-- M11a (TLS backend): Caddy in FrankenPHP provides built-in TLS for the standard public-cert ACME flow. Manual cert upload + custom CA + ACME-DNS profiles still managed by RackLab and surfaced through Caddy configuration. The four issuance profiles from the (deleted) TLS spec carry forward in shape.
+- M11a (TLS backend): Caddy in FrankenPHP provides built-in TLS for the standard public-cert ACME flow. Manual cert upload + custom CA + ACME-DNS profiles still managed by RackLab and surfaced through Caddy configuration. The four issuance profiles carry forward in shape; their details are in `docs/superpowers/specs/2026-05-26-laravel-redesign.md` §3 (the original TLS-ACME spec file was deleted in the stack-pivot cleanup).
 - M11b (TLS admin GUI): Filament 5 admin pages for cert management instead of React + Mantine forms.
 
 - [ ] **Step 3: Verify and commit**
