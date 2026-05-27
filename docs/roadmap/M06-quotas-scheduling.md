@@ -46,7 +46,7 @@ Multi-user RackLab is safe to use. Every deployment passes through quota reserva
 
 ## Test layers
 
-- **Tiny / unit (Pest 4)**: quota arithmetic (most-restrictive cap across scopes); reservation TTL logic; scheduler ranking algorithm against fixed inputs; lease-expiration cron-like clock. Mutation testing with Infection runs on the `app/Domain/Quota/` math paths — high-stakes per spec §8.
+- **Tiny / unit (Pest 4)**: quota arithmetic (most-restrictive cap across scopes); reservation TTL logic; scheduler ranking algorithm against fixed inputs; lease-expiration cron-like clock. `pest --mutate` (Pest 4's built-in mutation testing) runs nightly on the `app/Domain/Quota/` math paths — high-stakes per spec §8.
 - **Contract (Pest 4)**: the placement interface against a fake provider with configurable capacity snapshots; the quota-reservation service against the M0 RBAC system; the lease-reaper against a fake clock.
 - **Integration (Pest 4 + Testcontainers PHP)**: concurrent reservation under load (no overcommit) against a real Postgres container; reservation released on deployment failure; lease expiry triggers cleanup end-to-end; provider-drift detection during scheduling.
 - **E2E (Laravel Dusk)**: the M2/M3/M5a flow plus quota exhaustion (student hits the cap and sees the error); admin sets a course quota and a student in the course sees the new effective cap reflected on their dashboard.
