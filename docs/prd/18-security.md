@@ -35,7 +35,7 @@ Requirements:
 Requirements:
 
 - Untrusted code runs only in script worker pools.
-- Hardened `bubblewrap` or `nsjail` runner profiles.
+- Hardened per-job Podman container manifests (network-default-deny, `--read-only`, non-root user, resource caps, cosign-signed images) — see redesign spec §7.
 - No provider credentials in script workers.
 - Network disabled by default.
 - Resource limits.
@@ -62,7 +62,7 @@ Tenancy is enforced in soft (RBAC) mode (PRD §19). Security requirements that f
 - **Cross-tenant access audited.** Every cross-tenant read or write (via `multi_tenant` / `global` role bindings, or via `shared_with_tenants` / `global` resource visibility) emits a `tenant.cross_access` audit event with actor tenant, resource tenant, binding scope, binding id, action, and outcome.
 - **Issuance containment.** A `multi_tenant` or `global` role binding can only be issued by an actor holding a binding of equal or broader scope. Attempts to escalate emit `tenant.cross_access` with `result=denied, reason=insufficient_scope`.
 - **Quota isolation.** Cross-tenant resource uses count against the **consumer** tenant's quota, never the owner's. Quota tables carry the consumer-tenant FK.
-- **No cross-tenant cache spillover.** Cached query results (TanStack Query in React, Django cache backend on the server) are keyed by tenant; cache invalidation respects tenant boundaries.
+- **No cross-tenant cache spillover.** Cached query state (Livewire component state, Laravel cache backend) is keyed by tenant; cache invalidation respects tenant boundaries.
 - **Backups partition by tenant.** Per-tenant backup/restore is supported even though the underlying DB is shared (one schema). Backup tooling filters by `tenant_id`.
 
 ## Upload security
@@ -74,11 +74,11 @@ Large-file uploads (ISOs, OVAs, stack tarballs) go through the FilePond chunked-
 - **Offset locking via Postgres advisory locks** prevents racing chunk writes from interleaving.
 - **TTL cleanup** aborts abandoned sessions (filesystem temp file deletion; S3 `AbortMultipartUpload`).
 - **Quarantine flag (`Artifact.quarantined`) is true on insert**; scanner pipeline (ClamAV for unknown blobs; `qemu-img info` + format validator for ISO/OVA) clears the flag before the artifact becomes referenceable.
-- **MIME magic sniffing** via `python-magic` rejects declared/actual mismatches before scan.
+- **MIME magic sniffing** via PHP's `finfo` (or an equivalent libmagic-backed library) rejects declared/actual mismatches before scan.
 - **Archive / zip-bomb limits** enforce extracted-size caps before processing tarballs and zips.
 - **Filename + path sanitisation**: storage key derived from `transfer_id`; original filename kept as metadata.
 - **sha256 verification**: computed during streaming for filesystem backend; post-upload via `GetObject` for S3. Optional client-declared sha256 is a preflight hint; session refuses to complete if hashes don't match.
-- **No direct-to-storage uploads bypassing Django.** Even when the backend is S3-compatible, Django is the upload coordinator — quota and tenant context are enforced before any storage write.
+- **No direct-to-storage uploads bypassing Laravel.** Even when the backend is S3-compatible, the Laravel app is the upload coordinator — quota and tenant context are enforced before any storage write.
 
 ## Markdown And UI
 

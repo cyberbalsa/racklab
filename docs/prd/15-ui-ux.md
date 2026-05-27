@@ -191,7 +191,7 @@ Requirements:
 - CSP `script-src 'nonce-...'` policy; Vite chunks load via `<script type="module">` with the nonce injected by Laravel's middleware.
 - `style-src` allowance for compiled CSS served from the Vite manifest.
 - HMR `connect-src` allowance in dev only.
-- ESLint + `eslint-plugin-jsx-a11y` + Prettier as a pre-commit hook for the island TypeScript files.
+- ESLint (`eslint:recommended` only; no JSX-specific plugins because there is no React/JSX in the tree) + Prettier as a pre-commit hook for the vanilla JS island TypeScript files under `resources/js/islands/`. a11y is enforced by axe-core in Dusk on the rendered Livewire/Filament pages.
 - Stylelint for any CSS authored by hand outside of Tailwind/daisyUI utilities.
 
 ## Plugin-shipped UI contributions

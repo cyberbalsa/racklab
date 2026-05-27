@@ -62,7 +62,7 @@ The tool chain is Pint (format) + Larastan max level (static analysis) + Rector 
 - **Pint** is configured with the full Laravel preset plus any project-specific rule overrides documented in `pint.json`. Per-file ignores are not permitted; formatting drift fails CI.
 - **Larastan** runs at PHPStan max level project-wide. Custom rules (see below) enforce tenancy, no-overrides, hookspec typing, scope bypass, and bare event dispatch discipline. `treatPhpDocTypesAsCertain = false`; all generics must be properly typed.
 - **Rector** is configured with the `LaravelSetList` and `PHPUnitSetList`. `--dry-run` runs in CI; failures indicate automated-refactor debt that must be resolved.
-- **Frontend linting**: ESLint with `eslint:recommended` + `eslint-plugin-jsx-a11y` (a11y rules — hard requirement, no overrides) + `eslint-plugin-react` + `eslint-plugin-react-hooks`. Prettier formats. Stylelint for any hand-authored CSS. Same no-overrides discipline as PHP — no `// eslint-disable` inline.
+- **Frontend linting**: there is no React/JSX in the tree, so JSX-specific linters (`eslint-plugin-jsx-a11y`, `eslint-plugin-react`, `eslint-plugin-react-hooks`) do not apply. ESLint with `eslint:recommended` runs on the vanilla JS island TypeScript sources under `resources/js/islands/`. Prettier formats those sources. Stylelint covers any hand-authored CSS. Pint formats Blade and PHP. a11y is enforced through axe-core inside every Dusk browser test (see CI section below). Same no-overrides discipline as PHP — no `// eslint-disable` inline.
 - **Markdown linting** uses `markdownlint-cli2` (see `.markdownlint.jsonc`). The disabled-by-default rules are documented inline with the reason; new disabled rules require a documented justification.
 
 ### No overrides
@@ -145,7 +145,7 @@ Module-boundary tests verifying interface contracts. Use in-memory Laravel fakes
 
 - Plugin hookspec events: each hookspec event is tested with at least one fake listener that exercises every parameter shape and every documented failure mode.
 - `WorkerRuntime` Protocol: both Quadlet and Nomad runtimes pass the same Protocol-level test suite. Plugin code is tested against the narrow `PluginWorkerRuntime` interface.
-- `ProxmoxClient` facade: tests run against the typed facade and assert on the public surface; the `proxmoxer`-equivalent boundary is tested separately.
+- `ProxmoxClient` facade: tests run against the typed PHP facade (`App\Providers\Proxmox\Client`) and assert on the public surface; the Guzzle-based HTTP transport boundary is tested separately.
 - Provider plugin interface: every contributed provider plugin runs the same contract suite.
 - Console backend interface: same.
 - API controller round-trip (validation → Eloquent → response) at the API boundary.
@@ -198,14 +198,14 @@ Named user journeys covered:
 
 ### Frontend (React-island) layers
 
-Required for any React island:
+Required for any Livewire 4 component or vanilla JS island:
 
-- **Pest 4 browser layer via Laravel Dusk** with axe-core integration — Dusk drives React islands through the full Laravel stack; axe-core assertions run on every page-load snapshot. Component-level unit tests use Pest with a headless browser against a minimal Laravel test app that mounts the island.
-- **Storybook** with the a11y addon. Every Mantine-composed component lands in Storybook before it lands in an application page; the a11y addon catches issues during component dev.
-- **Zod** schemas for every API response shape the React island consumes; failures are explicit, not silent.
-- **TypeScript strict** must pass for the React tree (CI gates on `tsc --noEmit`).
+- **Pest 4 browser layer via Laravel Dusk** with axe-core integration — Dusk drives Livewire components through the full Laravel stack; axe-core assertions run on every page-load snapshot. Component-level Livewire tests use Pest's Livewire test helpers (`Livewire::test()`) and run without a browser. Vanilla JS islands (xterm, noVNC, Chart, TipTap, FilePond) are covered by Dusk tests of the pages that mount them.
+- **No Storybook.** Livewire components are server-rendered and live inside their host pages; the Pest + Dusk browser layer is the integration-test surface. Filament 5 admin components have their own Filament-native test helpers.
+- **PHP FormRequest validation + spatie/laravel-data DTOs** for every API request/response shape the island consumes; failures are explicit, not silent.
+- **TypeScript strict** must pass for the vanilla JS island TypeScript sources under `resources/js/islands/` (CI gates on `tsc --noEmit`).
 
-Coverage gates for React: 80% on Pest + Dusk unit/component tests; named E2E flows for every user journey.
+Coverage gates for the front-end surface: 80% on Pest 4 component/feature tests (Livewire + Filament) plus Dusk browser tests; named E2E flows for every user journey.
 
 ### Cross-layer rules
 
@@ -252,9 +252,9 @@ Required PR-blocking jobs:
 13. OpenAPI schema-drift gate: `php artisan scribe:generate --no-extraction` then `git diff --exit-code docs/api/openapi.yaml` — PRs that change the route surface must update the committed OpenAPI artifact.
 14. a11y gate — axe-core runs inside every Dusk browser test; new violations fail the build.
 15. i18n catalog drift — `php artisan racklab:lang:check` (custom artisan command, not a Laravel core command) fails if any Blade/Livewire template uses `__('…')` with a string not present in `resources/lang/en/*.php` or vice-versa.
-16. TypeScript strict (`tsc --noEmit`) on the React tree.
-17. ESLint (with `eslint-plugin-jsx-a11y`) on the React tree.
-18. Storybook a11y addon build — fails on any new axe-core violations found during Storybook component rendering.
+16. TypeScript strict (`tsc --noEmit`) on the vanilla JS island TypeScript sources under `resources/js/islands/`.
+17. ESLint (with `eslint:recommended`; no JSX-specific plugins) on the same vanilla JS island sources.
+18. *(reserved)* — the prior Storybook a11y-addon build is no longer relevant; a11y coverage on Livewire/Filament-rendered pages happens through Dusk + axe-core (job 14).
 19. Plugin contract smoke — the `racklab/plugin-hello` reference plugin must install/migrate/enable/disable cleanly against the PR's RackLab API.
 
 Required non-blocking jobs:

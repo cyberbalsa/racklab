@@ -1,9 +1,24 @@
 # Proxmox VE Client Library and Discipline
 
 **Date:** 2026-05-24
-**Status:** Decided.
+**Status:** Decided — body written in Python (pre-Laravel-redesign); discipline carries forward verbatim to the Laravel stack.
 **Decision owner:** Forrest Fuqua
-**Scope:** Which Python library RackLab uses to talk to Proxmox VE, how the rest of the codebase interacts with it, and what operational discipline the provider plugin must enforce.
+**Scope:** How RackLab talks to Proxmox VE, how the rest of the codebase interacts with the client, and what operational discipline the provider plugin must enforce.
+
+> **Note on stack-carry-forward (added 2026-05-27):** This document predates the Laravel redesign (`docs/superpowers/specs/2026-05-26-laravel-redesign.md`). The *discipline* in §3–§10 — typed facade, owned task-polling loop, structured error mapping, multi-issuer TLS trust, integration-test seam, migration-off-the-library plan — applies to the Laravel stack unchanged. The *examples* are Python and use the following mapping when ported to PHP:
+>
+> | Python (this doc) | PHP (Laravel redesign) |
+> | --- | --- |
+> | `proxmoxer` 2.3.0 transport | Guzzle 7.10 HTTP client, no community PHP Proxmox package |
+> | Pydantic v2 typed models | PHP 8 `readonly` classes in `app/Providers/Proxmox/Models/` |
+> | `mypy --strict` + `django-stubs` + `drf-stubs` + `pyright`/`basedpyright` | Larastan PHPStan 2 max level + `declare(strict_types=1)` |
+> | `asyncio.to_thread` around blocking calls | Horizon worker job dispatch (`App\Jobs\PollProxmoxTask`); no in-process async needed because work happens in queue workers |
+> | `ThreadPoolExecutor` for bounded concurrency | Horizon queue concurrency knobs (`--max-processes`, queue tags) |
+> | `racklab/providers/proxmox/client.py` typed facade | `App\Providers\Proxmox\Client` (PHP class), wired in `ProxmoxServiceProvider` |
+> | `MockProxmoxClient` in-tree mock | `FakeProxmoxClient` in `app/Testing/Fakes/` |
+> | `proxmoxer.ResourceException` / `AuthenticationError` mapping | RackLab provider exception types mapped from `GuzzleHttp\Exception\*` |
+>
+> When the PHP scaffold lands (sub-plan `laravel-scaffold`), this spec's §5 (typed facade), §6 (owned polling), §7 (provider-agnostic interface), §8 (TLS trust), §9 (testing seam) translate row-by-row using the table above. Until then, treat the Python body as the canonical discipline statement.
 
 ## 1. Decision
 

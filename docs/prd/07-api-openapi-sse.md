@@ -167,4 +167,4 @@ CREATE TABLE broadcast_event_log (
 
 ### Simple polling fallback
 
-TanStack Query `refetchInterval` (with Page Visibility API backoff) can be used for simple screens where Reverb is not warranted. Reverb channels are preferred for live status, console output, and deployment timelines.
+Livewire's `wire:poll` (with the built-in Page Visibility-aware throttle) can be used for simple screens where a Reverb channel subscription is not warranted. Reverb channels are preferred for live status, console output, and deployment timelines.
