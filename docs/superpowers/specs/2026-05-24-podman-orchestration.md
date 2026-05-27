@@ -10,7 +10,7 @@
 1. **Podman is the runtime substrate for RackLab itself** — control plane and all worker pools. Provider backends (the VMs RackLab manages) stay on Proxmox.
 2. **Two deployment profiles, both based on Podman**: a **Baseline profile** using Podman Compose / Quadlets + systemd with no orchestrator, and a **Scale profile** layering HashiCorp Nomad (BSL 1.1) with the Podman task driver on top of the same Podman hosts. The Baseline is the default; the Scale profile is opt-in via configuration.
 3. **All worker dispatch goes through an internal `WorkerRuntime` interface.** The rest of RackLab — including every plugin under `docs/prd/13-plugin-system.md` — never imports Nomad or Podman APIs directly. There are two concrete implementations: `QuadletWorkerRuntime` (Baseline) and `NomadWorkerRuntime` (Scale).
-4. **NATS queue-depth is the primary autoscaling signal** in the Scale profile, sourced via `nats-io/prometheus-nats-exporter` and consumed by Nomad Autoscaler's built-in Prometheus APM plugin for the metric-driven core. The policy-and-discipline layer above the signal — including poison-job detection and per-message-age awareness — uses NATS JetStream advisory events and RackLab's own job state, not Prometheus alone (§7).
+4. **Horizon queue-depth is the primary autoscaling signal** in the Scale profile, sourced via Pulse metrics or a Horizon-status exporter and consumed by Nomad Autoscaler's built-in Prometheus APM plugin for the metric-driven core. The policy-and-discipline layer above the signal — including poison-job detection and per-job-age awareness — uses Horizon's `failed` queue + RackLab's own job state in Postgres, not Prometheus alone (§7).
 5. **No cross-scheduler placement decisions**: Nomad schedules RackLab containers only. RackLab's *provider scheduler* (which decides where a VM lands on Proxmox per `docs/prd/11-quotas-scheduling-placement.md`) is a separate, RackLab-owned concern. The two may exchange read-only operational signals (e.g., provider health affects worker usefulness) but neither makes placement decisions on the other's behalf.
 
 ## 2. Context
@@ -49,10 +49,10 @@ For multi-host deployments and any deployment that needs queue-driven horizontal
 
 - HashiCorp Nomad runs as a 3-server Raft cluster (or single server in `-dev` mode for evaluation). Each Podman host runs the Nomad agent. Workers are scheduled as Nomad jobs that target the Podman task driver.
 - RackLab's services are still Podman containers; the difference is who decides how many of each run where. Nomad does that in the Scale profile.
-- Nomad Autoscaler consumes Prometheus metrics from `nats-io/prometheus-nats-exporter` (specifically `jetstream_consumer_num_pending` and `jetstream_consumer_num_ack_pending` per consumer) and adjusts the `count` of each worker job per pool. Non-metric inputs (consumer `MaxAckPending`, poison-job signals from JetStream advisories, per-job state in Postgres) feed scaling discipline at the policy layer rather than as raw APM metrics — see §7.
+- Nomad Autoscaler consumes Prometheus metrics from a Horizon-status exporter (specifically `racklab_horizon_queue_depth{queue}` per pool) and adjusts the `count` of each worker job per pool. Non-metric inputs (poison-job signals from the Horizon `failed` queue and per-job attempt counts on the Postgres `Job` row) feed scaling discipline at the policy layer rather than as raw APM metrics — see §7.
 - Per-host limits and resource-aware placement come from Nomad's native scheduler (constraints, bin-packing, spread).
 - The control plane (web tier) runs as a replicated Nomad job behind whichever ingress the operator chose (Caddy, Traefik, nginx — out of scope for this spec).
-- **Postgres, NATS, and the Nomad agent itself remain Quadlets in v1.** This is an operational-simplicity call for v1, not a universal rule: Nomad can usefully supervise some infrastructure services, but for a first cut keeping the data-tier and infra-tier out of Nomad reduces the "what's where" surface a student maintainer must reason about. Postgres in particular should not be moved by Nomad without an HA Postgres story.
+- **Postgres, Redis, and the Nomad agent itself remain Quadlets in v1.** This is an operational-simplicity call for v1, not a universal rule: Nomad can usefully supervise some infrastructure services, but for a first cut keeping the data-tier and infra-tier out of Nomad reduces the "what's where" surface a student maintainer must reason about. Postgres in particular should not be moved by Nomad without an HA Postgres story.
 
 ### 3.3 Choosing the profile
 
@@ -117,13 +117,13 @@ This separation is the practical defense of §8's invariant: plugins cannot infl
 
 Each Podman host running the Baseline profile carries:
 
-- A small number of long-lived Quadlets: `racklab-web.container`, `racklab-postgres.container`, `racklab-nats.container`, and per-pool `racklab-<pool>@.container` template Quadlets.
+- A small number of long-lived Quadlets: `racklab-web.container`, `racklab-postgres.container`, `racklab-redis.container`, `racklab-reverb.container`, and per-pool `racklab-<pool>@.container` template Quadlets.
 - A `racklab-runtime.target` unit grouping them for bulk start/stop.
 - Image-update enforcement via `podman auto-update` timer.
 
 ### 5.2 Operations
 
-- **Install**: clone the repo, run `scripts/baseline-install.sh`. The script copies Quadlets to `/etc/containers/systemd/`, runs `systemctl daemon-reload`, enables and starts the units, and creates a minimal `racklab.toml`. Postgres and NATS initialize on first run.
+- **Install**: clone the repo, run `scripts/baseline-install.sh`. The script copies Quadlets to `/etc/containers/systemd/`, runs `systemctl daemon-reload`, enables and starts the units, and creates a minimal `racklab.toml`. Postgres and Redis initialize on first run.
 - **Scale a pool**: `systemctl enable --now racklab-script-worker@3.service` (or use the RackLab admin UI which calls `QuadletWorkerRuntime.set_replicas`).
 - **Image refresh**: `podman auto-update` runs on a timer; updates pull the configured tag and roll each unit. Rollback is automatic on failed health check post-update.
 
@@ -140,8 +140,9 @@ Each Podman host running the Baseline profile carries:
 - Nomad servers (3 or 5, Raft) run as Quadlets on dedicated or co-located hosts. The user-facing `WorkerRuntime` is `NomadWorkerRuntime`.
 - Nomad clients (one per worker host) run as Quadlets. Each client is configured with the Podman task driver pointing at the local Podman socket.
 - Postgres remains a Quadlet (single instance for v1; HA Postgres is deferred).
-- NATS JetStream remains a Quadlet (or a 3-node cluster of Quadlets — same pattern).
-- `nats-io/prometheus-nats-exporter` runs as a Quadlet on the same host as NATS (or sidecar in the same systemd target).
+- Redis 7 remains a Quadlet (or a Sentinel / Cluster Quadlet configuration for HA — same pattern).
+- The Reverb daemon remains a Quadlet on the same host as Redis (or sidecar in the same systemd target).
+- A Horizon-status exporter Quadlet emits `racklab_horizon_queue_depth{queue}` gauges per pool.
 - Prometheus runs as a Quadlet (any operator-managed Prometheus also works).
 - Nomad Autoscaler runs as a Quadlet (or as a Nomad job; the chicken-and-egg is tolerable because Autoscaler outages don't break the cluster, only the scaling decisions).
 
@@ -177,30 +178,30 @@ This is called out explicitly because the user requirement "configurable per-hos
 
 The Nomad Raft cluster (3 servers) gives HA control of scheduling decisions. The Autoscaler can run with multiple replicas using Nomad-native leader election or a Consul lock; only the leader takes scaling actions. The RackLab control plane (web tier) is itself a Nomad job with `count >= 2` behind an operator-chosen ingress.
 
-## 7. NATS-driven autoscaling — discipline beyond "more backlog → more workers"
+## 7. Horizon queue-depth autoscaling — discipline beyond "more backlog → more workers"
 
 The naive autoscaling rule ("if backlog is high, add a worker") is wrong in several specific ways for RackLab. The Scale profile's autoscaler must enforce all of the following before being considered production-ready.
 
 ### 7.1 Signal interpretation
 
-The two NATS JetStream counters that actually matter:
+The two Horizon queue metrics that matter:
 
-- **`num_pending`** — messages in the stream that this consumer has not yet been delivered. This is **deliverable backlog**.
-- **`num_ack_pending`** — messages delivered to a worker but not yet acked. This is **in-flight work**.
+- **`racklab_horizon_queue_depth{queue, state="pending"}`** — jobs in the queue waiting to be processed. This is **deliverable backlog**.
+- **`racklab_horizon_queue_depth{queue, state="processing"}`** — jobs currently being processed by a worker. This is **in-flight work**.
 
-Both are exposed per consumer by `nats-io/prometheus-nats-exporter` as `jetstream_consumer_num_pending` and `jetstream_consumer_num_ack_pending`. Other useful exporter counters include `num_waiting` (pull requests waiting for delivery) and `num_redelivered` (cumulative redelivery count for the consumer).
+Both are emitted by the Horizon-status exporter Quadlet (reads `php artisan horizon:status --json` or the Horizon Metrics event data on each scrape interval). The exporter also emits `racklab_horizon_queue_depth{state="failed"}` for monitoring failed jobs and `racklab_horizon_queue_depth{state="total"}` for total.
 
 Reading rules the policy must respect:
 
-- **Saturation** is `num_ack_pending >= MaxAckPending`. When the consumer group is at its `MaxAckPending` limit, NATS stops delivering new messages even if `num_pending > 0`. That is the "we need more workers" signal.
-- **Backlog growth** is `num_pending` rising over time. With sufficient worker count, backlog drains; with insufficient count, backlog grows.
-- **Worker idleness** is `num_waiting > 0` and `num_ack_pending < current_replicas` — workers are present and pulling but not all engaged with work.
-- The right primary scaling primitive is "in-flight per replica": `num_ack_pending / max(current_replicas, 1)`. High ratio approaching `MaxAckPending / current_replicas` → scale up. Low ratio with low `num_pending` for a sustained window → scale down.
+- **Saturation** is `processing >= max_processes` for the pool (the configured Horizon `processes` per supervisor). That is the "we need more workers" signal.
+- **Backlog growth** is `pending` rising over time. With sufficient worker count, backlog drains; with insufficient count, backlog grows.
+- **Worker idleness** is `processing < current_replicas * min_processes_per_replica` — workers are present but not all engaged with work.
+- The right primary scaling primitive is "in-flight per replica": `processing / max(current_replicas, 1)`. High ratio approaching `max_processes` per replica → scale up. Low ratio with low `pending` for a sustained window → scale down.
 
 Things that are **not** in Prometheus alone and must be sourced elsewhere:
 
-- **`MaxAckPending` per consumer** is consumer configuration, not a metric. The autoscaler reads it from the NATS API at startup and on consumer reconfig events, caches it in RackLab config, and surfaces it as a static input to autoscaling policies (PromQL templating).
-- **Per-message redelivery count and message age** are not exposed by the exporter as per-message values. Poison-job detection (§7.4) uses JetStream advisory events and RackLab's own per-job state in Postgres, not Prometheus rates.
+- **`max_processes` per Horizon supervisor** is Horizon configuration (in `config/horizon.php`), not a metric. The autoscaler reads it from the RackLab config at startup and surfaces it as a static input to autoscaling policies (PromQL templating).
+- **Per-job attempt count and age** are in the Postgres `jobs` table. Poison-job detection (§7.4) uses the Horizon `failed` queue and RackLab's own per-job state in Postgres, not Prometheus rates.
 
 ### 7.2 Policy parameters per pool
 
@@ -227,7 +228,7 @@ racklab_worker_pool_replicas{pool="provider-worker",state="total"}    4
 
 A replica is `warmed` if `now - started_at >= warm_up_window` AND its health is `healthy`. `warming` is alive-but-not-yet-warmed. `draining` is in graceful drain. `total` is the sum across operational states.
 
-The Nomad Autoscaler policy's PromQL then uses `racklab_worker_pool_replicas{pool="X",state="warmed"}` as the denominator when computing `num_ack_pending / warmed_replicas`. New replicas count toward "we have enough workers" only once they cross the warm-up window — which is the intent of warm-up.
+The Nomad Autoscaler policy's PromQL then uses `racklab_worker_pool_replicas{pool="X",state="warmed"}` as the denominator when computing `processing / warmed_replicas`. New replicas count toward "we have enough workers" only once they cross the warm-up window — which is the intent of warm-up.
 
 The warm-up window is per-pool (in the `WorkerPoolSpec`), defaulting to 30 seconds. Tuning is part of the per-pool policy work in §7.6.
 
@@ -246,8 +247,8 @@ A worker must finish its in-flight message before its container is terminated.
 
 The autoscaler does not infer poison jobs from Prometheus rates alone. It uses:
 
-- **NATS JetStream consumer advisories** (`$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.>`) to detect a specific message that has reached `MaxDeliver`. Subscribed by RackLab's `scheduler-reconciler` worker.
-- **RackLab's per-job state in Postgres** — every NATS message corresponds to a row in the universal `Job` ledger (PRD §19). For provider work the relevant subtype is `ProviderTask`; for script work it is `ScriptRun`; for console work `ConsoleSession`; etc. The reconciler tracks attempt counts on the parent `Job` row regardless of subtype; runaway attempt counts on a single job are the authoritative poison signal, agnostic to which pool consumed it.
+- **Horizon's `failed` queue** — Horizon moves jobs to the `failed` queue after they exceed `maxTries`. The `scheduler-reconciler` worker monitors this queue and cross-references with the Postgres `Job` ledger.
+- **RackLab's per-job state in Postgres** — every Horizon job corresponds to a row in the universal `Job` ledger (PRD §19). For provider work the relevant subtype is `ProviderTask`; for script work it is `ScriptRun`; for console work `ConsoleSession`; etc. The reconciler tracks attempt counts on the parent `Job` row regardless of subtype; runaway attempt counts on a single job are the authoritative poison signal, agnostic to which pool consumed it.
 
 When a poison job is detected, the autoscaler:
 
@@ -259,8 +260,8 @@ When a poison job is detected, the autoscaler:
 
 Scale-to-zero is **not supported** in v1. Reasons:
 
-- Pull-consumer pending counters can disappear or sit at zero when no workers exist, which complicates PromQL (`absent`, divide-by-zero handling) and creates an extra failure mode for a small benefit.
-- Cold-start latency (Podman + Python boot) is seconds-to-tens-of-seconds; for educational-lab UX, a cold worker pool when a student clicks "deploy" is poor.
+- Queue-depth counters can disappear or sit at zero when no workers exist, which complicates PromQL (`absent`, divide-by-zero handling) and creates an extra failure mode for a small benefit.
+- Cold-start latency (Podman + PHP/Laravel Octane boot) is seconds-to-tens-of-seconds; for educational-lab UX, a cold worker pool when a student clicks "deploy" is poor.
 
 Each pool has `min_replicas >= 1` in production. Scale-to-zero is a v2 concern at most.
 
@@ -315,22 +316,22 @@ The Scale profile v1 ships with all of the following and nothing more:
 
 - Nomad cluster (3 servers) provisioned via Quadlets on the operator's chosen hosts.
 - Nomad clients (one per worker host) provisioned via Quadlets, with the Podman task driver installed and pointed at the local Podman socket.
-- Postgres, NATS, and the Nomad agent itself remain Quadlets in v1.
+- Postgres, Redis, and the Nomad agent itself remain Quadlets in v1.
 - Generated Nomad job templates for `web`, `provider-worker`, `script-worker`, `console-worker`, `scheduler-reconciler`, `notification-worker`, rendered from `WorkerPoolSpec` at install/upgrade time.
 - Per-pool `min_replicas` / `max_replicas`, CPU + memory reservations + limits, node-class constraints.
-- `nats-io/prometheus-nats-exporter` + Prometheus + Nomad Autoscaler with the built-in Prometheus APM plugin.
+- Horizon-status exporter Quadlet + Prometheus + Nomad Autoscaler with the built-in Prometheus APM plugin.
 - Autoscaling enabled on **one pool first** (`provider-worker`); other pools run at static `count` until policies are tuned.
 - Cooldown, max scale-up step, max scale-down step, warm-up via PromQL on `started_at`, graceful drain via the `WorkerRuntime` drain methods.
-- NATS JetStream consumer advisory subscription wired up; poison-job protection per §7.4.
-- ACL, TLS, and secret-handling story documented and implemented for v1: Nomad ACLs enabled with role-scoped tokens, Nomad gossip + RPC TLS, Podman socket access restricted to the Nomad client user, NATS auth-enabled, Prometheus scrape with bearer auth or mTLS, and secrets referenced by `WorkerPoolSpec` resolved from RackLab's secret backend (per PRD §18) before being injected into containers.
+- Horizon `failed` queue monitoring wired to the scheduler-reconciler; poison-job protection per §7.4.
+- ACL, TLS, and secret-handling story documented and implemented for v1: Nomad ACLs enabled with role-scoped tokens, Nomad gossip + RPC TLS, Podman socket access restricted to the Nomad client user, Redis `requirepass` auth enabled, Prometheus scrape with bearer auth or mTLS, and secrets referenced by `WorkerPoolSpec` resolved from RackLab's secret backend (per PRD §18) before being injected into containers.
 - Host-drain runbook documented for operator-initiated maintenance.
 
 **Explicitly deferred**:
 
-- Custom NATS APM Go plugin (Prometheus path covers v1).
+- Custom Horizon APM plugin (Prometheus path covers v1).
 - Dynamic bin-packing UI.
 - Multi-region Nomad.
-- HA Postgres, HA NATS, autoscaled databases.
+- HA Postgres, HA Redis, autoscaled databases.
 - Fine-grained per-host max-replica caps per pool (use host-class partitioning in v1).
 - Any plugin-visible Nomad concepts.
 - Scale-to-zero.
@@ -346,7 +347,7 @@ The Baseline profile v1 ships with the Quadlet layout in §5, the `auto-update` 
 - **Two schedulers drift.** The "no cross-scheduler placement decisions" invariant is enforced by code review, not by type signature. A future test in the plugin-contract suite should explicitly assert this.
 - **Image refresh footguns.** `podman auto-update` defaults to `:latest`; if RackLab ships `:latest`, every host updates on its own cadence. Use explicit tags + a controlled rollout from the registry side.
 - **Postgres outside Nomad means Postgres HA is its own project.** v1 has single-instance Postgres. HA Postgres (Patroni, repmgr, etc.) is a future spec.
-- **NATS exporter cardinality.** Many consumer pools with many consumer names can produce a label explosion in Prometheus. Tune label policy before adding more pools to the autoscaler.
+- **Horizon exporter cardinality.** Many worker pools with many queue names can produce a label explosion in Prometheus. Tune label policy before adding more pools to the autoscaler.
 - **Plugin authors will try to import Podman or Nomad APIs.** The plugin SDK must make `PluginWorkerRuntime` the obvious and only path; lint rules should reject `import podman` / `from nomad` in plugin packages.
 - **ACL and secret handling complexity.** A v1 deployment that gets ACLs/TLS/secrets wrong is worse than one that runs Baseline. The Scale profile install path must produce a securely-configured cluster by default; "secure by default" is a hard requirement, not a documentation footnote.
 - **BSL tail risk.** IBM tightens terms or stops 4-year MPL conversion. Mitigation is fork-from-last-MPL or runtime swap; both are substantial.
@@ -355,7 +356,7 @@ The Baseline profile v1 ships with the Quadlet layout in §5, the `auto-update` 
 
 1. Smoke test the Baseline install on a fresh box. Time-to-first-deployment vs the time on a Scale install. Confirm the ratio is what we expect.
 2. Spike `QuadletWorkerRuntime.set_replicas` and `NomadWorkerRuntime.set_replicas` against the same `WorkerPoolSpec`. Confirm the abstraction holds — no leak.
-3. Validate the NATS Prometheus exporter actually emits `num_pending` and `num_ack_pending` for our consumer pattern at the cardinality we'll use.
+3. Validate the Horizon-status exporter actually emits `racklab_horizon_queue_depth` for each queue at the cardinality we'll use.
 4. Implement the graceful drain handler on one worker pool end-to-end. Time a scale-down under load.
 5. Run a poison-job protection test: inject a message that always fails; confirm the autoscaler caps replicas and emits an alert rather than scaling up.
 6. Confirm Nomad's bind-mount-only Podman driver constraint doesn't block any pool we know we'll ship in v1.

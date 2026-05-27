@@ -7,13 +7,13 @@
 
 ## Goal
 
-Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver schedules every RackLab container (`web`, all worker pools) across multiple hosts. NATS-queue-depth-driven autoscaling adjusts worker replica counts via Nomad Autoscaler + Prometheus + the NATS exporter. The Scale profile's TLS uses an external `lego` cert agent writing PEMs to a shared volume that Traefik consumes via `tls.certificates` (sidesteps Traefik OSS's multi-instance ACME restriction). The same `WorkerRuntime` abstraction that powered M2's `QuadletWorkerRuntime` powers M12's `NomadWorkerRuntime`; no plugin code changes.
+Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver schedules every RackLab container (`web`, all worker pools) across multiple hosts. Horizon queue-depth-driven autoscaling adjusts worker replica counts via Nomad Autoscaler + Prometheus (scraping Pulse metrics or a Horizon-status exporter). The Scale profile's TLS uses an external `lego` cert agent writing PEMs to a shared volume that Traefik consumes via `tls.certificates` (sidesteps Traefik OSS's multi-instance ACME restriction). The same `WorkerRuntime` abstraction that powered M2's `QuadletWorkerRuntime` powers M12's `NomadWorkerRuntime`; no plugin code changes.
 
 ## In scope
 
 - `docs/superpowers/specs/2026-05-24-podman-orchestration.md` Scale profile — every section.
 - The `NomadWorkerRuntime` concrete implementation.
-- The NATS-queue-depth autoscaling pipeline: `prometheus-nats-exporter` + Prometheus + Nomad Autoscaler + the warmed-replica metric export.
+- The Horizon queue-depth autoscaling pipeline: Prometheus (scraping Pulse metrics or a Horizon-status exporter) + Nomad Autoscaler + the warmed-replica metric export.
 - The Scale-profile ACME architecture from the TLS spec §6.1 — external `lego` cert agent + shared volume + load-balancer HTTP-01 challenge routing.
 
 ## Dependencies
@@ -27,8 +27,8 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 
 - `NomadWorkerRuntime` implementation: talks to the Nomad API, renders job specs from `WorkerPoolSpec` (using a checked-in `deploy/nomad/templates/worker-pool.nomad.tmpl`), implements `set_replicas` via `count` updates, `drain_replica` and `drain_pool` via graceful evictions.
 - Nomad cluster Quadlets: `nomad-server` (3 servers, Raft), `nomad-client` (one per worker host), each provisioned via Quadlets. Nomad ACLs enabled with role-scoped tokens; gossip + RPC TLS enabled.
-- `prometheus-nats-exporter` Quadlet on the NATS host (or sidecar in the NATS systemd target).
-- Prometheus Quadlet scraping the NATS exporter + the new RackLab warmed-replica gauge.
+- `prometheus-redis-exporter` Quadlet on the Redis host (or sidecar in the Redis systemd target) + a Horizon-status exporter Quadlet emitting `racklab_horizon_queue_depth{queue}` gauges per pool.
+- Prometheus Quadlet scraping the Redis exporter + the Horizon-status exporter + the new RackLab warmed-replica gauge.
 - Nomad Autoscaler Quadlet with the Prometheus APM plugin enabled.
 - The warmed-replica metric exporter in the RackLab web tier (or a small standalone exporter Quadlet): emits `racklab_worker_pool_replicas{pool, state}` gauges per the Podman spec §7.2.
 - `lego` cert agent Quadlet on a dedicated cert-management host: ACME HTTP-01 challenge handler on port 80, writes PEMs to a shared volume mounted into all Traefik replicas.
@@ -42,12 +42,12 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 
 ## Acceptance criteria
 
-- [ ] A **non-HA smoke install** (one Nomad-server host, one worker host; Postgres + NATS as Quadlets on the server host) completes from the runbook in under 45 minutes and proves the Nomad scheduling + autoscaler PromQL path. The smoke install is labeled non-HA explicitly because two hosts can't prove Raft quorum.
-- [ ] A **production install** with the documented **3-node Nomad Raft cluster** + a separate worker host + the 3-node NATS Quadlet cluster completes from the runbook in under 90 minutes and proves the HA control-plane (server-failure drill: kill one Nomad server, scheduling continues; kill one NATS node, replication continues).
+- [ ] A **non-HA smoke install** (one Nomad-server host, one worker host; Postgres + Redis as Quadlets on the server host) completes from the runbook in under 45 minutes and proves the Nomad scheduling + autoscaler PromQL path. The smoke install is labeled non-HA explicitly because two hosts can't prove Raft quorum.
+- [ ] A **production install** with the documented **3-node Nomad Raft cluster** + a separate worker host + Redis Sentinel or Cluster Quadlet completes from the runbook in under 90 minutes and proves the HA control-plane (server-failure drill: kill one Nomad server, scheduling continues; kill one Redis node, replication continues).
 - [ ] A user deploys a VM (M2/M3 flow); the deployment lands on a Nomad-scheduled `provider-worker` job; SSE events stream live; the M2 acceptance criteria still pass.
 - [ ] Generated a sustained queue-depth spike (200 simultaneous deployment requests); `provider-worker` autoscales up to `max_replicas` within the configured cooldown; backlog drains; replica count returns to baseline.
 - [ ] The warmed-replica metric is observable in Prometheus and is being consumed by the Nomad Autoscaler policy as the denominator in `num_ack_pending / warmed_replicas`.
-- [ ] A deliberately-introduced poison message (always fails) is detected via the NATS advisory; the affected pool is capped at `poison_cap`; an audit alert fires; autoscaler refuses to add more replicas.
+- [ ] A deliberately-introduced poison job (always fails) is detected via the Horizon `failed` queue and the per-job `attempts` count on the `Job` row; the affected pool is capped at `poison_cap` by the scheduler-reconciler; an audit alert fires; autoscaler refuses to add more replicas.
 - [ ] Killing a worker mid-scale-up does not corrupt state; the reconciler resumes pending `Job` rows; no operation is silently re-submitted.
 - [ ] The Scale-profile cert flow: `lego` issues a real LE cert; both Traefik replicas pick up the PEM via file-watch within ~5 seconds; HTTPS works through either replica.
 - [ ] Renewal via `lego` cron triggers a fresh PEM; Traefik replicas pick it up without restart.
@@ -73,7 +73,7 @@ Multi-host RackLab deployments work. HashiCorp Nomad with the Podman driver sche
 ## Out of scope (deferred)
 
 - HA Postgres (Patroni / repmgr) — M13a.
-- **HA NATS failure drills** (controlled node-failure tests, automatic primary-promotion timing) — M13a. The v1 Scale profile **does** ship a 3-node NATS Quadlet cluster (it's HA at the broker level), but the operational drills + failover-timing SLOs land with the HA data-tier work in M13a.
+- **HA Redis failure drills** (controlled node-failure tests, automatic primary-promotion timing) — M13a. The v1 Scale profile **does** ship a Redis Sentinel / Cluster Quadlet configuration (it's HA at the broker level), but the operational drills + failover-timing SLOs land with the HA data-tier work in M13a.
 - Multi-region Nomad — out of scope for v1.
 - Cell-level fine-grained per-host max-replica caps per pool — host-class partitioning per the spec §6.3 is the v1 mechanism; finer caps are M13d or later.
 - Scale-to-zero on worker pools — explicit non-goal per the spec §7.5.

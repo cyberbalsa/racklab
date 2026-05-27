@@ -75,9 +75,9 @@ Placement decisions are audit logged with the selected target and reasons.
 
 Scale profiles map onto the two Podman deployment profiles defined in the orchestration spec (Baseline = Quadlets + systemd, single host; Scale = Nomad with the Podman driver, multi-host):
 
-- **Tiny / Baseline (one host)**: Quadlets manage web, workers, PostgreSQL, NATS, and local artifact storage on the same host. Manual replica counts.
+- **Tiny / Baseline (one host)**: Quadlets manage web, workers, PostgreSQL, Redis, and local artifact storage on the same host. Manual replica counts.
 - **Small lab (Baseline)**: separate Proxmox hosts; one Baseline RackLab host with all RackLab services co-located. Worker replica counts adjusted manually as load grows.
-- **Department (Scale)**: Nomad-managed RackLab containers on multiple Podman hosts. Web tier has `count >= 2`; worker pools autoscale on NATS queue depth via Nomad Autoscaler + Prometheus + the NATS exporter. PostgreSQL, NATS, and the Nomad agent itself remain Quadlets per the orchestration spec.
-- **Large (Scale)**: HA PostgreSQL plan, NATS JetStream clustering, fully autoscaled worker pools per queue/provider, isolated untrusted-script-worker hosts (separate Nomad host class), observability stack, documented backup/restore runbook.
+- **Department (Scale)**: Nomad-managed RackLab containers on multiple Podman hosts. Web tier has `count >= 2`; worker pools autoscale on Horizon queue depth via Nomad Autoscaler + Prometheus (scraping Pulse metrics or a Horizon-status exporter). PostgreSQL, Redis, and the Nomad agent itself remain Quadlets per the orchestration spec.
+- **Large (Scale)**: HA PostgreSQL plan, Redis clustering, fully autoscaled worker pools per queue/provider, isolated untrusted-script-worker hosts (separate Nomad host class), observability stack, documented backup/restore runbook.
 
 Compose is not the scaling backend in any profile. Kubernetes support can be added later but is not the default operational assumption.

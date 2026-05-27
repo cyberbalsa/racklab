@@ -15,27 +15,28 @@ graph TB
         Guest[Guest via share link]
     end
 
-    Browser["Browser<br/>Django + React islands (Vite + Mantine)<br/>@xterm/xterm / @novnc/novnc / @tiptap/react"]
+    Browser["Browser<br/>Livewire 4 + Alpine.js (Vite + daisyUI)<br/>@xterm/xterm / @novnc/novnc / @tiptap/core"]
 
-    Traefik["Traefik 3.x<br/>TLS edge + ACME<br/>LE / custom ACME / uploaded / self-signed"]
+    Traefik["Traefik 3.x / FrankenPHP (Caddy)<br/>TLS edge + ACME<br/>LE / custom ACME / uploaded / self-signed"]
 
     subgraph Core [Control plane]
-        Web["web (Django + DRF + Channels)<br/>RBAC / quota / audit / API / SSE"]
-        Postgres[(PostgreSQL<br/>system of record)]
-        NATS[(NATS JetStream<br/>durable jobs + event bus)]
+        Web["web (Laravel 13 + Octane + Livewire 4)<br/>RBAC / quota / audit / API / broadcast"]
+        Postgres[(PostgreSQL<br/>system of record +<br/>broadcast_event_log + outbox)]
+        Redis[(Redis 7<br/>Horizon queue + cache +<br/>session + Reverb backplane)]
+        Reverb[(Reverb daemon<br/>WebSocket push<br/>Pusher protocol)]
         ArtStore[(Artifact storage<br/>filesystem or S3)]
     end
 
     subgraph Workers [Worker pools]
         ProvW[provider-worker]
-        ScriptW["script-worker<br/>nsjail-isolated"]
-        ConsW["console-worker<br/>Channels + asyncssh +<br/>noVNC/term proxy"]
+        ScriptW["script-worker<br/>Podman-isolated"]
+        ConsW["console-worker<br/>xterm.js / noVNC<br/>ProviderConsoleProxy"]
         SchedW[scheduler-reconciler]
         NotifW[notification-worker]
     end
 
     subgraph External
-        Proxmox["Proxmox VE clusters<br/>via proxmoxer 2.3.0 + typed facade"]
+        Proxmox["Proxmox VE clusters<br/>via Guzzle typed facade"]
         VMs[Tenant VMs]
         ACME[ACME issuer]
         SMTP[Email / notify endpoints]
@@ -45,26 +46,28 @@ graph TB
     Browser -- HTTPS/WSS --> Traefik
     Traefik --> Web
     Web --> Postgres
-    Web -- "transaction.on_commit publish" --> NATS
+    Web -- "ShouldBroadcastAfterCommit dispatch" --> Redis
     Web --> ArtStore
 
-    NATS --> ProvW
-    NATS --> ScriptW
-    NATS --> ConsW
-    NATS --> SchedW
-    NATS --> NotifW
+    Redis --> ProvW
+    Redis --> ScriptW
+    Redis --> ConsW
+    Redis --> SchedW
+    Redis --> NotifW
+
+    Redis --> Reverb
+    Reverb -- "WebSocket push" --> Browser
 
     ProvW --> Proxmox
     ConsW --> Proxmox
     ConsW -- "SSH outbound" --> VMs
     SchedW --> Postgres
-    SchedW --> NATS
+    SchedW --> Redis
     NotifW --> SMTP
 
     Traefik -- "HTTP-01 challenge" --> ACME
 
-    Web -- "SSE permission-filtered" --> Browser
-    ConsW -- "WSS xterm.js / noVNC" --> Browser
+    Web -- "broadcast permission-filtered" --> Browser
 ```
 
 ## 2. Plugin landscape
@@ -140,17 +143,20 @@ graph TB
         end
 
         PG["racklab-postgres.container"]
-        NA["racklab-nats.container"]
+        RD["racklab-redis.container"]
+        RV["racklab-reverb.container"]
         AS["racklab-artifact-storage<br/>(bind-mounted dir or S3)"]
 
         T --> W
         W <--> PG
-        W <--> NA
-        PW <--> NA
-        SW <--> NA
-        CW <--> NA
-        SCW <--> NA
-        NW <--> NA
+        W <--> RD
+        W --> RV
+        PW <--> RD
+        SW <--> RD
+        CW <--> RD
+        SCW <--> RD
+        NW <--> RD
+        RD --> RV
         PW --> AS
         CW --> AS
     end
@@ -188,10 +194,11 @@ graph TB
 
     subgraph Infra [Infra hosts - Quadlets]
         PG[(PostgreSQL)]
-        NA[(NATS JetStream)]
+        RD[(Redis 7)]
+        RV[(Reverb daemon)]
         AS[(Artifact storage)]
         Prom[Prometheus]
-        Exp[prometheus-nats-exporter]
+        Exp[prometheus-redis-exporter + Horizon-status exporter]
         AutoS[Nomad Autoscaler]
     end
 
@@ -207,12 +214,14 @@ graph TB
     T2 --> Pool
 
     Pool <--> PG
-    Pool <--> NA
+    Pool <--> RD
     Pool --> AS
+    RD --> RV
+    RV -- "WebSocket push" --> User
 
     NomadCP -. schedules .-> Pool
 
-    NA --> Exp
+    RD --> Exp
     Exp --> Prom
     Prom --> AutoS
     AutoS -- "set count per pool" --> NomadCP
@@ -362,7 +371,7 @@ classDiagram
 
 ## 7. End-to-end sequence — deploy a VM from the catalog
 
-The canonical flow exercising RBAC, quota, NATS, provider-worker, Proxmox, task polling, reconciliation, and SSE.
+The canonical flow exercising RBAC, quota, Horizon, provider-worker, Proxmox, task polling, reconciliation, and Reverb broadcast.
 
 ```mermaid
 sequenceDiagram
@@ -370,9 +379,10 @@ sequenceDiagram
     actor U as Student
     participant B as Browser
     participant T as Traefik
-    participant W as web (Django)
+    participant W as web (Laravel)
     participant DB as PostgreSQL
-    participant N as NATS JetStream
+    participant RD as Redis (Horizon)
+    participant RV as Reverb
     participant PW as provider-worker
     participant PC as ProxmoxClient (facade)
     participant PX as Proxmox VE
@@ -386,16 +396,17 @@ sequenceDiagram
     W->>DB: insert deployment row (status=dispatching)
     W->>DB: insert audit row
     W->>DB: insert provider_task row (status=dispatching, idempotency_key)
+    W->>DB: insert broadcast_event_log row
     W->>DB: COMMIT
-    W->>N: transaction.on_commit publish (after commit)
+    W->>RD: ShouldBroadcastAfterCommit dispatch (after commit)
     W-->>B: 202 Accepted (deployment id)
-    B->>W: GET /api/v1/deployments/{id}/events (SSE)
-    W-->>B: SSE stream open (permission-filtered)
+    B->>RV: Echo subscribe to private-tenant.{tid}.deployment.{did}
+    RV-->>B: WebSocket open
 
-    N->>PW: deliver durable message
+    RD->>PW: Horizon job delivery
     PW->>DB: load provider_task row
     PW->>PC: clone(template, target)
-    PC->>PX: POST /api2/json/.../clone (proxmoxer-backed)
+    PC->>PX: POST /api2/json/.../clone (Guzzle-backed)
     PX-->>PC: UPID
     PC->>PC: parse UPID, persist node+pid+starttime in provider_task
     PC->>DB: UPDATE provider_task (UPID, status=pending)
@@ -407,11 +418,10 @@ sequenceDiagram
     PC->>DB: UPDATE provider_task (final status)
     PC-->>PW: result (TaskResult)
     PW->>DB: UPDATE deployment (status=running or failed)
-    PW->>N: emit progress event
-    PW->>N: ack JetStream
-
-    N-->>W: event arrives on event subject
-    W-->>B: SSE event (filtered through RBAC)
+    PW->>DB: insert broadcast_event_log row (in transaction)
+    PW->>RD: ShouldBroadcastAfterCommit dispatch (after commit)
+    RD->>RV: push to channel
+    RV-->>B: broadcast event (DeploymentStateChanged)
 
     Note over SR,DB: parallel: reconciler polls provider_task rows that<br/>are pending/stuck, recovers orphans, never re-submits;<br/>resumes polling by UPID.
 ```

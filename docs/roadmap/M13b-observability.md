@@ -13,20 +13,20 @@ Every signal in PRD §14 is scrapeable from Prometheus. Tracing covers the deplo
 
 - PRD §14 Observability section.
 - Prometheus exporters for every signal listed in PRD §14.
-- OpenTelemetry tracing end-to-end with correlation-ID propagation across HTTP → Django view → service-layer → NATS publish → worker pickup → provider call → response.
+- OpenTelemetry tracing end-to-end with correlation-ID propagation across HTTP → Laravel controller → service-layer → Horizon dispatch → worker pickup → provider call → response.
 - Grafana dashboards shipped as JSON.
 - Alert rules.
 
 ## Dependencies
 
-- M12 — `prometheus-nats-exporter` + Prometheus + Nomad Autoscaler infrastructure already in place.
+- M12 — `prometheus-redis-exporter` + Horizon-status exporter + Prometheus + Nomad Autoscaler infrastructure already in place.
 - M13a — HA tier exists; alerts on it are meaningful.
 
 ## Deliverables
 
-- Prometheus metric coverage per PRD §14: request latency, error rates, queue depth, worker health, worker concurrency, provider health, deployment latency, deployment failure rates, script failure rates, quota pressure, NATS health, PostgreSQL health, artifact storage health. RackLab's `web` tier exposes a `/metrics` endpoint with all the application metrics; the infrastructure tier (Postgres, NATS, Patroni) uses standard exporters.
-- OpenTelemetry SDK wired across web + workers + the Proxmox client; spans cover HTTP request → service-layer calls → NATS publish (with span context propagated in the message metadata) → worker pickup → provider call.
-- Correlation IDs propagate per PRD §14 across HTTP request, DB job, NATS message, worker execution, provider API task, and UI-visible event.
+- Prometheus metric coverage per PRD §14: request latency, error rates, queue depth, worker health, worker concurrency, provider health, deployment latency, deployment failure rates, script failure rates, quota pressure, Redis health, PostgreSQL health, artifact storage health. RackLab's `web` tier exposes a `/metrics` endpoint with all the application metrics; the infrastructure tier (Postgres, Redis, Patroni) uses standard exporters.
+- OpenTelemetry SDK wired across web + workers + the Proxmox client; spans cover HTTP request → service-layer calls → Horizon dispatch (with span context propagated in the job payload) → worker pickup → provider call.
+- Correlation IDs propagate per PRD §14 across HTTP request, DB job, Horizon job, worker execution, provider API task, and UI-visible event.
 - Grafana dashboards (shipped as JSON in `deploy/grafana/dashboards/`):
   - System health overview.
   - Provider health (per provider).
@@ -40,10 +40,10 @@ Every signal in PRD §14 is scrapeable from Prometheus. Tracing covers the deplo
   - Provider down (any provider plugin's health check reports unhealthy for >2m).
   - Cert-near-expiry-without-renewal (any cert <14d to expiry with no successful renewal).
   - Queue-depth-sustained (worker pool's pending count above its `max_replicas`-derived ceiling for >5m).
-  - Poison-job-detected (`$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.>` event seen).
+  - Poison-job-detected (Horizon `failed` queue depth exceeds threshold and per-job `attempts` count on the `Job` row exceeds `poison_threshold` for a single job).
   - Worker-pool-unhealthy (any worker pool's replica count below `min_replicas` for >5m).
   - HA Postgres failover started / completed.
-  - NATS node lost / recovered.
+  - Redis node lost / recovered.
 
 ## Acceptance criteria
 
@@ -56,7 +56,7 @@ Every signal in PRD §14 is scrapeable from Prometheus. Tracing covers the deplo
 ## Test layers
 
 - **Tiny / unit**: metric-emitter helpers (label sanitization, value bounds); correlation-ID propagation through middleware.
-- **Contract**: the OTel SDK integration at the Django middleware boundary + the NATS-publish span propagation; alert-rule unit tests using `promtool`'s test syntax.
+- **Contract**: the OTel SDK integration at the Laravel middleware boundary + the Horizon-dispatch span propagation; alert-rule unit tests using `promtool`'s test syntax.
 - **Integration**: end-to-end trace verification against testcontainers + Jaeger; alert firing under fault injection.
 - **E2E**: a deployment from the browser produces a trace that includes every span across web + worker + provider; the dashboards render with real data.
 

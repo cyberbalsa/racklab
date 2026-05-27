@@ -8,7 +8,7 @@
 - Let instructors publish stacks, deploy stacks for rosters, and manage student deployments created in a course context.
 - Support project isolation, sharing, and self-service RBAC.
 - Support strong audit logging for all meaningful user, system, provider, token, network, script, and admin actions.
-- Use Laravel, PostgreSQL, NATS JetStream, Proxmox, and Composer.
+- Use Laravel, PostgreSQL, Redis (Horizon), Reverb, Proxmox, and Composer.
 - Make Proxmox the first provider while keeping the provider model replaceable.
 - Support multiple Proxmox servers or clusters and spread load across them.
 - Support Neutron-inspired networking concepts without requiring OpenStack.

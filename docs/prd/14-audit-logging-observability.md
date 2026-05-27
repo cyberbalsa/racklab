@@ -144,7 +144,7 @@ Tenancy (per PRD §19):
 Logging requirements:
 
 - Structured JSON logs.
-- Correlation IDs across HTTP request, DB job, NATS message, worker execution, provider API task, and UI-visible event.
+- Correlation IDs across HTTP request, DB job, Horizon job, worker execution, provider API task, and UI-visible event.
 - High-value audit events stored in PostgreSQL.
 - Verbose job logs/artifacts stored in object/file storage with metadata in PostgreSQL. The storage backend is a plugin contract (PRD §13 "Storage backend contract"); the core ships a filesystem backend, S3 / GCS / Azure backends are plugins. Backends emit pipeline hooks at every state change (PRD §13 "Hookspec Catalog" → Storage pipeline).
 - Secret redaction for tokens, passwords, cloud-init sensitive fields, provider credentials, and script secrets.
@@ -165,7 +165,7 @@ Required signals:
 - Deployment failure rates.
 - Script failure rates.
 - Quota pressure.
-- NATS health.
+- Redis health.
 - PostgreSQL health.
 - Artifact storage health.
 

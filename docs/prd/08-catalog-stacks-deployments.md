@@ -64,7 +64,7 @@ Wizard responsibilities:
 2. RackLab validates RBAC, quota, provider capability, network policy, script approval, and lease policy.
 3. Scheduler reserves quota and provider capacity.
 4. Deployment, job, and audit records are persisted.
-5. Job is published to NATS JetStream.
+5. Job is dispatched to the Horizon queue (Redis-backed) after the database transaction commits.
 6. Provider worker creates, clones, restores, or updates resources.
 7. Script workers render cloud-init, run console automation, or run network automation.
 8. Progress events are persisted and broadcast.

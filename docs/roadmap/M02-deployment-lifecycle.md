@@ -7,12 +7,12 @@
 
 ## Goal
 
-Get the end-to-end deployment loop running against a **fake provider** so every piece of the control plane is exercised before real provider integration in M3. After M2, a logged-in user clicks "Deploy" on a catalog item, an HTTP request becomes a durable NATS message, a `provider-worker` picks it up, advances the deployment state machine, broadcasts real-time progress via Reverb, and the deployment lands in a `running` state. The fake provider is a PHP in-process implementation that simulates clone latency, occasional failures, and the task-id model — enough to prove the loop without depending on Proxmox.
+Get the end-to-end deployment loop running against a **fake provider** so every piece of the control plane is exercised before real provider integration in M3. After M2, a logged-in user clicks "Deploy" on a catalog item, an HTTP request dispatches a durable Horizon job, a `provider-worker` picks it up, advances the deployment state machine, broadcasts real-time progress via Reverb, and the deployment lands in a `running` state. The fake provider is a PHP in-process implementation that simulates clone latency, occasional failures, and the task-id model — enough to prove the loop without depending on Proxmox.
 
 ## In scope
 
 - PRD §04 product requirements (the deployment-lifecycle slice).
-- PRD §05 architecture (the web + provider-worker + NATS + scheduler-reconciler flow).
+- PRD §05 architecture (the web + provider-worker + Horizon + scheduler-reconciler flow).
 - PRD §07 API + OpenAPI + broadcasting (the `since=<ULID>` replay landed in PRD; M2 implements it end-to-end via Reverb + `broadcast_event_log`).
 - PRD §08 catalog, stacks, and deployments.
 - PRD §14 audit + observability (the deployment-domain events).
@@ -23,7 +23,7 @@ Get the end-to-end deployment loop running against a **fake provider** so every 
 
 - M0 plugin framework, `Job` model, audit subsystem.
 - M0 `WorkerRuntime` Protocol — M2 ships the `QuadletWorkerRuntime` concrete implementation (Quadlet generation + systemd D-Bus bindings) so the provider-worker can actually run.
-- M0 NATS JetStream integration was deferred from M0 — M2 picks it up. NATS in dev runs as a Quadlet under systemd or via testcontainers in CI.
+- M0 ships the Horizon + Postgres outbox discipline; M2 ships the production Redis Quadlet (Baseline) and wires Reverb for live broadcast. In dev, Redis runs as a Quadlet under systemd or via testcontainers in CI.
 - M1 auth so deployment requests have an actor.
 
 ## Deliverables
@@ -31,7 +31,7 @@ Get the end-to-end deployment loop running against a **fake provider** so every 
 - `app/Domain/Catalog/` Laravel module: `CatalogItem`, `CatalogVersion`, `StackDefinition`, `StackComponent`, `ConsoleInstructionPanel`, `CatalogApproval`. The catalog model supports singleton VMs and multi-VM stacks per PRD §08.
 - `app/Domain/Deployments/` Laravel module: `Deployment`, `DeploymentResource`, `DeploymentStateTransition`, `DeploymentEvent` (with the `ulid` field for `since=<ULID>` replay), `Snapshot`, `Lease` (basic model + expiry sweep only; quota-coupled lease limits land in M6).
 - `Job` subtypes wired (`app/Domain/Jobs/`): `ProviderTask` model (no Proxmox-specific fields yet; M3 fills them in).
-- `provider-worker` pool process: NATS JetStream consumer, dispatches to provider plugins via typed hookspec event classes (`app/Events/Hookspecs/Provider/`), persists state to the `Job` ledger. Worker pool managed by **Horizon** (Redis-backed); pcntl/posix required.
+- `provider-worker` pool process: Horizon job consumer (Redis-backed), dispatches to provider plugins via typed hookspec event classes (`app/Events/Hookspecs/Provider/`), persists state to the `Job` ledger. Worker pool managed by **Horizon**; pcntl/posix required.
 - `scheduler-reconciler` worker: polls `Job` rows in `pending` state past their deadline, resumes polling for stuck tasks, repairs orphaned deployments. Runs as a Horizon worker queue.
 - `racklab-provider-fake` plugin: implements the full Provider Protocol with configurable latency, jitter, and failure injection. Lives in the main repo so test infrastructure has access; ships as an installable plugin so dev deployments can use it.
 - `QuadletWorkerRuntime` concrete implementation: writes Quadlet files to `/etc/containers/systemd/`, calls `systemctl daemon-reload` and `systemctl start/stop` via the D-Bus API.
@@ -55,12 +55,12 @@ Get the end-to-end deployment loop running against a **fake provider** so every 
 
 - **Tiny / unit** (Pest 4): catalog template rendering; deployment state-machine transitions; idempotency-key matching; broadcast event ULID sequencing; `since=<ULID>` replay logic (events older than the window produce the sentinel).
 - **Contract** (Pest 4): the provider Protocol against the fake provider; the `QuadletWorkerRuntime` Protocol against a fake systemd D-Bus; the Laravel Echo broadcast consumer against fake event streams; idempotency at the Laravel controller boundary.
-- **Integration** (Pest 4): full deployment flow against testcontainers Postgres + NATS + the fake provider running in-process. Horizon worker crash + reconciler resume. Broadcast reconnect with `since=<ULID>` replay. Multi-VM stack with mixed states.
+- **Integration** (Pest 4): full deployment flow against testcontainers Postgres + Redis + the fake provider running in-process. Horizon worker crash + reconciler resume. Broadcast reconnect with `since=<ULID>` replay. Multi-VM stack with mixed states.
 - **Browser E2E** (Dusk + axe-core): a logged-in user deploys a fake-provider catalog item from the dashboard, watches it progress via Laravel Echo, snapshots it, restores from the snapshot, releases it. axe-core runs on every page; a11y is held to the WCAG 2.2 AA baseline.
 
 ## Risks / open questions
 
-- **NATS JetStream durability config**: what consumer / stream / retention policy ships as the default? Aggressive retention costs disk; lax retention loses events. Probably 24-hour retention with a configurable override.
+- **Outbox + broadcast_event_log retention**: the `broadcast_event_log` table ships with a 24-hour sweep window (a configurable default). The outbox table is drained by the outbox-drainer Horizon job after each dispatch; rows older than the configurable drain TTL are reaped by a separate sweep job. Aggressive retention costs disk on high-event deployments; lax retention delays reaper cleanup.
 - **The fake provider's failure modes**: the more realistic it is, the more bugs it catches in M3 integration. Must include: transient 5xx, connection refused before request body sent (the "safe-to-retry" case in the Proxmox spec §5), task-id returned then provider becomes unreachable (the node-loss case), task completes successfully but the response is malformed.
 - **Stack deployments and partial failure**: if component 1 succeeds and component 2 fails, what's the rollback policy? Per PRD §08, deployments reach "partially ready" — codify this in the state machine before M3.
 - **Broadcast replay storage**: the per-channel retention window of 24h is reasonable for live ops but expensive for `DeploymentEvent` history. Tune the retention sweep so old `DeploymentEvent` rows are pruned from `broadcast_event_log` but preserved in the audit-event log.

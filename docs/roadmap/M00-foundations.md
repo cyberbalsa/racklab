@@ -42,7 +42,7 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 - Livewire 4 + Vite toolchain skeleton: `package.json` + Vite config + `laravel-vite-plugin` wiring + daisyUI + TanStack Query + Zustand + Zod + Vitest + RTL + Storybook 10 (with a11y addon) + ESLint (jsx-a11y + react + react-hooks) + Prettier + TypeScript 5.5 strict. A hello-world Livewire 4 component (with an optional vanilla JS island) demonstrates the full pipeline.
 - `Tenant`, `TenantMembership`, `UploadSession` models + migrations. `RoleBinding` extended with `scope_type` + `tenant_set`. Tenant context middleware on `contextvars`. Tenant-aware managers on existing tenant-scoped models with the migration backfilling all existing rows to a `default` tenant (RIT).
 - `AuditEvent` extended with `prev_hash` + `hash` columns for tamper-evident chaining + a `php artisan audit:verify-chain` command.
-- Postgres outbox table + outbox-row schema + the `php artisan audit:drain-outbox` administrative command (M0 ships the table + drain command + a contract test that proves an `AuditEvent` insert always produces a matching outbox row in the same transaction). The NATS relay worker that actually drains the outbox to JetStream lands in M2 alongside the rest of the production NATS integration — until then, the drain command can be invoked manually or via cron, but unbounded outbox growth is *not* an M0 concern.
+- Postgres outbox table + outbox-row schema + the `php artisan audit:drain-outbox` administrative command (M0 ships the table + drain command + a contract test that proves an `AuditEvent` insert always produces a matching outbox row in the same transaction). The outbox-drainer Horizon job that reads from the outbox and dispatches to Reverb / external integrations lands in M2 alongside the production Redis Quadlet and Reverb wiring — until then, the drain command can be invoked manually or via cron, but unbounded outbox growth is *not* an M0 concern.
 
 ## Acceptance criteria
 
@@ -65,7 +65,7 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 - [ ] Granting a `multi_tenant` or `global` role binding requires the granter to hold a binding of equal or broader scope; escalation attempts fail with `tenant.cross_access` (`result=denied, reason=insufficient_scope`).
 - [ ] `Job`, `AuditEvent`, `Artifact` carry an immutable denormalized `tenant_id` column set at insert; updating it post-insert raises a model-level validation error.
 - [ ] Tenant context propagates correctly through ASGI async views and Channels consumers (`contextvars`-based propagation). The middleware sets the context on every request; an async view fetched under tenant A's context cannot read tenant B's rows.
-- [ ] The `nats_envelope_carries_tenant_id` contract test passes against a fake NATS handler — every envelope a message-producing code path emits carries `tenant_id`; a fake handler refuses to deliver envelopes that don't. (Production NATS integration lands in M2; M0 ships the envelope discipline + the contract test.)
+- [ ] The `horizon_job_carries_tenant_id` contract test passes against a fake Horizon dispatcher — every Horizon job payload a code path dispatches carries `tenant_id`; a fake dispatcher refuses to accept jobs that don't. The `broadcast_event_carries_tenant_id` contract test passes against a fake Reverb channel — every broadcast event carries `tenant_id`. (Production Redis Quadlet and Reverb wiring land in M2; M0 ships the payload discipline + the contract tests.)
 - [ ] An `UploadSession` row is created on session start and refuses creation if the actor has no `Tenant` (i.e., the tenant identity check is enforced at M0). The full quota gate lands in M6 — until then, M0's `UploadSession` accepts any size for tenants that exist.
 - [ ] The `package.json` + Vite config + `laravel-vite-plugin` wiring + daisyUI + LinguiJS + Storybook scaffold + Vitest scaffold + axe-core CI hook all exist and a hello Livewire 4 component renders cleanly in dev, passes `vitest`, and passes Storybook a11y addon.
 - [ ] ESLint + jsx-a11y + react + react-hooks + Prettier all run in pre-commit on the JS/TS tree.
@@ -90,6 +90,6 @@ The repo already has `docs/`, CI for docs, pre-commit hooks for docs. M0 adds th
 - API controller wiring (Laravel Sanctum + L5 Swagger / Scribe) — lands in M1 (it's coupled to auth surfaces).
 - Real worker pools (`provider-worker`, `script-worker`, `console-worker`) — M2 and later. M0 just defines the Protocols.
 - The `WorkerRuntime` Quadlet and Nomad implementations — M2 (Quadlet for dev) and M12 (Nomad for Scale).
-- NATS JetStream integration — M2 (the deployment lifecycle needs it).
+- Production Redis Quadlet + Reverb daemon wiring — M2 (the deployment lifecycle needs them).
 - The full PRD audit event catalog — M0 ships the framework + base events for `Job` transitions and plugin lifecycle; per-domain events land with their respective milestones.
 - Cell-level retention policy (per-artifact-kind retention windows) — defaults in M0, fine-grained tuning in M13d.

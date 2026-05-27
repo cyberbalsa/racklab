@@ -7,7 +7,7 @@
 
 ## Goal
 
-Multi-user RackLab is safe to use. Every deployment passes through quota reservation before NATS publish; the scheduler picks a Proxmox node based on health + capacity + affinity; leases expire and clean up automatically. After M6, an instructor can confidently let a roster of students self-serve deployments without one student starving everyone else.
+Multi-user RackLab is safe to use. Every deployment passes through quota reservation before Horizon dispatch; the scheduler picks a Proxmox node based on health + capacity + affinity; leases expire and clean up automatically. After M6, an instructor can confidently let a roster of students self-serve deployments without one student starving everyone else.
 
 ## In scope
 
@@ -19,7 +19,7 @@ Multi-user RackLab is safe to use. Every deployment passes through quota reserva
 
 - M3 Proxmox provider — placement reads from `ProviderCapacitySnapshot` rows produced by the inventory-discovery side of the provider plugin.
 - M5a Networking — quota dimensions include provider-direct NICs and admin-published network-offering usage. M5b consumes the router/floating-IP/security-group dimensions after they exist.
-- M2 deployment lifecycle — quota reservation is wired between RBAC validation and NATS publish.
+- M2 deployment lifecycle — quota reservation is wired between RBAC validation and Horizon dispatch.
 
 ## Deliverables
 

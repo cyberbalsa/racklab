@@ -8,7 +8,7 @@ RackLab is built around:
 
 - Laravel as the product control plane.
 - PostgreSQL as the system of record.
-- NATS JetStream as the durable job and event bus.
+- Redis 7 + Laravel Horizon as the job queue; Postgres `broadcast_event_log` for durable real-time event replay; Reverb for live WebSocket push.
 - Separate worker pools for provider actions, scripting, console automation, reconciliation, and notifications.
 - Proxmox as the first provider backend.
 - A plugin system for providers, networking, scripts, consoles, auth, notifications, quotas, placement, and audit sinks.

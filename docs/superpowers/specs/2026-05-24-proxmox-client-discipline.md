@@ -14,7 +14,7 @@
 
 ## 2. Context
 
-The PRD specifies Proxmox VE as the first provider backend (`docs/prd/12-proxmox-provider.md`) and a plugin system for future providers (`docs/prd/13-plugin-system.md`). RackLab worker code calls the Proxmox API for every meaningful operation: clone, snapshot, power, network attach, console ticket, task poll, node inventory, cluster status. Those calls run under NATS JetStream workers that must be idempotent, retry-safe, and audit-logged.
+The PRD specifies Proxmox VE as the first provider backend (`docs/prd/12-proxmox-provider.md`) and a plugin system for future providers (`docs/prd/13-plugin-system.md`). RackLab worker code calls the Proxmox API for every meaningful operation: clone, snapshot, power, network attach, console ticket, task poll, node inventory, cluster status. Those calls run under Horizon workers (Redis-backed) that must be idempotent, retry-safe, and audit-logged.
 
 The PRD's engineering quality section (`docs/prd/17-engineering-quality-typing-ci.md`) requires strict typing via `mypy --strict` + `django-stubs` + `drf-stubs` + `pyright`/`basedpyright`. The chosen Proxmox library must not poison that.
 
@@ -73,8 +73,7 @@ The discipline:
 - **Per-operation-class timeouts.** Clone-from-large-template: minutes. Power op: seconds. Snapshot: variable. The facade exposes a registry of named operation classes with sane default deadlines and an override on the call site. A timeout maps to `ProviderTaskWaitTimeout` — *the task may still be running on Proxmox*, the facade has only stopped waiting.
 - **Distributed per-node concurrency limit.** A per-process semaphore is the wrong layer — it would let a 20-worker fleet open 160 simultaneous polls against a single Proxmox node. The facade acquires a distributed concurrency lease against the target node before each poll batch. Implementation candidates (decision deferred to implementation planning, but the facade exposes the same interface either way):
   1. **Postgres advisory locks** keyed on `(node, slot)`, with `slot ∈ [0..N)` where N is the configured per-node poll budget. Lowest operational cost, leverages the existing Postgres dependency.
-  2. **NATS KV bucket** with TTL-bounded entries — fits the existing message-bus dependency.
-  3. **Redis token bucket** — if RackLab ever adds Redis for another reason.
+  2. **Redis token bucket** — Redis is already a hard dependency (Horizon queue); this is a natural secondary use.
   Default plan: Postgres advisory locks, until profiling says otherwise.
 - **Node-loss handling.** If the node a task is on becomes unreachable, the facade raises `ProviderNodeUnreachable` and leaves the provider-task row in `pending` for the reconciler. It does not silently retry against a different node; that's reconciler policy.
 - **Non-`OK` exit-status mapping.** Proxmox tasks complete with an `exitstatus` string; only `"OK"` is success. Anything else maps to a typed `ProviderTaskFailed` with `exitstatus`, partial log, and UPID. The provider-task row transitions to `failed`.
@@ -112,16 +111,16 @@ The generic provider interface (the contract every provider plugin implements) d
 
 This discipline keeps the plugin system per PRD §13 honest. The Proxmox plugin is the first concrete implementation; nothing about the generic interface should encode "we assume Proxmox underneath."
 
-## 8. Django + NATS transaction-boundary discipline
+## 8. Laravel + Horizon transaction-boundary discipline
 
-The Proxmox client is one end of a chain that includes a Django HTTP/AJAX/API request, a Django ORM transaction, a NATS JetStream publish, a worker consumer, and the actual Proxmox API call. The transaction boundaries on RackLab's side must be airtight, regardless of the facade itself:
+The Proxmox client is one end of a chain that includes a Laravel HTTP/API request, a Laravel DB transaction, a Horizon job dispatch (Redis-backed), a worker consumer, and the actual Proxmox API call. The transaction boundaries on RackLab's side must be airtight, regardless of the facade itself:
 
-- **Persist before publish.** A request that triggers a provider operation writes the deployment row, the audit row, and the *intended* provider-task row (status `dispatching`) inside the same Django transaction, *before* the JetStream publish.
-- **Publish after commit.** NATS publish happens after the Django transaction commits, not from inside the transaction. The standard `transaction.on_commit` hook is the right tool.
-- **Ack only after durable state update.** A worker consuming a JetStream message acks only after it has updated the provider-task row (to `pending` with the UPID, or to `failed` with reason) inside its own transaction. JetStream redelivery + idempotency-key uniqueness on the provider-task row is what prevents duplicate Proxmox submissions on consumer retry.
-- **Idempotency keys are first-class.** Every mutating operation crossing the boundary carries an idempotency key persisted in the provider-task row with a unique constraint. Re-running a worker against the same JetStream message must produce the same provider-task row, not a second submission.
+- **Persist before dispatch.** A request that triggers a provider operation writes the deployment row, the audit row, and the *intended* provider-task row (status `dispatching`) inside the same DB transaction, *before* the Horizon job dispatch.
+- **Dispatch after commit.** Horizon dispatch happens via `ShouldBroadcastAfterCommit` semantics — after the DB transaction commits, not from inside it. This is enforced by dispatching inside the `afterCommit()` lifecycle hook on the job.
+- **Update state before acknowledging.** A Horizon worker processes a job to completion only after it has updated the provider-task row (to `pending` with the UPID, or to `failed` with reason) inside its own transaction. Horizon retry + idempotency-key uniqueness on the provider-task row is what prevents duplicate Proxmox submissions on worker retry.
+- **Idempotency keys are first-class.** Every mutating operation crossing the boundary carries an idempotency key persisted in the provider-task row with a unique constraint. Re-running a Horizon worker against the same job must produce the same provider-task row, not a second submission.
 
-This section is short on purpose; the canonical place for these patterns is the worker/event spec, not this client doc. It's recorded here so that the facade's `ProviderTaskWaitTimeout` and "never re-submit by default" semantics in §5 are read in the right Django/NATS context.
+This section is short on purpose; the canonical place for these patterns is the worker/event spec, not this client doc. It's recorded here so that the facade's `ProviderTaskWaitTimeout` and "never re-submit by default" semantics in §5 are read in the right Laravel/Horizon context.
 
 ## 9. Testing
 
@@ -156,4 +155,4 @@ Estimated effort: **weeks for parity on RackLab's wrapped endpoints; months for 
 
 **Medium** on the specific task-polling parameter values (500 ms initial, 2 s cap, 100 ms minimum floor, per-node poll budget). These are reasoned defaults that should be re-tuned against real Proxmox cluster behavior in early integration testing.
 
-**Medium** on the choice of Postgres advisory locks as the §5 distributed concurrency primitive. Postgres is already a hard dependency, the API is simple, and the operational story is clear; if profiling shows the lock-acquire latency itself becomes a bottleneck against busy clusters, switch to NATS KV.
+**Medium** on the choice of Postgres advisory locks as the §5 distributed concurrency primitive. Postgres is already a hard dependency, the API is simple, and the operational story is clear; if profiling shows the lock-acquire latency itself becomes a bottleneck against busy clusters, switch to a Redis token bucket (Redis is already a hard dependency for Horizon).

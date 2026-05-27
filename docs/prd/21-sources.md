@@ -7,8 +7,8 @@ Research sources used while shaping this PRD:
 - Laravel Sanctum (API tokens + SPA auth): https://laravel.com/docs/sanctum
 - Laravel Passport (OAuth2 / JWT): https://laravel.com/docs/passport
 - Spatie Laravel Permission (RBAC): https://spatie.be/docs/laravel-permission/
-- NATS JetStream concepts: https://docs.nats.io/nats-concepts/jetstream
-- NATS queue groups: https://docs.nats.io/nats-concepts/core-nats/queue
+- Laravel Horizon: https://laravel.com/docs/horizon
+- Laravel Reverb: https://laravel.com/docs/reverb
 - Proxmox VE API client (PHP, Guzzle-based): see `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md`
 - Proxmox VE documentation: https://pve.proxmox.com/pve-docs/
 - Proxmox SDN documentation: https://pve.proxmox.com/pve-docs/chapter-pvesdn.html

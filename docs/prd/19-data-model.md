@@ -27,7 +27,7 @@ Tenant context propagates via Laravel's per-request middleware context (not a gl
 
 ## Universal Job ledger
 
-`Job` is the canonical queue + state-machine ledger for every unit of work dispatched onto NATS. The same row is referenced by audit events, by the scheduler-reconciler for stuck-job recovery, by the autoscaler for per-pool pending-count signal, and by the worker that actually executes the work.
+`Job` is the canonical queue + state-machine ledger for every unit of work dispatched via Horizon. The same row is referenced by audit events, by the scheduler-reconciler for stuck-job recovery, by the autoscaler for per-pool pending-count signal, and by the worker that actually executes the work.
 
 Fields:
 

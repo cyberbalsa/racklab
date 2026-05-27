@@ -19,7 +19,7 @@ RackLab is specified as a full target product. Implementation may be phased late
 ## System Requirements
 
 - PostgreSQL is the production database.
-- NATS JetStream provides durable async job and event flow.
+- Redis 7 + Laravel Horizon provides the job queue; the Postgres `broadcast_event_log` table and outbox pattern provide durable async event flow and replay.
 - Workers are separated by responsibility and can scale horizontally.
 - Provider actions are idempotent and reconciliation-friendly.
 - Every external action passes through RBAC, quota, policy, and audit paths.

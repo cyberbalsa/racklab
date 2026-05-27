@@ -7,7 +7,7 @@
 
 ## Goal
 
-Operators can recover RackLab and upgrade it with evidence, not hope. M13c turns the point-in-time Baseline work from M2.5 into production-grade backup/restore and upgrade drills across both Baseline and Scale: Postgres, NATS, artifacts, plugin wheelhouse/config, secret backend, TLS state, and schema/plugin migrations.
+Operators can recover RackLab and upgrade it with evidence, not hope. M13c turns the point-in-time Baseline work from M2.5 into production-grade backup/restore and upgrade drills across both Baseline and Scale: Postgres (including `broadcast_event_log` and outbox tables), Redis, artifacts, plugin wheelhouse/config, secret backend, TLS state, and schema/plugin migrations.
 
 ## In scope
 
@@ -26,7 +26,7 @@ Operators can recover RackLab and upgrade it with evidence, not hope. M13c turns
 
 - Production backup command/runbook covering:
   - PostgreSQL base backup + WAL archiving for Scale; point-in-time dump for Baseline.
-  - NATS JetStream stream snapshots.
+  - Redis snapshot (`BGSAVE` or `SAVE`) for the Horizon queue + cache + session + Reverb backplane state.
   - artifact storage.
   - plugin wheelhouse + plugin lifecycle/config state.
   - secret-backend export/import path.
@@ -48,7 +48,7 @@ Operators can recover RackLab and upgrade it with evidence, not hope. M13c turns
 ## Acceptance criteria
 
 - [ ] Full restore drill: simulate disk loss on the Postgres host; restore from backup + WAL; verify zero data loss for committed deployments before the backup point.
-- [ ] NATS stream restore drill: restore streams and consumer state; pending jobs are either resumed or explicitly reconciled without duplicate provider operations.
+- [ ] Redis restore drill: restore from snapshot; pending Horizon jobs are either resumed from the restored queue or explicitly reconciled via the Postgres `jobs` table without duplicate provider operations.
 - [ ] Artifact storage restore drill: deployment artifacts, screenshots/logs, and audit exports referenced by DB rows resolve after restore.
 - [ ] Plugin restore drill: enabled plugins and their pinned wheels/config restore on a fresh install without fetching from the internet.
 - [ ] TLS state restore drill: Baseline `acme.json` and Scale `lego` PEM paths restore; HTTPS works after restart.
@@ -58,14 +58,14 @@ Operators can recover RackLab and upgrade it with evidence, not hope. M13c turns
 ## Test layers
 
 - **Tiny / unit**: backup manifest validators; plugin-lock compatibility checks; archive integrity checks.
-- **Contract**: backup source/sink Protocols against fake Postgres/NATS/artifact/secret backends.
-- **Integration**: backup → destructive change → restore round trip with testcontainers Postgres + NATS; plugin wheelhouse restore.
+- **Contract**: backup source/sink Protocols against fake Postgres/Redis/artifact/secret backends.
+- **Integration**: backup → destructive change → restore round trip with testcontainers Postgres + Redis; plugin wheelhouse restore.
 - **E2E**: Baseline and Scale upgrade/rollback drills on operational runners.
 
 ## Risks / open questions
 
 - **Backup encryption**: M2.5 defaulted to unencrypted archives with documented encryption recipes. M13c should decide whether encrypted-by-default is required for v1.
-- **NATS snapshot fidelity**: verify consumer state and pending ack behavior, not just stream messages.
+- **Redis snapshot fidelity**: verify that the restored Redis snapshot leaves the Horizon queue consistent; pending jobs not captured in the snapshot are reconciled from the Postgres `jobs` table by the scheduler-reconciler.
 - **Plugin yanking**: restore must not depend on PyPI availability. Wheelhouse backup is mandatory.
 - **Zero-downtime migration limits**: some schema changes require downtime. Document the policy rather than pretending every upgrade can be live.
 

@@ -35,7 +35,7 @@ RackLab is ready to tag v1.0. M13d closes the final quality gates: mutation test
 - Capacity planning docs with measured numbers:
   - per-host sizing for Baseline and Scale.
   - web/provider/script/console worker resource usage.
-  - NATS/Postgres/artifact-storage sizing.
+  - Redis/Postgres/artifact-storage sizing.
   - first bottleneck under load.
 - Final security review:
   - dependency audit clean.

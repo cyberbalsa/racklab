@@ -39,4 +39,4 @@ Plugins add power and risk. The core needs stable contracts, health isolation, a
 
 ### Scale And State
 
-NATS provides durable job/event flow, but PostgreSQL remains the source of truth. The design must avoid split-brain state between bus messages and database records.
+The Postgres outbox pattern + Horizon queue provides durable job/event flow, but PostgreSQL remains the source of truth throughout. The design must avoid split-brain state between queued jobs and database records — the persist-before-publish discipline (outbox insert and audit insert in the same transaction, Horizon dispatch after commit) is the enforcement mechanism.
