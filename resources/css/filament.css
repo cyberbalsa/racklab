@@ -10,3 +10,7 @@
  * keep at the top.
  */
 @import "tailwindcss";
+
+@source "../../../vendor/filament/filament/resources/views/**/*.blade.php";
+@source "../../../vendor/filament/filament/src/**/*.php";
+@source "../../../app/Filament/**/*.php";

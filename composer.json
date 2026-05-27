@@ -2,11 +2,18 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "cyberbalsa/racklab",
     "type": "project",
-    "description": "RackLab — self-service educational lab platform on Proxmox VE.",
-    "keywords": ["laravel", "racklab", "proxmox", "lab", "education"],
+    "description": "RackLab \u2014 self-service educational lab platform on Proxmox VE.",
+    "keywords": [
+        "laravel",
+        "racklab",
+        "proxmox",
+        "lab",
+        "education"
+    ],
     "license": "Apache-2.0",
     "require": {
         "php": "^8.3",
+        "filament/filament": "^5.6.5",
         "laravel/framework": "^13.8",
         "laravel/octane": "^2.17.4",
         "laravel/tinker": "^3.0",
@@ -58,7 +65,8 @@
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
+            "@php artisan package:discover --ansi",
+            "@php artisan filament:upgrade"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
