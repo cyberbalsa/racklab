@@ -6,8 +6,8 @@
 
 ## Pinned versions
 
-- `asyncssh` 2.23.0 (PyPI; Python ≥3.10; EPL-2.0 / GPL-2.0+).
-- `@xterm/xterm` 6.x and `@xterm/addon-attach` (shared vendored from M4).
+- `phpseclib/phpseclib` 3.x (Composer; PHP ≥8.2; MIT). Covers SSH2 client with key auth, password auth, keyboard-interactive, and host-key pinning.
+- `@xterm/xterm` 6.x and `@xterm/addon-attach` (shared vendored from M4 as a vanilla JS island; no React dependency).
 
 ## Goal
 
@@ -22,18 +22,18 @@ The `racklab-console-ssh` plugin lands: a browser SSH terminal to any deployment
 
 ## Dependencies
 
-- M4 console-worker pool + Channels + xterm.js + `ConsoleAccessGrant` flow.
+- M4 console-worker pool + Laravel Reverb + xterm.js + `ConsoleAccessGrant` flow.
 - M5a `NetworkOffering.reachability` — the SSH plugin defers to this to decide whether to offer SSH on a deployment.
 - M7a cloud-init script plugin — for host-key phone-home capture and service-key injection.
 - M0 universal `Artifact` model — for asciinema recordings.
 
 ## Deliverables
 
-- `racklab-console-ssh` plugin package on PyPI: capability `console:ssh:v1`, declares the `ConsoleSession` SSH subtype + `SSHCredentialBinding` migrations, declares the four `console.ssh*` permissions, registers translation catalogs.
-- Django Channels consumer in the `console-worker` pool: terminates the browser WebSocket, validates the `ConsoleAccessGrant`, reads `DeploymentResource.reachability` + the resolved target address (guest IP or NAT gateway port-forward), opens an outbound asyncssh connection from the console-worker.
+- `racklab-console-ssh` plugin package on Packagist (`packages/racklab/ssh-plugin/`): registers a Laravel ServiceProvider, capability `console:ssh:v1`, contributes Eloquent models (`ConsoleSession` SSH subtype + `SSHCredentialBinding`) and Laravel migrations, declares the four `console.ssh*` permissions, registers translation catalogs.
+- Laravel Reverb WebSocket handler in the `console-worker` Horizon pool: terminates the browser WebSocket, validates the `ConsoleAccessGrant`, reads `DeploymentResource.reachability` + the resolved target address (guest IP or NAT gateway port-forward), opens an outbound `phpseclib/phpseclib` SSH connection from the Horizon worker.
 - Host-key verification implementation:
   - Cloud-init phone-home flow added to the `racklab-script-cloudinit` plugin in M7a: VM reports its `/etc/ssh/ssh_host_*.pub` fingerprints to a RackLab callback endpoint at boot time. Fingerprints are persisted on the `DeploymentResource` row.
-  - `asyncssh` is configured with `known_hosts=<pinned set>`; any mismatch raises `HostKeyNotVerifiable`, the session aborts, `console.ssh.host_key_mismatch` audit event fires, admin alert.
+  - `phpseclib` is initialized with a host-key validation callback that checks against the pinned key set; any mismatch aborts the connection, the `console.ssh.host_key_mismatch` audit event fires, admin alert.
   - Admin-approved "re-capture host key" flow for legitimate rotation (snapshot restore, manual rekey).
   - Cloud-init-less deployments are flagged `requires_host_key_capture`; SSH is refused until manual capture.
 - Credential model implementation (v1 paths only per the codex-corrected spec):
@@ -63,17 +63,17 @@ The `racklab-console-ssh` plugin lands: a browser SSH terminal to any deployment
 ## Test layers
 
 - **Tiny / unit**: `[[kind:id]]`-style cross-link doesn't apply here; the unit tests focus on the redaction pattern matcher, the SSH credential resolution flow (which credential mode applies given catalog + RBAC + reachability), and the host-key pinning + comparison logic.
-- **Contract**: asyncssh-wrapping Channels consumer against a fake SSH target; redaction pipeline with malicious byte sequences; reachability-aware grant Protocol.
-- **Integration**: cloud-init phone-home host-key capture round-trip; full grant → connect → use → record → end against testcontainers + a real OpenSSH daemon; deliberate MITM scenario aborts cleanly; redaction-defeating-byte-sequence aborts recording but not session.
+- **Contract**: `phpseclib`-backed Reverb WebSocket handler against a fake SSH target; redaction pipeline with malicious byte sequences; reachability-aware grant Protocol.
+- **Integration**: cloud-init phone-home host-key capture round-trip; full grant → connect → use → record → end against Testcontainers (PHP binding) + a real OpenSSH daemon; deliberate MITM scenario aborts cleanly; redaction-defeating-byte-sequence aborts recording but not session.
 - **E2E**: student deploys, SSHes, runs commands, disconnects, replays the (redacted) recording; admin re-captures a host key after a deliberate rotation.
 
 ## Risks / open questions
 
 - **Cloud-init phone-home callback endpoint**: needs to be reachable from inside tenant networks at boot time. For `routable_from_management` and `nat_from_management` this is fine; for newly-provisioned VMs whose network is just coming up, the cloud-init-host-key-capture step happens after network configuration. Test the timing.
 - **Cloud-init-less images**: PRD §23 already documents the `requires_host_key_capture` admin flow. Make sure the UX is friendly — admins shouldn't have to dig into shell to provide a fingerprint.
-- **asyncssh keepalive vs browser tab backgrounding**: tuned in the spec. Verify in real browser testing.
+- **`phpseclib` keepalive vs browser tab backgrounding**: keepalive interval is set lower than typical browser tab-suspend behavior per the spec. Verify timing in real browser testing.
 - **Recording-redaction false negatives**: pattern matching is best-effort. Document explicitly that recordings are NOT a substitute for not pasting secrets; user-side consent prompt reinforces this.
-- **Daphne vs uvicorn under sustained binary WebSocket streams** (PRD §23 v1 verification list): benchmark with a 50-concurrent-session load test before promoting M9.
+- **Laravel Reverb under sustained binary WebSocket streams** (PRD §23 v1 verification list): benchmark with a 50-concurrent-session load test before promoting M9.
 - **SSH-CA design for v1.1**: the durable answer for per-user SSH. Start the design spec for this during M9 implementation so it's ready when M9 ships.
 
 ## Out of scope (deferred)
