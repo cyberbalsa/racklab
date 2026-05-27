@@ -72,11 +72,11 @@ graph TB
 
 ## 2. Plugin landscape
 
-Plugin families and the initial plugins that exercise them. Plugins are Python packages discovered via entry points; contracts are `pluggy` hookspecs.
+Plugin families and the initial plugins that exercise them. Plugins are PHP packages discovered via entry points; contracts are `HookDispatcher` events.
 
 ```mermaid
 graph LR
-    Core["RackLab core<br/>(pluggy host)"]
+    Core["RackLab core<br/>(HookDispatcher host)"]
 
     subgraph Families [Plugin families]
         Provider[Provider]
@@ -91,12 +91,12 @@ graph LR
         Secret[Secret backend]
     end
 
-    Core -. "hookspec" .-> Families
+    Core -. "HookDispatcher event" .-> Families
 
     subgraph Initial [Initial plugins]
         Prox["racklab-provider-proxmox"]
         ConsProx["racklab-console-proxmox<br/>noVNC + xterm.js"]
-        ConsSSH["racklab-console-ssh<br/>Channels + asyncssh"]
+        ConsSSH["racklab-console-ssh<br/>Reverb daemon + phpseclib"]
         ScriptCI["racklab-script-cloudinit"]
         ScriptOQA["racklab-script-console-openqa"]
         ScriptA["racklab-script-ansible"]
@@ -229,7 +229,7 @@ graph TB
 
 ## 5. Worker runtime + provider abstractions
 
-Class diagram for the load-bearing internal abstractions. `WorkerRuntime` splits into a plugin-facing narrow interface and a core-facing full interface. The Proxmox provider hides `proxmoxer` behind a typed facade.
+Class diagram for the load-bearing internal abstractions. `WorkerRuntime` splits into a plugin-facing narrow interface and a core-facing full interface. The Proxmox provider hides the Guzzle-based Proxmox client behind a typed facade.
 
 ```mermaid
 classDiagram
@@ -291,16 +291,16 @@ classDiagram
         +structured error mapping
     }
 
-    class proxmoxer {
+    class GuzzleProxmoxTransport {
         <<external>>
-        2.3.0
-        dynamic attribute proxy
+        Guzzle HTTP client
+        REST calls to Proxmox API
         no types, no async
     }
 
     ProviderPlugin <|.. ProxmoxProviderPlugin
     ProxmoxProviderPlugin --> ProxmoxClient
-    ProxmoxClient --> proxmoxer
+    ProxmoxClient --> GuzzleProxmoxTransport
 
     class ConsoleBackend {
         <<interface>>
@@ -314,8 +314,8 @@ classDiagram
     }
 
     class ConsoleSSHBackend {
-        +Django Channels consumer
-        +asyncssh client
+        +Reverb daemon WebSocket consumer
+        +phpseclib SSH client
         +asciinema v2 recording
     }
 
@@ -331,18 +331,18 @@ Class-style view of what every plugin declares. The narrow `PluginWorkerRuntime`
 classDiagram
     class Plugin {
         <<contract>>
-        +entry_point: racklab.plugins
-        +capability: str
+        +composer.json: extra.racklab.plugin=true
+        +capability: string
         +racklab_api_versions: VersionRange
-        +permissions: list[str]
-        +migrations: list[Migration]
+        +permissions: array
+        +migrations: array
         +health_check() HealthState
         +settings_schema: Schema
-        +secret_refs: list[str]
+        +secret_refs: array
     }
 
     class HookSpecs {
-        <<pluggy>>
+        <<HookDispatcher>>
         +racklab_provider_*
         +racklab_console_*
         +racklab_script_*
@@ -435,7 +435,7 @@ sequenceDiagram
     autonumber
     actor A as Admin
     participant B as Browser
-    participant W as web (Django)
+    participant W as web (Laravel + Octane)
     participant DB as PostgreSQL
     participant SD as systemd
     participant TR as Traefik
