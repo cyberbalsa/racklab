@@ -37,14 +37,24 @@ The Laravel scaffold is now through the initial quality-gate slice:
 - `.github/workflows/code-ci.yml` runs PHP 8.3/8.4 quality gates, asset build/audit, and a Dusk browser job on GitHub-hosted Ubuntu runners.
 - Generated Laravel / Filament / Vite artifacts are ignored so normal Composer and frontend commands do not leave runtime outputs in git status.
 
+### tenancy-auth foundation slice (2026-05-27)
+
+The first tenancy-auth domain contracts are in place:
+
+- `App\Domain\Tenancy\AccessResolver` implements the PRD §06 / spec §5 three-predicate access composition: binding scope covers resource tenant, resource visibility includes the actor's active tenant, and role grants the requested permission.
+- Pure `app/Domain` DTOs/interfaces now define `TenantContext`, `ActorIdentity`, `TenantScopedResource`, `RoleBindingRecord`, `RoleBindingRepository`, `SharingScope`, `RoleBindingScopeType`, `AccessDecision`, and deny reasons. This keeps the security policy independent of Eloquent, HTTP, or Spatie internals.
+- `App\Domain\Rbac\Permission` and `RolePermissionLookup` define the role-to-permission boundary that the later Spatie adapter will implement.
+- Tiny tests cover tenant-local allow, cross-tenant deny when resource visibility is missing, cross-tenant deny when binding scope is missing, and cross-tenant allow only when all three predicates match.
+- `DefaultRoleCatalog` provides the first built-in Student / Instructor / Admin / Guest permission map. `tests/Snapshots/RolePermissionsTest.php` and `tests/Snapshots/roles.json` now gate default-role permission changes, and the snapshot suite is included in `composer test` plus GitHub Actions.
+
 ## Next
 
 Five remaining sub-plans from the redesign-spec §10 portfolio:
 
-1. **`tenancy-auth`** — `app/Domain/Tenancy/AccessResolver`, `CrossTenantFetch`, `IdentifyTenant` + `SetTenantContextForOctane` + `BindTenantContext` middleware, `RoleBinding` model with `scope_type` + `tenant_set`, spatie/laravel-multitenancy + spatie/laravel-permission integration, Filament tenancy with `isPersistent: true`. Track A JWT issuer + JWKS endpoint + Sanctum PATs + Fortify + Socialite + OIDC + SAML. `AuditEvent` three-tenant schema + hash chain + `racklab:verify-audit-chain` Artisan command + bidirectional surfacing query.
+1. **`tenancy-auth`** — continue from the domain contracts into `Tenant`, `TenantMembership`, `RoleBinding`, and `AuditEvent` models/migrations; `IdentifyTenant` + `SetTenantContextForOctane` + `BindTenantContext` middleware; `CrossTenantFetch`; spatie/laravel-multitenancy + spatie/laravel-permission adapters; Filament tenancy with `isPersistent: true`; Track A JWT issuer + JWKS endpoint; Sanctum PATs + Fortify local auth. OAuth/OIDC/SAML concrete adapters remain plugin packages per M1.
 2. **`plugin-lifecycle`** — `PluginRegistry`, `PluginInstallation` + `PluginMigrationRecord` models, `racklab plugin install/migrate/enable/disable/rollback/uninstall` Artisan commands, `HookDispatcher` with the four listener-style semantics, hookspec event class scaffold, `racklab/plugin-hello` reference implementation.
 3. **`realtime-replay`** — Reverb daemon, channel auth, `broadcast_event_log` table + `ShouldBroadcast` events that implement Laravel's after-commit dispatch discipline, `/api/v1/replay` endpoint + sweep job. xterm.js + noVNC islands. Negative-path tests for replay gap sentinel.
 4. **`script-containers`** — Horizon worker setup (pcntl/posix), `RunAnsiblePlaybook` + `RunUserScript` + `RunConsoleScript` job classes, container manifests, `ProviderConsoleProxy` unix-socket service, container image build pipeline (cosign-signed), reaper sidecar. Provider-task idempotency port from `2026-05-24-proxmox-client-discipline.md`.
-5. **`ci-gates`** — complete the remaining gates beyond the scaffold: snapshot tests, OpenAPI schema-drift gate, semgrep + security-checker, richer custom Larastan rule behavior beyond the registered stubs, and `racklab:lang:check` i18n drift.
+5. **`ci-gates`** — complete the remaining gates beyond the scaffold: audit-emission snapshots, OpenAPI schema-drift gate, semgrep + security-checker, richer custom Larastan rule behavior beyond the registered stubs, and `racklab:lang:check` i18n drift.
 
-Sub-plans 1 → 5 can now proceed on top of the Laravel scaffold. `tenancy-auth` is the recommended next slice because tenant context, RBAC, and audit provenance are prerequisites for most user-facing behavior.
+Sub-plans 1 → 5 can proceed on top of the Laravel scaffold. `tenancy-auth` remains the recommended next slice; the next concrete step is the tenant/audit schema and the middleware that binds and resets tenant context for requests, jobs, Octane workers, and later channel auth.
