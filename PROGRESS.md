@@ -1,0 +1,37 @@
+# RackLab Progress
+
+Tracks what has shipped vs what is next.
+
+## Stack direction
+
+RackLab is being built on **PHP 8.3+ / Laravel 13 + FrankenPHP + Octane + Livewire 4 + Filament 5 + Tailwind v4 + daisyUI 5 + Reverb + Horizon + Podman job containers**. The architectural source of truth is `docs/superpowers/specs/2026-05-26-laravel-redesign.md`. The PRD (`docs/prd/`) remains the source of truth for *what* RackLab does.
+
+## Shipped
+
+### prd-rewrite sub-plan (2026-05-26 → 2026-05-27)
+
+The first of seven sub-plans from the redesign-spec §10 portfolio is complete. Every PRD section, every roadmap milestone, the architecture diagrams, `CLAUDE.md`/`AGENTS.md`, and the still-applies Podman + Proxmox-client-discipline specs have been rewritten or updated to reflect the Laravel stack.
+
+Highlights:
+
+- **`docs/superpowers/specs/2026-05-26-laravel-redesign.md`** — architectural spec authored after two rounds of codex review (research review for ecosystem-state, spec review for internal consistency). Captures stack table, process topology, repo layout, multi-tenancy + RBAC composition, plugin model, script execution + real-time, quality + CI.
+- **All 8 heavy PRD-section rewrites** committed (§05 architecture, §06 auth/RBAC/tokens, §07 API/OpenAPI/real-time push, §13 plugin system, §15 UI/UX, §17 engineering/quality/CI, §22 docs plugin, §23 SSH plugin).
+- **5 light PRD-section sweeps** (§10 scripting/sandboxing, §14 audit/observability, §18 security, §19 data model, plus a catch-all sweep across the remaining 12 less-affected sections).
+- **All 22 roadmap milestones rewritten** (M00 → M13d + README), preserving each milestone's functional Goal / Acceptance criteria and rewriting Deliverables / Test layers / Risks for the Laravel stack.
+- **Architecture Mermaid diagrams** updated across 8 diagram blocks.
+- **Two systemic remediation sweeps** caught problems earlier per-task implementers missed:
+  - NATS-removal sweep (commit `c074571`) — replaced NATS / NATS JetStream references across ~25 files with Redis + Horizon + Reverb + Postgres `broadcast_event_log` + outbox-table equivalents.
+  - Codex full-review remediation (commit `b2f59db`) — applied 50+ P0 + 30+ P1 findings across the entire docs tree, including a full PHP-stack rewrite of the body of `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md` (the header carry-forward note alone was not sufficient).
+
+## Next
+
+Six more sub-plans from the redesign-spec §10 portfolio:
+
+1. **`laravel-scaffold`** — Initial Laravel 13 + Octane + FrankenPHP + Filament 5 + Livewire 4 project skeleton; Vite entries (`app.css` public + daisyUI; `filament.css` admin); Pint + Larastan + Rector + Pest 4 wired up; CI matrix from spec §8.
+2. **`tenancy-auth`** — `app/Domain/Tenancy/AccessResolver`, `CrossTenantFetch`, `IdentifyTenant` + `SetTenantContextForOctane` + `BindTenantContext` middleware, `RoleBinding` model with `scope_type` + `tenant_set`, spatie/laravel-multitenancy + spatie/laravel-permission integration, Filament tenancy with `isPersistent: true`. Track A JWT issuer + JWKS endpoint + Sanctum PATs + Fortify + Socialite + OIDC + SAML. `AuditEvent` three-tenant schema + hash chain + `racklab:verify-audit-chain` Artisan command + bidirectional surfacing query.
+3. **`plugin-lifecycle`** — `PluginRegistry`, `PluginInstallation` + `PluginMigrationRecord` models, `racklab plugin install/migrate/enable/disable/rollback/uninstall` Artisan commands, `HookDispatcher` with the four listener-style semantics, hookspec event class scaffold, `racklab/plugin-hello` reference implementation.
+4. **`realtime-replay`** — Reverb daemon, channel auth, `broadcast_event_log` table + `ShouldBroadcastAfterCommit` discipline, `/api/v1/replay` endpoint + sweep job. xterm.js + noVNC islands. Negative-path tests for replay gap sentinel.
+5. **`script-containers`** — Horizon worker setup (pcntl/posix), `RunAnsiblePlaybook` + `RunUserScript` + `RunConsoleScript` job classes, container manifests, `ProviderConsoleProxy` unix-socket service, container image build pipeline (cosign-signed), reaper sidecar. Provider-task idempotency port from `2026-05-24-proxmox-client-discipline.md`.
+6. **`ci-gates`** — custom Larastan rules (`UntenantedRule`, `NoBareScopeBypassRule`, `NoSpatieBypassRule`, `NoBareEventDispatchOnHookspecsRule`, `NoLintOverridesRule`, `HookspecEventTypedRule`), snapshot tests, OpenAPI schema-drift gate, semgrep + security-checker, axe-core a11y in Dusk, `racklab:lang:check` i18n drift.
+
+Sub-plans 2 → 6 can run in parallel after sub-plan 1 (`laravel-scaffold`) lands the project skeleton.
