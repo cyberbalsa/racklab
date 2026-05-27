@@ -2,7 +2,7 @@
 
 **Status:** Not started.
 **Estimated effort:** 3–4 weeks.
-**Depends on:** M0 Livewire 4 / Vite toolchain skeleton + M1 (auth, RBAC, share-link primitive). The frontend asset pipeline (Vite + Laravel Mix/Vite + daisyUI + LinguiJS) lands in M0; M8 mounts the docs editor as a `@tiptap/core` vanilla island inside a Livewire 4 component via `wire:ignore`, and exposes the Filament 5 `RichEditor` field in the admin panel. No M4 dependency — earlier draft conflated the Proxmox-console asset pipeline with this one.
+**Depends on:** M0 Livewire 4 / Vite toolchain skeleton + M1 (auth, RBAC, share-link primitive). The frontend asset pipeline (Vite + daisyUI + Laravel's built-in i18n via `resources/lang/*`) lands in M0; M8 mounts the docs editor as a `@tiptap/core` vanilla island inside a Livewire 4 component via `wire:ignore`, and exposes the Filament 5 `RichEditor` field in the admin panel. No M4 dependency — earlier draft conflated the Proxmox-console asset pipeline with this one.
 **Unblocks:** SSH plugin (M9) reuses the plugin-contract demonstration patterns established here.
 
 ## Required spike before this milestone
@@ -28,7 +28,7 @@ The `racklab-docs` plugin lands — a built-in document store for guides, how-to
 ## Dependencies
 
 - M1 RBAC + share-link primitive (reused for doc sharing — no parallel sharing model).
-- M0 Livewire 4 / Vite toolchain — Vite + Laravel asset pipeline + daisyUI + LinguiJS + Storybook + Vitest + axe-core CI hook all in place.
+- M0 Livewire 4 / Vite toolchain — Vite + Laravel asset pipeline + daisyUI + Laravel built-in i18n (`resources/lang/*`) + Pest 4 browser layer + axe-core in Dusk CI hook all in place.
 - M0 universal `Artifact` model — doc images land here.
 
 ## Deliverables
