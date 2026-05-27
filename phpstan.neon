@@ -1,0 +1,40 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: max
+    paths:
+        - app
+        - packages/racklab/plugin-hello/src
+        - tests/Larastan/Rules
+    excludePaths:
+        - app/Filament/Resources/*Resource/Pages/*
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: true
+    tmpDir: storage/framework/cache/phpstan
+
+services:
+    -
+        class: Tests\Larastan\Rules\UntenantedRule
+        tags:
+            - phpstan.rules.rule
+    -
+        class: Tests\Larastan\Rules\NoLintOverridesRule
+        tags:
+            - phpstan.rules.rule
+    -
+        class: Tests\Larastan\Rules\HookspecEventTypedRule
+        tags:
+            - phpstan.rules.rule
+    -
+        class: Tests\Larastan\Rules\NoBareScopeBypassRule
+        tags:
+            - phpstan.rules.rule
+    -
+        class: Tests\Larastan\Rules\NoSpatieBypassRule
+        tags:
+            - phpstan.rules.rule
+    -
+        class: Tests\Larastan\Rules\NoBareEventDispatchOnHookspecsRule
+        tags:
+            - phpstan.rules.rule

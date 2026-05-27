@@ -23,11 +23,21 @@ Highlights:
   - NATS-removal sweep (commit `c074571`) — replaced NATS / NATS JetStream references across ~25 files with Redis + Horizon + Reverb + Postgres `broadcast_event_log` + outbox-table equivalents.
   - Codex full-review remediation (commit `b2f59db`) — applied 50+ P0 + 30+ P1 findings across the entire docs tree, including a full PHP-stack rewrite of the body of `docs/superpowers/specs/2026-05-24-proxmox-client-discipline.md` (the header carry-forward note alone was not sufficient).
 
+### laravel-scaffold foundation slice (2026-05-27)
+
+The Laravel scaffold is now past the first quality-gate slice:
+
+- Pest 4 is installed and `composer test` runs the PRD layer split (`Tiny`, `Contract`, `Integration`, `Browser`) instead of Laravel's default `Unit` / `Feature` split.
+- Larastan is installed at PHPStan max level with the six custom RackLab rule stubs registered and passing under `composer larastan`.
+- `racklab/plugin-hello` exists as an in-monorepo Composer path package with RackLab plugin metadata and no Laravel package auto-discovery provider/alias entries; it is required by the root project but explicitly excluded from Laravel discovery.
+- The stock Laravel welcome screen was replaced by a small RackLab scaffold page using the configured Vite entries, and the contract smoke test covers it without requiring built assets.
+- Generated Laravel / Filament / Vite artifacts are ignored so normal Composer and frontend commands do not leave runtime outputs in git status.
+
 ## Next
 
 Six more sub-plans from the redesign-spec §10 portfolio:
 
-1. **`laravel-scaffold`** — Initial Laravel 13 + Octane + FrankenPHP + Filament 5 + Livewire 4 project skeleton; Vite entries (`app.css` public + daisyUI; `filament.css` admin); Pint + Larastan + Rector + Pest 4 wired up; CI matrix from spec §8.
+1. **`laravel-scaffold`** — Continue the scaffold plan: Rector, Dusk + axe-core, lefthook, GitHub Actions code CI, README dev commands, final clean-clone verification, and any remaining Livewire hello-world wiring from `docs/superpowers/plans/2026-05-27-laravel-scaffold.md`.
 2. **`tenancy-auth`** — `app/Domain/Tenancy/AccessResolver`, `CrossTenantFetch`, `IdentifyTenant` + `SetTenantContextForOctane` + `BindTenantContext` middleware, `RoleBinding` model with `scope_type` + `tenant_set`, spatie/laravel-multitenancy + spatie/laravel-permission integration, Filament tenancy with `isPersistent: true`. Track A JWT issuer + JWKS endpoint + Sanctum PATs + Fortify + Socialite + OIDC + SAML. `AuditEvent` three-tenant schema + hash chain + `racklab:verify-audit-chain` Artisan command + bidirectional surfacing query.
 3. **`plugin-lifecycle`** — `PluginRegistry`, `PluginInstallation` + `PluginMigrationRecord` models, `racklab plugin install/migrate/enable/disable/rollback/uninstall` Artisan commands, `HookDispatcher` with the four listener-style semantics, hookspec event class scaffold, `racklab/plugin-hello` reference implementation.
 4. **`realtime-replay`** — Reverb daemon, channel auth, `broadcast_event_log` table + `ShouldBroadcast` events that implement Laravel's after-commit dispatch discipline, `/api/v1/replay` endpoint + sweep job. xterm.js + noVNC islands. Negative-path tests for replay gap sentinel.

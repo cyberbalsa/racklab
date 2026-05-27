@@ -17,23 +17,26 @@
         "laravel/framework": "^13.8",
         "laravel/octane": "^2.17.4",
         "laravel/tinker": "^3.0",
-        "livewire/livewire": "^4.3.0"
+        "livewire/livewire": "^4.3.0",
+        "racklab/plugin-hello": "dev-main"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.9.6",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.27",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
+        "pestphp/pest": "^4.7",
+        "pestphp/pest-plugin-laravel": "^4.0",
         "phpunit/phpunit": "^12.5.23"
     },
     "autoload": {
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/",
-            "Racklab\\PluginHello\\": "packages/racklab/plugin-hello/src/"
+            "Database\\Seeders\\": "database/seeders/"
         }
     },
     "autoload-dev": {
@@ -46,7 +49,19 @@
             "Tests\\Larastan\\Rules\\": "tests/Larastan/Rules/"
         }
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/racklab/plugin-hello",
+            "options": {
+                "reference": "config",
+                "symlink": true
+            }
+        }
+    ],
     "scripts": {
+        "larastan": "@php -d memory_limit=1G vendor/bin/phpstan analyse --no-progress",
+        "pest": "@php vendor/bin/pest",
         "pint": "@php vendor/bin/pint",
         "pint:test": "@php vendor/bin/pint --test",
         "setup": [
@@ -63,8 +78,9 @@
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
-            "@php artisan test"
+            "@php vendor/bin/pest"
         ],
+        "test:tiny": "@php vendor/bin/pest --testsuite=Tiny",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",
@@ -87,7 +103,9 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+                "racklab/plugin-hello"
+            ]
         }
     },
     "config": {
