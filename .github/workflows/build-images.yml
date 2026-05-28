@@ -87,7 +87,7 @@ jobs:
           syft "$LOCAL_IMAGE" -o json > "dist/sboms/${IMAGE}.syft.json"
 
       - name: Upload image SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: image-sbom-${{ matrix.image }}
           path: |
