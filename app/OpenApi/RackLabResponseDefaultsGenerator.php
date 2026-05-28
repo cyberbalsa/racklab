@@ -152,6 +152,22 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
                 'Release VPN endpoint',
                 'Releases a VPN endpoint, freeing tracked endpoint quota and emitting the release audit row.',
             ],
+            'post /api/v1/vpn-client-profiles' => [
+                'Issue VPN client profile',
+                'Issues a per-user VPN client profile against a running VPN endpoint. Owner-attributed; the unique (endpoint, user) constraint prevents duplicate profiles.',
+            ],
+            'get /api/v1/vpn-client-profiles/{}/download' => [
+                'Download VPN client profile',
+                'Returns the rendered OpenVPN client configuration. Owner-only — admins can rotate or revoke profiles but cannot read another user\'s private client key material (PRD §09).',
+            ],
+            'post /api/v1/vpn-client-profiles/{}/revoke' => [
+                'Revoke VPN client profile',
+                'Revokes a VPN client profile, closes any open VPN sessions, releases profile quota, and emits the revoke audit row.',
+            ],
+            'get /api/v1/vpn-client-profiles/{}/sessions' => [
+                'List VPN profile sessions',
+                'Returns the VPN session connect/disconnect ledger for a profile. Owners always see their own ledger; admin/support/instructor with network.vpnaas.session.read can see any profile in their project scope.',
+            ],
             'post /api/v1/deployments/{}/operations' => [
                 'Create deployment operation',
                 'Creates or replays an idempotent deployment lifecycle operation.',
@@ -401,7 +417,10 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             '/api/v1/deployments',
             '/api/v1/projects',
             '/api/v1/tokens',
-        ], true) || str_ends_with($uri, '/ssh-keys') || str_ends_with($uri, '/stacks');
+        ], true)
+            || str_ends_with($uri, '/ssh-keys')
+            || str_ends_with($uri, '/stacks')
+            || str_ends_with($uri, '/sessions'); // VPN session ledger collection
     }
 
     /**
@@ -435,6 +454,7 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             'post /api/v1/network-vpn-endpoints' => $this->vpnEndpointExample(),
             'post /api/v1/vpn-client-profiles' => $this->vpnClientProfileExample(),
             'post /api/v1/vpn-client-profiles/{}/revoke' => $this->vpnClientProfileRevokeExample(),
+            'get /api/v1/vpn-client-profiles/{}/sessions' => $this->vpnSessionListExample(),
             'post /api/v1/security-groups',
             'patch /api/v1/security-groups/{}' => $this->securityGroupExample(),
             'post /api/v1/provider-drifts/{}/repair',
@@ -859,6 +879,26 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             'expires_at' => null,
             'downloaded_at' => null,
             'created_at' => '2026-05-28T16:00:00+00:00',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function vpnSessionListExample(): array
+    {
+        return [
+            'id' => '01HZVPNSESSION00000000',
+            'tenant_id' => '01HZTENANT0000000000000000',
+            'vpn_client_profile_id' => '01HZVPNPROFILE00000000',
+            'network_vpn_endpoint_id' => '01HZVPNENDPOINT00000000',
+            'peer_ip' => '198.51.100.5',
+            'state' => 'closed',
+            'bytes_in' => 1024,
+            'bytes_out' => 2048,
+            'connected_at' => '2026-05-28T17:00:00+00:00',
+            'disconnected_at' => '2026-05-28T17:30:00+00:00',
+            'disconnect_reason' => 'client_quit',
         ];
     }
 

@@ -94,6 +94,18 @@ return [
             'open' => 'Open deployment',
         ],
     ],
+    'vpnaas' => [
+        'panel' => [
+            'title' => 'VPN access',
+            'empty' => 'No VPN endpoints are attached to this deployment.',
+            'capability' => 'Capability: :capability',
+            'state' => 'State: :state',
+            'bindings' => 'Bindings',
+            'profile_active' => 'Your VPN profile is active.',
+            'profile_revoked' => 'Your VPN profile is revoked.',
+            'profile_missing' => 'No VPN profile issued for you yet.',
+        ],
+    ],
     'hello' => [
         'description' => 'RackLab scaffold smoke test page.',
         'greeting' => 'Hello, :subject',

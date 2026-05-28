@@ -19,5 +19,7 @@
         </header>
 
         @livewire('console.deployment-console-pane', ['deployment' => $deployment, 'consoleKind' => $consoleKind])
+
+        @livewire('vpnaas.deployment-vpn-panel', ['deployment' => $deployment])
     </section>
 @endsection

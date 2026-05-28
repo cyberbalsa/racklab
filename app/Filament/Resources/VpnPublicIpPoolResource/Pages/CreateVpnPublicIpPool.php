@@ -1,0 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Filament\Resources\VpnPublicIpPoolResource\Pages;
+
+use App\Filament\Resources\VpnPublicIpPoolResource;
+use Filament\Resources\Pages\CreateRecord;
+
+final class CreateVpnPublicIpPool extends CreateRecord
+{
+    protected static string $resource = VpnPublicIpPoolResource::class;
+}

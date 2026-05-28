@@ -1407,6 +1407,65 @@ increment is in place:
   four integration tests are skipped in the default SQLite/Toolbx
   profile.
 
+The M5c sub-slice 5 VPN session ledger + UI panels increment is in
+place:
+
+- `App\Networking\VpnSessionService` records connect/disconnect
+  events on `VpnSession`. `recordConnect` refuses inactive
+  profiles and non-running endpoints; emits
+  `network.vpnaas.profile` audit row with action `session_connect`.
+  `recordDisconnect` is idempotent, flips to `closed`, stamps
+  `disconnected_at`, byte counts, and reason; audits
+  `session_disconnect`.
+- `GET /api/v1/vpn-client-profiles/{profile}/sessions` returns the
+  per-profile ledger as a collection (data: [ ... ]). Owners
+  always see their own; admin/support/instructor need
+  `network.vpnaas.session.read` via AccessResolver. Token scope
+  is the outer gate.
+- `App\Livewire\Vpnaas\DeploymentVpnPanel` renders an
+  authorization-gated per-endpoint summary on the deployment
+  detail page: name, state, capability, binding
+  `public_ip:udp_port`, and the authenticated user's own profile
+  status. `#[Locked]` on `deploymentId` plus a per-render
+  `AccessResolver::permitted(deployment.read)` check ensure that
+  a same-tenant outsider cannot scrape another deployment's VPN
+  data through a Livewire roundtrip.
+- `App\Filament\Resources\VpnPublicIpPoolResource` lets tenant
+  admins manage VPN public IP pools through Filament under the
+  Networking nav group; tenant ownership relationship declared.
+- `resources/lang/{en,es}/racklab.php` gain a `vpnaas.panel.*`
+  i18n block; `composer i18n:missing` stays green.
+- Scribe regenerates `docs/api/openapi.yaml` with bespoke
+  collection-shaped example for the sessions route and bespoke
+  summaries for issue/download/revoke/sessions. The list-endpoint
+  detection now recognises `/sessions` so the response schema
+  documents `data` as an array.
+- Coverage: 6 session-service tests (connect audit,
+  revoked-profile rejection, non-running-endpoint rejection,
+  disconnect audit + bytes, owner list-sessions API, outsider
+  rejection), 4 Filament resource tests, and 5 Livewire panel
+  tests (empty state, endpoint row + binding, active-profile
+  indicator, codex P1 unauthorized-outsider regression, and the
+  `#[Locked]` attribute assertion).
+- Codex P1 + P2 findings folded into this slice:
+  * P1: Livewire `deploymentId` is now `#[Locked]` and every
+    render re-authorizes `deployment.read` through
+    `AccessResolver`. A browser cannot mutate the property mid
+    session, and even if it could, the inner authorization gate
+    blocks reads.
+  * P2: `isListEndpoint()` now recognises `/sessions` so the
+    OpenAPI schema documents `data` as a collection rather than
+    a single object.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, and
+  `composer test` pass with 402 tests / 2412 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

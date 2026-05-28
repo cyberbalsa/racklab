@@ -94,6 +94,18 @@ return [
             'open' => 'Abrir despliegue',
         ],
     ],
+    'vpnaas' => [
+        'panel' => [
+            'title' => 'Acceso VPN',
+            'empty' => 'No hay endpoints VPN asociados a este despliegue.',
+            'capability' => 'Capacidad: :capability',
+            'state' => 'Estado: :state',
+            'bindings' => 'Enlaces',
+            'profile_active' => 'Tu perfil VPN esta activo.',
+            'profile_revoked' => 'Tu perfil VPN esta revocado.',
+            'profile_missing' => 'Aun no se te ha emitido un perfil VPN.',
+        ],
+    ],
     'hello' => [
         'description' => 'Pagina de prueba del andamiaje de RackLab.',
         'greeting' => 'Hola, :subject',

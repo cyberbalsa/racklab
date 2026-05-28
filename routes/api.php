@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\TokenRevokeController;
 use App\Http\Controllers\Api\TokenStoreController;
 use App\Http\Controllers\Api\VpnClientProfileDownloadController;
 use App\Http\Controllers\Api\VpnClientProfileRevokeController;
+use App\Http\Controllers\Api\VpnClientProfileSessionIndexController;
 use App\Http\Controllers\Api\VpnClientProfileStoreController;
 use App\Http\Middleware\AuthenticateTrackAJwt;
 use App\Http\Middleware\BindAuthenticatedTenant;
@@ -76,6 +77,7 @@ Route::prefix('v1')
         Route::post('/vpn-client-profiles', VpnClientProfileStoreController::class)->name('api.v1.vpn-client-profiles.store');
         Route::get('/vpn-client-profiles/{profile}/download', VpnClientProfileDownloadController::class)->name('api.v1.vpn-client-profiles.download');
         Route::post('/vpn-client-profiles/{profile}/revoke', VpnClientProfileRevokeController::class)->name('api.v1.vpn-client-profiles.revoke');
+        Route::get('/vpn-client-profiles/{profile}/sessions', VpnClientProfileSessionIndexController::class)->name('api.v1.vpn-client-profiles.sessions.index');
         Route::post('/routers', RouterStoreController::class)->name('api.v1.routers.store');
         Route::post('/floating-ips', FloatingIpStoreController::class)->name('api.v1.floating-ips.store');
         Route::delete('/floating-ips/{floatingIp}', FloatingIpReleaseController::class)->name('api.v1.floating-ips.release');

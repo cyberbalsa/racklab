@@ -1668,9 +1668,9 @@ paths:
             - architecto
   /api/v1/vpn-client-profiles:
     post:
-      summary: 'Create vpn client profiles'
+      summary: 'Issue VPN client profile'
       operationId: postApiV1VpnClientProfiles
-      description: 'Executes the RackLab API operation with tenant, token, and RBAC enforcement.'
+      description: 'Issues a per-user VPN client profile against a running VPN endpoint. Owner-attributed; the unique (endpoint, user) constraint prevents duplicate profiles.'
       parameters: []
       responses:
         200:
@@ -1851,9 +1851,9 @@ paths:
                 - network_vpn_endpoint_id
   '/api/v1/vpn-client-profiles/{profile}/download':
     get:
-      summary: 'Show download'
+      summary: 'Download VPN client profile'
       operationId: getApiV1VpnClientProfilesProfileDownload
-      description: 'Executes the RackLab API operation with tenant, token, and RBAC enforcement.'
+      description: "Returns the rendered OpenVPN client configuration. Owner-only — admins can rotate or revoke profiles but cannot read another user's private client key material (PRD §09)."
       parameters: []
       responses:
         200:
@@ -1876,9 +1876,9 @@ paths:
             - architecto
   '/api/v1/vpn-client-profiles/{profile}/revoke':
     post:
-      summary: 'Create revoke'
+      summary: 'Revoke VPN client profile'
       operationId: postApiV1VpnClientProfilesProfileRevoke
-      description: 'Executes the RackLab API operation with tenant, token, and RBAC enforcement.'
+      description: 'Revokes a VPN client profile, closes any open VPN sessions, releases profile quota, and emits the revoke audit row.'
       parameters: []
       responses:
         200:
@@ -2027,6 +2027,102 @@ paths:
                       expires_at: null
                       downloaded_at: null
                       created_at: '2026-05-28T16:00:00+00:00'
+      tags:
+        - Endpoints
+    parameters:
+      -
+        in: path
+        name: profile
+        description: ''
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
+  '/api/v1/vpn-client-profiles/{profile}/sessions':
+    get:
+      summary: 'List VPN profile sessions'
+      operationId: getApiV1VpnClientProfilesProfileSessions
+      description: 'Returns the VPN session connect/disconnect ledger for a profile. Owners always see their own ledger; admin/support/instructor with network.vpnaas.session.read can see any profile in their project scope.'
+      parameters: []
+      responses:
+        200:
+          description: 'Resource collection.'
+          content:
+            application/json:
+              example:
+                data:
+                  -
+                    id: 01HZVPNSESSION00000000
+                    tenant_id: 01HZTENANT0000000000000000
+                    vpn_client_profile_id: 01HZVPNPROFILE00000000
+                    network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                    peer_ip: 198.51.100.5
+                    state: closed
+                    bytes_in: 1024
+                    bytes_out: 2048
+                    connected_at: '2026-05-28T17:00:00+00:00'
+                    disconnected_at: '2026-05-28T17:30:00+00:00'
+                    disconnect_reason: client_quit
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        tenant_id:
+                          type: string
+                        vpn_client_profile_id:
+                          type: string
+                        network_vpn_endpoint_id:
+                          type: string
+                        peer_ip:
+                          type: string
+                        state:
+                          type: string
+                        bytes_in:
+                          type: integer
+                        bytes_out:
+                          type: integer
+                        connected_at:
+                          type: string
+                        disconnected_at:
+                          type: string
+                        disconnect_reason:
+                          type: string
+                      required:
+                        - id
+                        - tenant_id
+                        - vpn_client_profile_id
+                        - network_vpn_endpoint_id
+                        - peer_ip
+                        - state
+                        - bytes_in
+                        - bytes_out
+                        - connected_at
+                        - disconnected_at
+                        - disconnect_reason
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      -
+                        id: 01HZVPNSESSION00000000
+                        tenant_id: 01HZTENANT0000000000000000
+                        vpn_client_profile_id: 01HZVPNPROFILE00000000
+                        network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                        peer_ip: 198.51.100.5
+                        state: closed
+                        bytes_in: 1024
+                        bytes_out: 2048
+                        connected_at: '2026-05-28T17:00:00+00:00'
+                        disconnected_at: '2026-05-28T17:30:00+00:00'
+                        disconnect_reason: client_quit
       tags:
         - Endpoints
     parameters:
