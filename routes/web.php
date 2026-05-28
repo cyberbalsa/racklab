@@ -17,6 +17,7 @@ use App\Http\Controllers\JwksController;
 use App\Http\Controllers\ScriptFakeRunnerController;
 use App\Http\Middleware\BindAuthenticatedTenant;
 use App\Http\Middleware\SetUserLocale;
+use App\Livewire\Catalog\CatalogBrowser;
 use App\Livewire\Docs\DocEditor;
 use App\Livewire\Docs\DocIndex;
 use App\Livewire\Hello;
@@ -36,6 +37,10 @@ Route::get('/.well-known/jwks.json', JwksController::class)->name('jwks');
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('dashboard');
+
+Route::get('/catalog', CatalogBrowser::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('catalog');
 
 Route::put('/account/locale', AccountLocaleController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])

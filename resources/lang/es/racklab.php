@@ -18,6 +18,18 @@ return [
         'register' => 'Crear cuenta',
         'register_title' => 'Crea tu cuenta de RackLab',
     ],
+    'catalog' => [
+        'deploy' => 'Desplegar',
+        'deploy_denied' => 'No puedes desplegar ese elemento del catalogo.',
+        'deploy_started' => 'Despliegue iniciado. Siguelo en tu panel.',
+        'empty' => 'Aun no hay elementos del catalogo disponibles para ti.',
+        'nav' => 'Catalogo',
+        'no_projects' => 'Necesitas un proyecto antes de desplegar. Se crea un proyecto personal al iniciar sesion por primera vez.',
+        'select_project_error' => 'Elige un proyecto para desplegar.',
+        'summary' => 'Explora stacks publicados y despliegalos en uno de tus proyectos.',
+        'target_project' => 'Desplegar en el proyecto',
+        'title' => 'Catalogo',
+    ],
     'dashboard' => [
         'active_tenant' => 'Inquilino',
         'ability_deployment_read' => 'Leer despliegues',

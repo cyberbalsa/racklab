@@ -18,6 +18,18 @@ return [
         'register' => 'Create account',
         'register_title' => 'Create your RackLab account',
     ],
+    'catalog' => [
+        'deploy' => 'Deploy',
+        'deploy_denied' => 'You cannot deploy that catalog item.',
+        'deploy_started' => 'Deployment started. Track it on your dashboard.',
+        'empty' => 'No catalog items are available to you yet.',
+        'nav' => 'Catalog',
+        'no_projects' => 'You need a project before you can deploy. A personal project is created on first login.',
+        'select_project_error' => 'Choose a project to deploy into.',
+        'summary' => 'Browse published stacks and deploy them into one of your projects.',
+        'target_project' => 'Deploy into project',
+        'title' => 'Catalog',
+    ],
     'dashboard' => [
         'active_tenant' => 'Tenant',
         'ability_deployment_read' => 'Deployment read',
