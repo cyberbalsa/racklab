@@ -144,6 +144,14 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
                 'End console session',
                 'Revokes a console access grant by jti and emits the console.session.end audit row when the user disconnects.',
             ],
+            'post /api/v1/network-vpn-endpoints' => [
+                'Create VPN endpoint',
+                'Creates a pending VPNaaS endpoint attached to a tenant network and provisions tracked VPN endpoint quota.',
+            ],
+            'delete /api/v1/network-vpn-endpoints/{}' => [
+                'Release VPN endpoint',
+                'Releases a VPN endpoint, freeing tracked endpoint quota and emitting the release audit row.',
+            ],
             'post /api/v1/deployments/{}/operations' => [
                 'Create deployment operation',
                 'Creates or replays an idempotent deployment lifecycle operation.',
@@ -409,6 +417,7 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             'post /api/v1/networks' => $this->networkExample(),
             'post /api/v1/routers' => $this->routerExample(),
             'post /api/v1/floating-ips' => $this->floatingIpExample(),
+            'post /api/v1/network-vpn-endpoints' => $this->vpnEndpointExample(),
             'post /api/v1/security-groups',
             'patch /api/v1/security-groups/{}' => $this->securityGroupExample(),
             'post /api/v1/provider-drifts/{}/repair',
@@ -772,6 +781,27 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             ],
             'metadata' => [],
             'released_at' => null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function vpnEndpointExample(): array
+    {
+        return [
+            'id' => '01HZVPNENDPOINT00000000',
+            'tenant_id' => '01HZTENANT0000000000000000',
+            'project_id' => '01HZPROJECT000000000000000',
+            'deployment_id' => null,
+            'network_id' => '01HZNETWORK000000000000000',
+            'vpn_public_ip_pool_id' => '01HZVPNPOOL000000000000000',
+            'name' => 'lab-vpn',
+            'state' => 'pending',
+            'provider' => 'openvpn',
+            'capability' => 'network:vpnaas:openvpn:v1',
+            'created_at' => '2026-05-28T16:00:00+00:00',
+            'bindings' => [],
         ];
     }
 

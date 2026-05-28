@@ -1433,6 +1433,239 @@ paths:
                 - name
                 - slug
                 - subnet
+  /api/v1/network-vpn-endpoints:
+    post:
+      summary: 'Create VPN endpoint'
+      operationId: postApiV1NetworkVpnEndpoints
+      description: 'Creates a pending VPNaaS endpoint attached to a tenant network and provisions tracked VPN endpoint quota.'
+      parameters: []
+      responses:
+        200:
+          description: 'Existing resource returned for an idempotent replay.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZVPNENDPOINT00000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  project_id: 01HZPROJECT000000000000000
+                  deployment_id: null
+                  network_id: 01HZNETWORK000000000000000
+                  vpn_public_ip_pool_id: 01HZVPNPOOL000000000000000
+                  name: lab-vpn
+                  state: pending
+                  provider: openvpn
+                  capability: 'network:vpnaas:openvpn:v1'
+                  created_at: '2026-05-28T16:00:00+00:00'
+                  bindings: []
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      project_id:
+                        type: string
+                      deployment_id:
+                        type: 'null'
+                      network_id:
+                        type: string
+                      vpn_public_ip_pool_id:
+                        type: string
+                      name:
+                        type: string
+                      state:
+                        type: string
+                      provider:
+                        type: string
+                      capability:
+                        type: string
+                      created_at:
+                        type: string
+                      bindings:
+                        type: array
+                        items:
+                          type: object
+                    required:
+                      - id
+                      - tenant_id
+                      - project_id
+                      - deployment_id
+                      - network_id
+                      - vpn_public_ip_pool_id
+                      - name
+                      - state
+                      - provider
+                      - capability
+                      - created_at
+                      - bindings
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZVPNENDPOINT00000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      project_id: 01HZPROJECT000000000000000
+                      deployment_id: null
+                      network_id: 01HZNETWORK000000000000000
+                      vpn_public_ip_pool_id: 01HZVPNPOOL000000000000000
+                      name: lab-vpn
+                      state: pending
+                      provider: openvpn
+                      capability: 'network:vpnaas:openvpn:v1'
+                      created_at: '2026-05-28T16:00:00+00:00'
+                      bindings: []
+        201:
+          description: 'Resource created.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZVPNENDPOINT00000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  project_id: 01HZPROJECT000000000000000
+                  deployment_id: null
+                  network_id: 01HZNETWORK000000000000000
+                  vpn_public_ip_pool_id: 01HZVPNPOOL000000000000000
+                  name: lab-vpn
+                  state: pending
+                  provider: openvpn
+                  capability: 'network:vpnaas:openvpn:v1'
+                  created_at: '2026-05-28T16:00:00+00:00'
+                  bindings: []
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      project_id:
+                        type: string
+                      deployment_id:
+                        type: 'null'
+                      network_id:
+                        type: string
+                      vpn_public_ip_pool_id:
+                        type: string
+                      name:
+                        type: string
+                      state:
+                        type: string
+                      provider:
+                        type: string
+                      capability:
+                        type: string
+                      created_at:
+                        type: string
+                      bindings:
+                        type: array
+                        items:
+                          type: object
+                    required:
+                      - id
+                      - tenant_id
+                      - project_id
+                      - deployment_id
+                      - network_id
+                      - vpn_public_ip_pool_id
+                      - name
+                      - state
+                      - provider
+                      - capability
+                      - created_at
+                      - bindings
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZVPNENDPOINT00000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      project_id: 01HZPROJECT000000000000000
+                      deployment_id: null
+                      network_id: 01HZNETWORK000000000000000
+                      vpn_public_ip_pool_id: 01HZVPNPOOL000000000000000
+                      name: lab-vpn
+                      state: pending
+                      provider: openvpn
+                      capability: 'network:vpnaas:openvpn:v1'
+                      created_at: '2026-05-28T16:00:00+00:00'
+                      bindings: []
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 'Human-readable VPN endpoint name. Must not be greater than 120 characters.'
+                  examples:
+                    - lab-vpn
+                project_id:
+                  type: string
+                  description: 'Project that owns the VPN endpoint.'
+                  examples:
+                    - 01HZPROJECT0000000000000000
+                network_id:
+                  type: string
+                  description: 'Tenant network the VPN endpoint attaches to.'
+                  examples:
+                    - 01HZNETWORK000000000000000
+                vpn_public_ip_pool_id:
+                  type: string
+                  description: 'Admin-published VPN public IP pool id. Provide id OR slug. This field is required when <code>vpn_public_ip_pool_slug</code> is not present.'
+                  examples:
+                    - 01HZVPNPOOL000000000000000
+                vpn_public_ip_pool_slug:
+                  type: string
+                  description: 'Admin-published VPN public IP pool slug. Provide id OR slug. This field is required when <code>vpn_public_ip_pool_id</code> is not present.'
+                  examples:
+                    - default-vpn-public
+                deployment_id:
+                  type:
+                    - string
+                    - 'null'
+                  description: 'Optional Deployment this endpoint is bound to for lifecycle propagation.'
+                  examples:
+                    - 01HZDEPLOYMENT000000000000
+              required:
+                - name
+                - project_id
+                - network_id
+  '/api/v1/network-vpn-endpoints/{endpoint}':
+    delete:
+      summary: 'Release VPN endpoint'
+      operationId: deleteApiV1NetworkVpnEndpointsEndpoint
+      description: 'Releases a VPN endpoint, freeing tracked endpoint quota and emitting the release audit row.'
+      parameters: []
+      responses:
+        204:
+          description: 'No content.'
+      tags:
+        - Endpoints
+    parameters:
+      -
+        in: path
+        name: endpoint
+        description: ''
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
   /api/v1/routers:
     post:
       summary: 'Create project router'

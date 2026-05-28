@@ -19,6 +19,8 @@ use App\Http\Controllers\Api\HostKeyPhoneHomeController;
 use App\Http\Controllers\Api\MeController;
 use App\Http\Controllers\Api\NetworkOfferingStoreController;
 use App\Http\Controllers\Api\NetworkStoreController;
+use App\Http\Controllers\Api\NetworkVpnEndpointDestroyController;
+use App\Http\Controllers\Api\NetworkVpnEndpointStoreController;
 use App\Http\Controllers\Api\ProjectIndexController;
 use App\Http\Controllers\Api\ProjectSshKeyIndexController;
 use App\Http\Controllers\Api\ProjectSshKeyStoreController;
@@ -66,6 +68,8 @@ Route::prefix('v1')
         Route::get('/courses', CourseIndexController::class)->name('api.v1.courses.index');
         Route::post('/network-offerings', NetworkOfferingStoreController::class)->name('api.v1.network-offerings.store');
         Route::post('/networks', NetworkStoreController::class)->name('api.v1.networks.store');
+        Route::post('/network-vpn-endpoints', NetworkVpnEndpointStoreController::class)->name('api.v1.network-vpn-endpoints.store');
+        Route::delete('/network-vpn-endpoints/{endpoint}', NetworkVpnEndpointDestroyController::class)->name('api.v1.network-vpn-endpoints.destroy');
         Route::post('/routers', RouterStoreController::class)->name('api.v1.routers.store');
         Route::post('/floating-ips', FloatingIpStoreController::class)->name('api.v1.floating-ips.store');
         Route::delete('/floating-ips/{floatingIp}', FloatingIpReleaseController::class)->name('api.v1.floating-ips.release');

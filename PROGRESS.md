@@ -1219,6 +1219,68 @@ The M5c sub-slice 1 VPNaaS data-model + permission catalog increment is in place
   four integration tests are skipped in the default SQLite/Toolbx
   profile.
 
+The M5c sub-slice 2 endpoint lifecycle API + quota dimensions
+increment is in place:
+
+- `App\Networking\VpnaasQuotaService` adds the
+  `vpnaas_endpoints` + `vpnaas_client_profiles` dimensions on top
+  of the same scope/limit/usage primitives `NetworkQuotaService`
+  uses for floating IPs and routers. `assertEndpointAvailable` is
+  the gate; `consumeForEndpoint` + `releaseForEndpoint` flip the
+  quota usage row + emit `quota.consumed` / `quota.released`
+  events. The profile helpers ship together so M5c S4 can plug in
+  without further plumbing.
+- `POST /api/v1/network-vpn-endpoints` creates a pending endpoint
+  tied to a tenant network + VPN public IP pool, optionally
+  attaches it to a deployment, reserves the
+  `vpnaas_endpoints` quota dimension, and emits a hash-chained
+  `network.vpnaas.endpoint` audit row with the endpoint id, pool,
+  network, deployment, and provider.
+- `DELETE /api/v1/network-vpn-endpoints/{endpoint}` flips the
+  endpoint to `released`, releases the quota usage row, and emits
+  the matching audit row. Re-creation after release succeeds with
+  the same quota slot.
+- Both controllers gate on `network.vpnaas.endpoint.create` /
+  `.delete` through `AccessResolver` AND `CurrentTokenAbilities`,
+  mirroring the rest of the API surface.
+- `App\Networking\VpnEndpointPayload` flattens the endpoint +
+  bindings into the documented JSON shape. The `bindings` array
+  is empty until M5c S3 wires the port + IP allocator.
+- `audit-events.json` snapshot picks up `network.vpnaas.endpoint`.
+  Scribe regenerates `docs/api/openapi.yaml` with summaries +
+  bespoke response examples for both endpoints, and
+  `OpenApiSchemaTest` locks both routes against the
+  generic-example fallback.
+- Coverage: 7 Contract tests cover the create allow path (quota
+  consumed + audit), permission denial (audit + zero endpoints),
+  quota-exhausted denial with the exact validation message +
+  quota event, release (no-content + quota released + audit +
+  re-creation), the cross-project network rejection (422),
+  routable-network rejection on `reachability != isolated_no_ingress`,
+  and the missing-pool validation path that the OpenAPI schema now
+  mirrors.
+- Codex P1 + P2 findings folded into this slice:
+  * PRD §09 limits VPNaaS to isolated networks. The store
+    controller now rejects networks whose `reachability` is not
+    `isolated_no_ingress`, so a VPN endpoint cannot bridge clients
+    onto a routable/NAT/management-reachable network.
+  * The request rules now use `required_without` so the generated
+    OpenAPI schema marks one of `vpn_public_ip_pool_id` /
+    `vpn_public_ip_pool_slug` as required, matching the runtime
+    validator.
+  * `DELETE /api/v1/network-vpn-endpoints/{endpoint}` now returns
+    `204 No Content` (matching the floating-IP release endpoint
+    and the documented schema). Contract tests updated.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, and
+  `composer test` pass with 368 tests / 2215 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker
