@@ -22,6 +22,9 @@ it('defines one multi-target Containerfile for the Baseline image family', funct
         ->toContain('FROM runtime AS console-worker')
         ->toContain('FROM runtime AS scheduler-reconciler')
         ->toContain('FROM runtime AS notification-worker');
+
+    expect(strpos($containerfile, 'mkdir -p'))
+        ->toBeLessThan(strpos($containerfile, 'php artisan package:discover --ansi'));
 });
 
 it('keeps local-only files out of the production image build context', function (): void {

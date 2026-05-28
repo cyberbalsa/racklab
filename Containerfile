@@ -68,8 +68,6 @@ COPY routes ./routes
 COPY --from=assets /app/public/build ./public/build
 
 RUN set -eux; \
-    composer dump-autoload --no-dev --classmap-authoritative --no-scripts; \
-    php artisan package:discover --ansi; \
     mkdir -p \
         bootstrap/cache \
         storage/app \
@@ -78,7 +76,9 @@ RUN set -eux; \
         storage/framework/views \
         storage/logs \
         /var/lib/racklab/plugins/config \
-        /var/lib/racklab/plugins/packages
+        /var/lib/racklab/plugins/packages; \
+    composer dump-autoload --no-dev --classmap-authoritative --no-scripts; \
+    php artisan package:discover --ansi
 
 EXPOSE 8000 8080
 ENTRYPOINT []
