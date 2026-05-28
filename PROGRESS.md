@@ -1281,6 +1281,62 @@ increment is in place:
   four integration tests are skipped in the default SQLite/Toolbx
   profile.
 
+The M5c sub-slice 3 port + public-IP allocator increment is in place:
+
+- `App\Networking\VpnEndpointAllocator` allocates one
+  `NetworkVpnEndpointBinding` per endpoint. It scans the pool's
+  CIDR for the next IP that has free capacity (`active_binding_count
+  < port_range_size`), rolls a random UDP port from the pool's
+  configured range, and inserts the binding. On unique-constraint
+  collision (concurrent allocator picked the same port) the
+  allocator retries with a fresh port up to 64 times before
+  surrendering with `vpnaas_endpoints` quota text.
+- `NetworkVpnEndpointStoreController` now invokes the allocator
+  inside the existing create transaction. The endpoint flips to
+  `running` once a binding is in place, and the audit row carries
+  binding id, public_ip, and udp_port. Cross-tenant safety is
+  unchanged: the allocator inherits `BelongsToTenant`'s global
+  tenant scope.
+- `NetworkVpnEndpointDestroyController` now flips every binding
+  for the endpoint to `released` alongside the endpoint state
+  transition, so the operator sees the binding lifecycle in lock
+  step with the endpoint's. The cleanup reaper that physically
+  deletes released binding rows (and frees the unique slot) ships
+  in S6.
+- The endpoint response payload now carries `bindings[]` populated
+  by the allocator: id, node, public_ip, udp_port, state.
+- Coverage: 7 Contract tests for the allocator (basic IP+port
+  shape, two-endpoint distinct-pair guarantee, single-IP pool
+  port-reuse up to range size, saturation refusal, soft-released
+  IPs skipped until hard-cleanup, single-free-port deterministic
+  scan, and reuse after hard-cleanup) + 2 Contract tests for the
+  binding-quota dimensions on the endpoint API. The endpoint API
+  test now asserts `running` + 1 binding payload after creation.
+- Codex P2 findings folded into this slice:
+  * `vpnaas_endpoint_public_ips` + `vpnaas_endpoint_ports` quota
+    dimensions are now asserted on create and decremented on
+    release (per binding). The original S3 patch only handled the
+    `vpnaas_endpoints` dimension, leaving the PRD-required
+    binding-level limits ungated.
+  * The allocator now treats every binding row — including
+    `state=released` ones — as occupying its (public_ip, udp_port)
+    pair. The unique constraint stays in force until the cleanup
+    reaper deletes the row, so the allocator must respect it or
+    falsely surrender on near-empty pools.
+  * Port selection is now a deterministic scan of free ports for
+    the chosen IP plus a random pick within the free set. The
+    previous 64-retry random loop had ~10^-4 probability of
+    failing while a single free port remained.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, and
+  `composer test` pass with 377 tests / 2270 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

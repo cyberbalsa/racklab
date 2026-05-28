@@ -13,6 +13,7 @@ use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Http\Controllers\Controller;
 use App\Models\NetworkVpnEndpoint;
+use App\Models\NetworkVpnEndpointBinding;
 use App\Models\Project;
 use App\Models\User;
 use App\Networking\VpnaasQuotaService;
@@ -72,10 +73,23 @@ final class NetworkVpnEndpointDestroyController extends Controller
 
         DB::transaction(function () use ($model, $user, $quota, $context, $project, $auditEvents): void {
             $model->forceFill(['state' => NetworkVpnEndpoint::STATE_RELEASED])->save();
+
+            /** @var list<NetworkVpnEndpointBinding> $bindings */
+            $bindings = NetworkVpnEndpointBinding::query()
+                ->where('network_vpn_endpoint_id', $model->getKey())
+                ->get()
+                ->all();
+
+            foreach ($bindings as $binding) {
+                $binding->forceFill(['state' => NetworkVpnEndpointBinding::STATE_RELEASED])->save();
+                $quota->releaseForBinding($binding, $user);
+            }
+
             $quota->releaseForEndpoint($model, $user);
 
             $this->audit($auditEvents, $user, $context, $project, $model, 'release', 'allowed', [
                 'network_vpn_endpoint_id' => $model->resourceId(),
+                'binding_count' => count($bindings),
             ]);
         });
 

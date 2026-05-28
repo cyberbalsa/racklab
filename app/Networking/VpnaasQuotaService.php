@@ -33,6 +33,10 @@ final readonly class VpnaasQuotaService
 {
     public const string DIM_ENDPOINTS = 'vpnaas_endpoints';
 
+    public const string DIM_ENDPOINT_PUBLIC_IPS = 'vpnaas_endpoint_public_ips';
+
+    public const string DIM_ENDPOINT_PORTS = 'vpnaas_endpoint_ports';
+
     public const string DIM_CLIENT_PROFILES = 'vpnaas_client_profiles';
 
     public function __construct(
@@ -54,6 +58,32 @@ final readonly class VpnaasQuotaService
             operationKind: 'network.vpnaas.endpoint.create',
             effectivePermission: 'network.vpnaas.endpoint.create',
         );
+    }
+
+    /**
+     * @return list<QuotaLimit>
+     */
+    public function assertEndpointBindingAvailable(User $actor, TenantContext $context, Project $project): array
+    {
+        $ipLimits = $this->assertAvailable(
+            actor: $actor,
+            context: $context,
+            project: $project,
+            dimension: self::DIM_ENDPOINT_PUBLIC_IPS,
+            operationKind: 'network.vpnaas.endpoint.binding.create',
+            effectivePermission: 'network.vpnaas.endpoint.create',
+        );
+
+        $portLimits = $this->assertAvailable(
+            actor: $actor,
+            context: $context,
+            project: $project,
+            dimension: self::DIM_ENDPOINT_PORTS,
+            operationKind: 'network.vpnaas.endpoint.binding.create',
+            effectivePermission: 'network.vpnaas.endpoint.create',
+        );
+
+        return [...$ipLimits, ...$portLimits];
     }
 
     /**
@@ -97,6 +127,55 @@ final readonly class VpnaasQuotaService
             payloadKey: 'network_vpn_endpoint_id',
             payloadValue: $endpoint->resourceId(),
             reason: 'network.vpnaas.endpoint.release',
+        );
+    }
+
+    /**
+     * @param  list<QuotaLimit>  $limits
+     */
+    public function consumeForBinding(
+        array $limits,
+        \App\Models\NetworkVpnEndpointBinding $binding,
+        NetworkVpnEndpoint $endpoint,
+        User $actor,
+    ): void {
+        foreach ($limits as $limit) {
+            $this->consume(
+                limits: [$limit],
+                tenantId: $endpoint->tenant_id,
+                projectId: $endpoint->project_id,
+                actor: $actor,
+                operationKind: 'network.vpnaas.endpoint.binding.create',
+                payloadKey: 'network_vpn_endpoint_binding_id',
+                payloadValue: $binding->resourceId(),
+            );
+        }
+    }
+
+    public function releaseForBinding(\App\Models\NetworkVpnEndpointBinding $binding, User $actor): void
+    {
+        /** @var NetworkVpnEndpoint|null $endpoint */
+        $endpoint = NetworkVpnEndpoint::query()->whereKey($binding->network_vpn_endpoint_id)->first();
+        $projectId = $endpoint?->project_id;
+
+        $this->release(
+            tenantId: $binding->tenant_id,
+            projectId: $projectId,
+            dimension: self::DIM_ENDPOINT_PUBLIC_IPS,
+            actor: $actor,
+            payloadKey: 'network_vpn_endpoint_binding_id',
+            payloadValue: $binding->resourceId(),
+            reason: 'network.vpnaas.endpoint.binding.release',
+        );
+
+        $this->release(
+            tenantId: $binding->tenant_id,
+            projectId: $projectId,
+            dimension: self::DIM_ENDPOINT_PORTS,
+            actor: $actor,
+            payloadKey: 'network_vpn_endpoint_binding_id',
+            payloadValue: $binding->resourceId(),
+            reason: 'network.vpnaas.endpoint.binding.release',
         );
     }
 

@@ -20,6 +20,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Models\VpnPublicIpPool;
 use App\Networking\VpnaasQuotaService;
+use App\Networking\VpnEndpointAllocator;
 use App\Networking\VpnEndpointPayload;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -39,6 +40,7 @@ final class NetworkVpnEndpointStoreController extends Controller
         CurrentTokenAbilities $tokenAbilities,
         AuditEventWriter $auditEvents,
         VpnaasQuotaService $quota,
+        VpnEndpointAllocator $allocator,
     ): JsonResponse {
         $user = $request->user();
 
@@ -74,8 +76,9 @@ final class NetworkVpnEndpointStoreController extends Controller
         }
 
         $quotaLimits = $quota->assertEndpointAvailable($user, $context, $project);
+        $bindingLimits = $quota->assertEndpointBindingAvailable($user, $context, $project);
 
-        $endpoint = DB::transaction(function () use ($user, $context, $project, $network, $pool, $deployment, $request, $quotaLimits, $quota, $auditEvents): NetworkVpnEndpoint {
+        $endpoint = DB::transaction(function () use ($user, $context, $project, $network, $pool, $deployment, $request, $quotaLimits, $bindingLimits, $quota, $auditEvents, $allocator): NetworkVpnEndpoint {
             /** @var NetworkVpnEndpoint $endpoint */
             $endpoint = NetworkVpnEndpoint::query()->create([
                 'tenant_id' => $context->activeTenantId,
@@ -95,12 +98,22 @@ final class NetworkVpnEndpointStoreController extends Controller
 
             $quota->consumeForEndpoint($quotaLimits, $endpoint, $user);
 
+            // Allocate the first binding (public_ip + udp_port) and flip the
+            // endpoint to running. M5c S6 will scale this to per-hypervisor-node
+            // bindings via a placement signal; S3 ships the one-binding path.
+            $binding = $allocator->allocate($endpoint);
+            $quota->consumeForBinding($bindingLimits, $binding, $endpoint, $user);
+            $endpoint->forceFill(['state' => NetworkVpnEndpoint::STATE_RUNNING])->save();
+
             $this->audit($auditEvents, $user, $context, $project, 'create', 'allowed', [
-                'network_vpn_endpoint_id' => $endpoint->getKey(),
+                'network_vpn_endpoint_id' => $endpoint->resourceId(),
                 'network_id' => $network->getKey(),
                 'vpn_public_ip_pool_id' => $pool->getKey(),
                 'deployment_id' => $deployment?->getKey(),
                 'provider' => $pool->provider,
+                'binding_id' => $binding->getKey(),
+                'public_ip' => $binding->public_ip,
+                'udp_port' => $binding->udp_port,
             ]);
 
             return $endpoint;

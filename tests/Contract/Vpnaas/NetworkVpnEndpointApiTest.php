@@ -31,20 +31,30 @@ it('creates a pending VPN endpoint, consumes quota, and emits the audit row', fu
 
     Sanctum::actingAs($user);
 
-    $endpointId = $this->postJson('/api/v1/network-vpn-endpoints', [
+    $response = $this->postJson('/api/v1/network-vpn-endpoints', [
         'name' => 'lab-vpn',
         'project_id' => $project->getKey(),
         'network_id' => $network->getKey(),
         'vpn_public_ip_pool_slug' => 'lab-vpn-pool',
     ])
         ->assertCreated()
-        ->assertJsonPath('data.state', 'pending')
+        ->assertJsonPath('data.state', 'running')
         ->assertJsonPath('data.name', 'lab-vpn')
-        ->assertJsonPath('data.capability', 'network:vpnaas:openvpn:v1')
-        ->json('data.id');
+        ->assertJsonPath('data.capability', 'network:vpnaas:openvpn:v1');
+
+    $endpointId = $response->json('data.id');
+
+    // S3: allocator assigns one binding with a public IP from the pool CIDR
+    // and a random UDP port in the configured range.
+    $bindings = $response->json('data.bindings');
+    expect($bindings)->toBeArray()->toHaveCount(1)
+        ->and($bindings[0]['public_ip'])->toStartWith('203.0.113.')
+        ->and($bindings[0]['udp_port'])->toBeGreaterThanOrEqual(20000)
+        ->and($bindings[0]['udp_port'])->toBeLessThanOrEqual(20009)
+        ->and($bindings[0]['state'])->toBe('active');
 
     expect(NetworkVpnEndpoint::query()->whereKey($endpointId)->firstOrFail()->state)
-        ->toBe(NetworkVpnEndpoint::STATE_PENDING);
+        ->toBe(NetworkVpnEndpoint::STATE_RUNNING);
 
     expect(QuotaUsage::query()
         ->where('dimension', 'vpnaas_endpoints')
@@ -190,6 +200,56 @@ it('rejects VPN endpoints on networks that are not isolated_no_ingress', functio
     expect(NetworkVpnEndpoint::query()->count())->toBe(0);
 });
 
+it('enforces the vpnaas_endpoint_public_ips and vpnaas_endpoint_ports binding quotas', function (): void {
+    [$tenant, $user, $project, $network] = provisionVpnaasFixture();
+    createVpnPublicIpPool($tenant, 'binding-quota-pool');
+    createVpnEndpointQuota($tenant, $project, 5);
+    createVpnEndpointDimensionQuota($tenant, $project, 'vpnaas_endpoint_public_ips', 0);
+
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/v1/network-vpn-endpoints', [
+        'name' => 'quota-vpn',
+        'project_id' => $project->getKey(),
+        'network_id' => $network->getKey(),
+        'vpn_public_ip_pool_slug' => 'binding-quota-pool',
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('quota');
+
+    expect(NetworkVpnEndpoint::query()->count())->toBe(0);
+    expect(QuotaEvent::query()
+        ->where('event_type', 'quota.denied')
+        ->where('dimension', 'vpnaas_endpoint_public_ips')
+        ->exists()
+    )->toBeTrue();
+});
+
+it('records a quota usage row per binding for the public-ips and ports dimensions', function (): void {
+    [$tenant, $user, $project, $network] = provisionVpnaasFixture();
+    createVpnPublicIpPool($tenant, 'usage-rows-pool');
+    createVpnEndpointQuota($tenant, $project, 1);
+    createVpnEndpointDimensionQuota($tenant, $project, 'vpnaas_endpoint_public_ips', 4);
+    createVpnEndpointDimensionQuota($tenant, $project, 'vpnaas_endpoint_ports', 4);
+
+    Sanctum::actingAs($user);
+
+    $endpointId = $this->postJson('/api/v1/network-vpn-endpoints', [
+        'name' => 'usage-vpn',
+        'project_id' => $project->getKey(),
+        'network_id' => $network->getKey(),
+        'vpn_public_ip_pool_slug' => 'usage-rows-pool',
+    ])->assertCreated()->json('data.id');
+
+    expect(QuotaUsage::query()->where('dimension', 'vpnaas_endpoint_public_ips')->where('state', 'active')->count())->toBe(1);
+    expect(QuotaUsage::query()->where('dimension', 'vpnaas_endpoint_ports')->where('state', 'active')->count())->toBe(1);
+
+    $this->deleteJson('/api/v1/network-vpn-endpoints/'.$endpointId)->assertNoContent();
+
+    expect(QuotaUsage::query()->where('dimension', 'vpnaas_endpoint_public_ips')->where('state', 'released')->count())->toBe(1);
+    expect(QuotaUsage::query()->where('dimension', 'vpnaas_endpoint_ports')->where('state', 'released')->count())->toBe(1);
+});
+
 it('rejects VPN endpoint requests that omit both pool id and slug', function (): void {
     [$tenant, $user, $project, $network] = provisionVpnaasFixture();
     createVpnPublicIpPool($tenant, 'unused-pool');
@@ -302,12 +362,17 @@ function createVpnPublicIpPool(Tenant $tenant, string $slug): VpnPublicIpPool
 
 function createVpnEndpointQuota(Tenant $tenant, Project $project, int $limitValue): QuotaLimit
 {
+    return createVpnEndpointDimensionQuota($tenant, $project, 'vpnaas_endpoints', $limitValue);
+}
+
+function createVpnEndpointDimensionQuota(Tenant $tenant, Project $project, string $dimension, int $limitValue): QuotaLimit
+{
     /** @var QuotaLimit $limit */
     $limit = QuotaLimit::query()->create([
         'tenant_id' => $tenant->getKey(),
         'scope_type' => 'project',
         'scope_id' => $project->getKey(),
-        'dimension' => 'vpnaas_endpoints',
+        'dimension' => $dimension,
         'limit_value' => $limitValue,
         'metadata' => [
             'source' => 'vpnaas-test',
