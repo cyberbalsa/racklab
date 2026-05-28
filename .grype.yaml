@@ -1,0 +1,4 @@
+# Anchore Grype policy for RackLab image builds.
+# See docs/superpowers/specs/2026-05-28-horizon-and-supply-chain-design.md.
+# Add ignore rules below ONLY with: CVE id, package, rationale, expiry date.
+ignore: []

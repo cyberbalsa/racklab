@@ -112,6 +112,45 @@ it('allows documented runtime image license exceptions only', function (): void 
         ->and(implode("\n", $output))->toBe('');
 });
 
+it('runs the two-scan Grype model (full + fixed-only) and uploads SARIF', function (): void {
+    $workflow = Yaml::parseFile(base_path('.github/workflows/build-images.yml'));
+    $steps = $workflow['jobs']['build-images']['steps'];
+    $names = array_column($steps, 'name');
+
+    expect($names)->toContain('Grype full report')
+        ->and($names)->toContain('Upload full SARIF')
+        ->and($names)->toContain('Grype fixed-CVE failure gate');
+
+    $full = current(array_filter($steps, fn (array $s): bool => ($s['name'] ?? '') === 'Grype full report'));
+    expect($full['uses'])->toBe('anchore/scan-action@v7')
+        ->and($full['with']['fail-build'])->toBe(false)
+        ->and($full['with']['only-fixed'])->toBe(false);
+
+    $gate = current(array_filter($steps, fn (array $s): bool => ($s['name'] ?? '') === 'Grype fixed-CVE failure gate'));
+    expect($gate['uses'])->toBe('anchore/scan-action@v7')
+        ->and($gate['with']['fail-build'])->toBe(true)
+        ->and($gate['with']['only-fixed'])->toBe(true)
+        ->and($gate['with']['severity-cutoff'])->toBe('high')
+        ->and($gate['with']['config'])->toBe('.grype.yaml');
+
+    $upload = current(array_filter($steps, fn (array $s): bool => ($s['name'] ?? '') === 'Upload full SARIF'));
+    expect($upload['uses'])->toBe('github/codeql-action/upload-sarif@v4');
+});
+
+it('declares security-events: write permission for SARIF upload', function (): void {
+    $workflow = Yaml::parseFile(base_path('.github/workflows/build-images.yml'));
+
+    expect($workflow['permissions']['security-events'] ?? null)->toBe('write');
+});
+
+it('places .grype.yaml at repo root with an empty initial allowlist', function (): void {
+    expect(file_exists(base_path('.grype.yaml')))->toBeTrue();
+
+    $config = Yaml::parseFile(base_path('.grype.yaml'));
+
+    expect($config['ignore'] ?? null)->toBe([]);
+});
+
 it('rejects unallowlisted forbidden runtime image licenses', function (): void {
     $sbom = buildImagesWorkflowTemporarySbom([
         [

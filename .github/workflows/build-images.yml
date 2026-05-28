@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -98,6 +99,34 @@ jobs:
           path: |
             dist/sboms/${{ matrix.image }}.cdx.json
             dist/sboms/${{ matrix.image }}.syft.json
+
+      - name: Grype full report
+        uses: anchore/scan-action@v7
+        with:
+          sbom: dist/sboms/${{ matrix.image }}.cdx.json
+          fail-build: false
+          severity-cutoff: low
+          only-fixed: false
+          output-format: sarif
+          output-file: grype-${{ matrix.image }}-full.sarif
+
+      - name: Upload full SARIF
+        if: always()
+        continue-on-error: true  # fork PRs lack security-events: write; tolerate upload failure
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: grype-${{ matrix.image }}-full.sarif
+          category: grype-${{ matrix.image }}-full
+
+      - name: Grype fixed-CVE failure gate
+        uses: anchore/scan-action@v7
+        with:
+          sbom: dist/sboms/${{ matrix.image }}.cdx.json
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          config: .grype.yaml
+          output-format: table
 
       - name: License policy gate
         env:
