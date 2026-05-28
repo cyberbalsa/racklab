@@ -36,10 +36,7 @@ final readonly class HorizonAuthGate
             return false;
         }
 
-        $decision = $this->resolver->permittedPlatform(
-            new ActorIdentity((string) $user->id),
-            new Permission('horizon.view'),
-        );
+        $decision = $this->decide($user);
 
         if (! $decision->allowed) {
             $reason = $decision->denyReason instanceof \App\Domain\Tenancy\AccessDenyReason ? $decision->denyReason->value : 'unknown';
@@ -51,6 +48,26 @@ final readonly class HorizonAuthGate
         $this->emitAllowed(actorId: (string) $user->id);
 
         return true;
+    }
+
+    /**
+     * Non-auditing variant — same predicate, no audit-row side effect.
+     *
+     * Use when rendering UI affordances (e.g. a "Horizon" nav link in
+     * Filament) that should be hidden when the user can't access /horizon.
+     * The authoritative gate that DOES audit is {@see authorize()}.
+     */
+    public function canView(?User $user): bool
+    {
+        return $user instanceof User && $this->decide($user)->allowed;
+    }
+
+    private function decide(User $user): \App\Domain\Tenancy\AccessDecision
+    {
+        return $this->resolver->permittedPlatform(
+            new ActorIdentity((string) $user->id),
+            new Permission('horizon.view'),
+        );
     }
 
     private function emitAllowed(string $actorId): void

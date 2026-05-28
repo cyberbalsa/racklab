@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Auth\HorizonAuthGate;
 use App\Http\Middleware\BindFilamentTenantContext;
 use App\Models\Tenant;
+use App\Models\User;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -46,6 +49,18 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
                 FilamentInfoWidget::class,
+            ])
+            ->navigationItems([
+                NavigationItem::make('Horizon')
+                    ->url('/horizon')
+                    ->icon('heroicon-o-bolt')
+                    ->sort(99)
+                    ->visible(static function (): bool {
+                        $user = auth()->user();
+
+                        return $user instanceof User
+                            && app(HorizonAuthGate::class)->canView($user);
+                    }),
             ])
             ->middleware([
                 EncryptCookies::class,
