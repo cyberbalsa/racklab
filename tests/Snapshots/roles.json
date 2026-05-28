@@ -265,5 +265,8 @@
         "project.ssh_key.update",
         "project.update",
         "token.create"
+    ],
+    "tenant_member": [
+        "catalog.read"
     ]
 }

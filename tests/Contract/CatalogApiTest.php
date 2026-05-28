@@ -48,9 +48,32 @@ it('lists published catalog items and deploys a published catalog version', func
         ->assertJsonPath('data.state', 'running');
 });
 
-it('does not deploy catalog versions the actor cannot read', function (): void {
+it('lets any tenant member read and deploy a tenant-local published catalog item without an item-specific grant', function (): void {
     [$tenant, $user, $project] = provisionCatalogUserProject();
-    [, $version] = createPublishedCatalogVersion($tenant, $user, grantRead: false);
+    [$item, $version] = createPublishedCatalogVersion($tenant, $user, grantRead: false);
+
+    Sanctum::actingAs($user);
+
+    $this->getJson('/api/v1/catalog/items')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $item->getKey());
+
+    $this->postJson('/api/v1/deployments', [
+        'project_id' => $project->getKey(),
+        'catalog_version_id' => $version->getKey(),
+        'operation' => 'deploy',
+        'idempotency_key' => 'deploy-tenant-member-catalog-version',
+    ])
+        ->assertCreated()
+        ->assertJsonPath('data.state', 'running');
+});
+
+it('does not expose or deploy catalog versions owned by another tenant', function (): void {
+    [, $user, $project] = provisionCatalogUserProject();
+
+    $otherTenant = Tenant::query()->create(['name' => 'Other Tenant', 'slug' => 'other']);
+    [, $version] = createPublishedCatalogVersion($otherTenant, $user, grantRead: false);
 
     Sanctum::actingAs($user);
 
@@ -62,7 +85,7 @@ it('does not deploy catalog versions the actor cannot read', function (): void {
         'project_id' => $project->getKey(),
         'catalog_version_id' => $version->getKey(),
         'operation' => 'deploy',
-        'idempotency_key' => 'deploy-unreadable-catalog-version',
+        'idempotency_key' => 'deploy-cross-tenant-catalog-version',
     ])->assertNotFound();
 });
 

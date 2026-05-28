@@ -28,5 +28,9 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $rbac->sync();
+
+        if (config('racklab.seed_demo_catalog', false)) {
+            $this->call(CatalogDemoSeeder::class);
+        }
     }
 }

@@ -19,12 +19,28 @@ final readonly class EloquentRoleBindingRepository implements RoleBindingReposit
     {
         $records = [];
 
+        // Bindings that target the resource directly (e.g. a project-owner
+        // binding).
         /** @var RoleBinding $binding */
         foreach (RoleBinding::query()
             ->where('principal_type', 'user')
             ->where('principal_id', $actor->id)
             ->where('resource_type', $resource->resourceType())
             ->where('resource_id', $resource->resourceId())
+            ->get() as $binding) {
+            $records[] = $binding->toRecord();
+        }
+
+        // Tenant-scoped membership bindings that target the resource's owning
+        // tenant. A single tenant-membership binding therefore covers every
+        // tenant-shared resource (the catalog) without a per-resource grant;
+        // AccessResolver still enforces visibility and role-grants-permission.
+        /** @var RoleBinding $binding */
+        foreach (RoleBinding::query()
+            ->where('principal_type', 'user')
+            ->where('principal_id', $actor->id)
+            ->where('resource_type', 'tenant')
+            ->where('resource_id', $resource->tenantId())
             ->get() as $binding) {
             $records[] = $binding->toRecord();
         }

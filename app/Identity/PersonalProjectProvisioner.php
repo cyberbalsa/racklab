@@ -67,6 +67,27 @@ final readonly class PersonalProjectProvisioner
                 ['role' => 'owner'],
             );
 
+            // Tenant-scoped baseline membership binding. Grants the minimal
+            // tenant_member role (catalog browsing) to every member, so the
+            // catalog is readable without a per-item grant. AccessResolver
+            // still gates visibility + permission on top of this binding.
+            RoleBinding::query()->firstOrCreate(
+                [
+                    'principal_type' => 'user',
+                    'principal_id' => (string) $userId,
+                    'resource_type' => 'tenant',
+                    'resource_id' => $context->activeTenantId,
+                ],
+                [
+                    'role' => 'tenant_member',
+                    'scope_type' => RoleBindingScopeType::TenantLocal,
+                    'tenant_id' => $context->activeTenantId,
+                    'tenant_set' => [],
+                    'granted_by_id' => $userId,
+                    'granted_reason' => 'tenant membership baseline',
+                ],
+            );
+
             RoleBinding::query()->firstOrCreate(
                 [
                     'principal_type' => 'user',

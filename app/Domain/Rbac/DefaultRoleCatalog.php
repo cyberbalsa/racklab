@@ -277,6 +277,14 @@ final readonly class DefaultRoleCatalog implements RolePermissionLookup
             'project.update',
             'token.create',
         ],
+        // Baseline role granted to every tenant member. Intentionally minimal:
+        // it carries only the read capabilities that all members of a tenant
+        // share regardless of project ownership. Bound at tenant scope
+        // (resource_type=tenant), so any permission added here applies
+        // tenant-wide — keep it to genuinely tenant-shared, read-only surfaces.
+        'tenant_member' => [
+            'catalog.read',
+        ],
     ];
 
     /**

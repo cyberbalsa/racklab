@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 return [
     'default_tenant_slug' => env('RACKLAB_DEFAULT_TENANT_SLUG', 'default'),
+    'seed_demo_catalog' => env('RACKLAB_SEED_DEMO_CATALOG', true),
     'container_runtime' => env('RACKLAB_CONTAINER_RUNTIME', 'unavailable'),
     'podman' => [
         'binary' => env('RACKLAB_PODMAN_BINARY', 'podman'),
