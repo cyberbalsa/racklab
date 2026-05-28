@@ -10,7 +10,7 @@ COPY resources ./resources
 COPY public ./public
 RUN npm ci --ignore-scripts && npm run build
 
-FROM dunglas/frankenphp:php8.3-bookworm AS runtime
+FROM docker.io/dunglas/frankenphp:php8.3-bookworm AS runtime
 ARG BUILD_DATE=unknown
 ARG VCS_REF=unknown
 
