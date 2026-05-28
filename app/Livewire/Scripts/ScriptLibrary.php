@@ -12,6 +12,7 @@ use App\Domain\Tenancy\TenantContextStore;
 use App\Models\Project;
 use App\Models\Script;
 use App\Models\ScriptApproval;
+use App\Models\ScriptVersion;
 use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\View\View;
@@ -64,7 +65,7 @@ final class ScriptLibrary extends Component
     }
 
     /**
-     * @return list<array{model: Script, approved: bool}>
+     * @return list<array{model: Script, approved: bool, version: int|null}>
      */
     private function scriptsFor(Project $project): array
     {
@@ -72,18 +73,43 @@ final class ScriptLibrary extends Component
 
         /** @var Script $script */
         foreach (Script::query()->where('project_id', $project->id)->orderBy('name')->get() as $script) {
-            $approved = $script->current_version_id !== null
-                && ScriptApproval::query()
-                    ->where('script_id', $script->getKey())
-                    ->where('script_version_id', $script->current_version_id)
-                    ->where('state', 'active')
-                    ->whereNull('invalidated_at')
-                    ->exists();
+            $currentVersion = $script->current_version_id === null
+                ? null
+                : ScriptVersion::query()->whereKey($script->current_version_id)->first();
 
-            $rows[] = ['model' => $script, 'approved' => $approved];
+            $rows[] = [
+                'model' => $script,
+                'approved' => $currentVersion instanceof ScriptVersion
+                    && $this->hasUsableApproval($script, $currentVersion, $project),
+                'version' => $currentVersion?->version_number,
+            ];
         }
 
         return $rows;
+    }
+
+    /**
+     * An approval is usable in this project view only when it matches what the
+     * run path accepts for a project run: an active project-scoped approval for
+     * this project, or a catalog_script approval. Approvals scoped to a
+     * deployment/course/catalog_version are not valid here and must not show as
+     * Approved (mirrors ScriptRunStoreController::activeApproval).
+     */
+    private function hasUsableApproval(Script $script, ScriptVersion $version, Project $project): bool
+    {
+        return ScriptApproval::query()
+            ->where('script_id', $script->getKey())
+            ->where('script_version_id', $version->getKey())
+            ->where('state', 'active')
+            ->whereNull('invalidated_at')
+            ->where(function ($query) use ($project): void {
+                $query
+                    ->where(function ($scoped) use ($project): void {
+                        $scoped->where('scope_type', 'project')->where('scope_id', $project->id);
+                    })
+                    ->orWhere('scope_type', 'catalog_script');
+            })
+            ->exists();
     }
 
     private function allows(User $user, string $permission, Project $project, TenantContext $context): bool

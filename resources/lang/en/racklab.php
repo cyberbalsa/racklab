@@ -61,6 +61,7 @@ return [
         'no_access' => 'You do not have permission to view scripts in this project.',
         'not_approved' => 'Not approved',
         'runner' => 'Runner',
+        'version' => 'Version',
         'state' => 'State',
         'title' => 'Script library',
     ],

@@ -36,7 +36,7 @@ function provisionScriptLibraryActor(string $name = 'Owner'): array
     return [$tenant, $user, $project];
 }
 
-function seedProjectScript(Tenant $tenant, User $owner, Project $project, bool $approved): Script
+function seedProjectScript(Tenant $tenant, User $owner, Project $project, bool $approved, string $approvalScope = 'project'): Script
 {
     app(TenantContextStore::class)->set(new TenantContext(activeTenantId: $tenant->getKey()));
     $tenant->makeCurrent();
@@ -75,7 +75,7 @@ function seedProjectScript(Tenant $tenant, User $owner, Project $project, bool $
             'script_id' => $script->getKey(),
             'script_version_id' => $version->getKey(),
             'approved_by_id' => $owner->id,
-            'scope_type' => 'project',
+            'scope_type' => $approvalScope,
             'scope_id' => $project->getKey(),
             'state' => 'active',
         ]);
@@ -96,7 +96,20 @@ it('lists a project script with its runner, version, and approval state', functi
         ->assertOk()
         ->assertSee('Bootstrap Web')
         ->assertSee('ansible')
-        ->assertSee('Approved');
+        ->assertSee('Approved')
+        ->assertSee('v1');   // current version number
+});
+
+it('does not show an approval scoped to another resource as approved here', function (): void {
+    [$tenant, $user, $project] = provisionScriptLibraryActor();
+    // Active approval, but scoped to a deployment — not usable for a project run.
+    seedProjectScript($tenant, $user, $project, approved: true, approvalScope: 'deployment');
+
+    $this->actingAs($user)
+        ->get('/projects/'.$project->getKey().'/scripts')
+        ->assertOk()
+        ->assertSee('Bootstrap Web')
+        ->assertSee('Not approved');
 });
 
 it('marks a script without an active approval as unapproved', function (): void {

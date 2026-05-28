@@ -18,6 +18,7 @@
                     <tr>
                         <th>{{ __('racklab.scripts_lib.name') }}</th>
                         <th>{{ __('racklab.scripts_lib.runner') }}</th>
+                        <th>{{ __('racklab.scripts_lib.version') }}</th>
                         <th>{{ __('racklab.scripts_lib.state') }}</th>
                         <th>{{ __('racklab.scripts_lib.approval') }}</th>
                     </tr>
@@ -31,6 +32,7 @@
                                 <div class="text-xs text-base-content/60">{{ $script->slug }}</div>
                             </td>
                             <td><span class="badge badge-outline">{{ $script->runner_kind }}</span></td>
+                            <td>{{ $row['version'] === null ? '—' : 'v'.$row['version'] }}</td>
                             <td>{{ $script->state }}</td>
                             <td>
                                 @if ($row['approved'])
