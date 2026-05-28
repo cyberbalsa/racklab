@@ -136,6 +136,10 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
                 'Render deployment cloud-init',
                 'Renders redacted cloud-init metadata and a one-time host-key phone-home token for a deployment.',
             ],
+            'post /api/v1/deployments/{}/console-grant' => [
+                'Issue console access grant',
+                'Issues a short-lived Track A JWT scoped to a single deployment + console kind for opening a noVNC/xterm console pane.',
+            ],
             'post /api/v1/deployments/{}/operations' => [
                 'Create deployment operation',
                 'Creates or replays an idempotent deployment lifecycle operation.',
@@ -415,6 +419,7 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             'get /api/v1/deployments/{}',
             'post /api/v1/deployments/{}/operations' => $this->deploymentExample(),
             'post /api/v1/deployments/{}/cloud-init' => $this->cloudInitExample(),
+            'post /api/v1/deployments/{}/console-grant' => $this->consoleGrantExample(),
             'get /api/v1/tokens' => $this->tokenGrantExample(false),
             'post /api/v1/tokens' => $this->tokenGrantExample(true),
             'post /api/v1/scripts',
@@ -851,6 +856,24 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             'metadata' => [
                 'source' => 'provider-drift-detector',
             ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    /**
+     * @return array<string, mixed>
+     */
+    private function consoleGrantExample(): array
+    {
+        return [
+            'grant_id' => '01HZCONSOLEGRANT0000000000',
+            'deployment_id' => '01HZDEPLOYMENT000000000000',
+            'console_kind' => 'vnc',
+            'jwt' => 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjAxSFpKV1RLSUQwMDAwMDAwMDAwIn0.payload.signature',
+            'kid' => '01HZJWTKID000000000000000',
+            'expires_at' => '2026-05-28T12:05:00+00:00',
         ];
     }
 

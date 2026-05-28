@@ -4962,6 +4962,138 @@ paths:
           type: string
           examples:
             - architecto
+  '/api/v1/deployments/{deployment_id}/console-grant':
+    post:
+      summary: 'Issue console access grant'
+      operationId: postApiV1DeploymentsDeployment_idConsoleGrant
+      description: 'Issues a short-lived Track A JWT scoped to a single deployment + console kind for opening a noVNC/xterm console pane.'
+      parameters: []
+      responses:
+        200:
+          description: 'Existing resource returned for an idempotent replay.'
+          content:
+            application/json:
+              example:
+                data:
+                  grant_id: 01HZCONSOLEGRANT0000000000
+                  deployment_id: 01HZDEPLOYMENT000000000000
+                  console_kind: vnc
+                  jwt: eyJhbGciOiJSUzI1NiIsImtpZCI6IjAxSFpKV1RLSUQwMDAwMDAwMDAwIn0.payload.signature
+                  kid: 01HZJWTKID000000000000000
+                  expires_at: '2026-05-28T12:05:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      grant_id:
+                        type: string
+                      deployment_id:
+                        type: string
+                      console_kind:
+                        type: string
+                      jwt:
+                        type: string
+                      kid:
+                        type: string
+                      expires_at:
+                        type: string
+                    required:
+                      - grant_id
+                      - deployment_id
+                      - console_kind
+                      - jwt
+                      - kid
+                      - expires_at
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      grant_id: 01HZCONSOLEGRANT0000000000
+                      deployment_id: 01HZDEPLOYMENT000000000000
+                      console_kind: vnc
+                      jwt: eyJhbGciOiJSUzI1NiIsImtpZCI6IjAxSFpKV1RLSUQwMDAwMDAwMDAwIn0.payload.signature
+                      kid: 01HZJWTKID000000000000000
+                      expires_at: '2026-05-28T12:05:00+00:00'
+        201:
+          description: 'Resource created.'
+          content:
+            application/json:
+              example:
+                data:
+                  grant_id: 01HZCONSOLEGRANT0000000000
+                  deployment_id: 01HZDEPLOYMENT000000000000
+                  console_kind: vnc
+                  jwt: eyJhbGciOiJSUzI1NiIsImtpZCI6IjAxSFpKV1RLSUQwMDAwMDAwMDAwIn0.payload.signature
+                  kid: 01HZJWTKID000000000000000
+                  expires_at: '2026-05-28T12:05:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      grant_id:
+                        type: string
+                      deployment_id:
+                        type: string
+                      console_kind:
+                        type: string
+                      jwt:
+                        type: string
+                      kid:
+                        type: string
+                      expires_at:
+                        type: string
+                    required:
+                      - grant_id
+                      - deployment_id
+                      - console_kind
+                      - jwt
+                      - kid
+                      - expires_at
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      grant_id: 01HZCONSOLEGRANT0000000000
+                      deployment_id: 01HZDEPLOYMENT000000000000
+                      console_kind: vnc
+                      jwt: eyJhbGciOiJSUzI1NiIsImtpZCI6IjAxSFpKV1RLSUQwMDAwMDAwMDAwIn0.payload.signature
+                      kid: 01HZJWTKID000000000000000
+                      expires_at: '2026-05-28T12:05:00+00:00'
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                console_kind:
+                  type: string
+                  description: 'Console kind to open. Use `vnc` for KVM graphical console; use `terminal` for LXC or KVM serial console.'
+                  enum:
+                    - vnc
+                    - terminal
+                  examples:
+                    - vnc
+              required:
+                - console_kind
+    parameters:
+      -
+        in: path
+        name: deployment_id
+        description: 'The ID of the deployment.'
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
   '/api/v1/deployments/{deployment_id}/operations':
     post:
       summary: 'Create deployment operation'

@@ -921,6 +921,46 @@ The M4 sub-slice 1 ConsoleAccessGrant token model increment is in place:
   integration tests are skipped in the default SQLite/Toolbx profile (Podman
   host capability and PostgreSQL-only migration behavior).
 
+The M4 sub-slice 2 console-grant API endpoint increment is in place:
+
+- `POST /api/v1/deployments/{deployment}/console-grant` issues a console
+  grant for an authenticated actor with `deployment.console.connect`. The
+  response carries `grant_id`, `deployment_id`, `console_kind`, `jwt`,
+  `kid`, and `expires_at`. The raw JWT is the only place the secret is
+  exposed; the verifier round-trips it and the wrapped Track A JWKS path
+  publishes the kid the response references.
+- `App\Http\Requests\Api\StoreDeploymentConsoleGrantRequest` validates
+  `console_kind` against `ConsoleKind::supportedValues()` (`vnc`,
+  `terminal`) with `Rule::in(...)`; unknown values produce a 422
+  validation error before the controller body runs.
+- `App\Http\Controllers\Api\DeploymentConsoleGrantController` requires
+  the current token (Track A or Track B) to carry
+  `deployment.console.connect` via `CurrentTokenAbilities`, looks up the
+  deployment through the Eloquent tenant global scope (so cross-tenant
+  deployments return 404 before any AccessResolver call), and delegates
+  to `ConsoleAccessGrantIssuer` for the role-based decision and JWT
+  mint. On success the controller emits a hash-chained
+  `console.session.start` audit row with grant id, jti, console kind,
+  source ip, user agent, and ISO-8601 expiry.
+- Coverage: 5 contract tests covering anonymous (401), unknown
+  `console_kind` (422), authorized issuance (200 + verifiable JWT round
+  trip + `console.session.start` audit), foreign-tenant deployment
+  (404), and authorized-tenant-but-unbound actor (403 +
+  `console.access.denied` audit). The integration OpenAPI test suite
+  gains an operation summary, body parameter, and response example for
+  the new endpoint.
+- `audit-events.json` snapshot now includes `console.session.start` in
+  addition to `console.access.denied`. `docs/api/openapi.yaml` is
+  regenerated and gated by `composer openapi:check`.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, and `composer test`
+  pass with 320 tests / 1982 assertions; the same four integration
+  tests are skipped in the default SQLite/Toolbx profile.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker
