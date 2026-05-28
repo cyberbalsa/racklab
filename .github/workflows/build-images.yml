@@ -1,0 +1,147 @@
+name: Build Images CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SYFT_VERSION: v1.44.0
+
+jobs:
+  build-images:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: web
+            target: web
+          - image: reverb
+            target: reverb
+          - image: provider-worker
+            target: provider-worker
+          - image: script-worker
+            target: script-worker
+          - image: console-worker
+            target: console-worker
+          - image: scheduler-reconciler
+            target: scheduler-reconciler
+          - image: notification-worker
+            target: notification-worker
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build local image
+        env:
+          IMAGE: ${{ matrix.image }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          LOCAL_IMAGE="racklab/${IMAGE}:ci-${GITHUB_SHA}"
+          echo "LOCAL_IMAGE=${LOCAL_IMAGE}" >> "$GITHUB_ENV"
+          docker build \
+            --file Containerfile \
+            --target "${TARGET}" \
+            --tag "${LOCAL_IMAGE}" \
+            --build-arg VCS_REF="${GITHUB_SHA}" \
+            --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            .
+
+      - name: Composer audit inside image
+        run: docker run --rm "$LOCAL_IMAGE" composer audit --no-interaction
+
+      - name: Artisan smoke inside image
+        run: docker run --rm -e APP_ENV=testing -e APP_KEY=base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE= "$LOCAL_IMAGE" php artisan --version
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin "$SYFT_VERSION"
+          syft version
+
+      - name: Generate CycloneDX SBOM
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          mkdir -p dist/sboms
+          syft "$LOCAL_IMAGE" -o cyclonedx-json > "dist/sboms/${IMAGE}.cdx.json"
+          syft "$LOCAL_IMAGE" -o json > "dist/sboms/${IMAGE}.syft.json"
+
+      - name: License policy gate
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          forbidden="$(
+            jq -r '
+              .artifacts[]? as $artifact
+              | ($artifact.licenses[]? | if type == "object" then (.value // .spdxExpression // .name // "") else . end) as $license
+              | ($license | ascii_upcase) as $upper
+              | select(
+                  ($upper | test("(^|[^L])GPL-3\\.0"))
+                  or ($upper | contains("AGPL-3.0"))
+                  or ($upper | contains("BUSL-1.1"))
+                  or ($upper | contains("BSL-1.1"))
+                )
+              | "\($artifact.name)\t\($license)"
+            ' "dist/sboms/${IMAGE}.syft.json"
+          )"
+
+          if [ -n "$forbidden" ]; then
+            printf 'Forbidden runtime image license(s):\n%s\n' "$forbidden" >&2
+            exit 1
+          fi
+
+      - name: Upload image SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-sbom-${{ matrix.image }}
+          path: |
+            dist/sboms/${{ matrix.image }}.cdx.json
+            dist/sboms/${{ matrix.image }}.syft.json
+
+      - name: Publish image
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          REGISTRY_IMAGE="ghcr.io/cyberbalsa/racklab/${IMAGE}"
+          tags=("${REGISTRY_IMAGE}:sha-${GITHUB_SHA::12}")
+
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            tags+=("${REGISTRY_IMAGE}:main")
+          fi
+
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            tags+=("${REGISTRY_IMAGE}:${GITHUB_REF_NAME}")
+          fi
+
+          for tag in "${tags[@]}"; do
+            docker tag "$LOCAL_IMAGE" "$tag"
+            docker push "$tag"
+          done
