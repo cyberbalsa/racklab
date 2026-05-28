@@ -1,0 +1,26 @@
+[Unit]
+Description=RackLab plugin package bootstrap
+Documentation=https://github.com/cyberbalsa/racklab
+Requires=racklab-network.service
+After=racklab-network.service
+PartOf=racklab-runtime.target
+
+[Container]
+Image=ghcr.io/cyberbalsa/racklab/web:main
+ContainerName=racklab-plugin-bootstrap
+Network=racklab.network
+EnvironmentFile=/etc/racklab/racklab.env
+Volume=/etc/racklab:/etc/racklab:ro,Z
+Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z
+Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
+Exec=/bin/sh -lc "mkdir -p /var/lib/racklab/plugins/packages /var/lib/racklab/plugins/config && if [ -f /var/lib/racklab/plugins/composer.json ]; then composer install --working-dir=/var/lib/racklab/plugins --no-dev --prefer-dist --no-interaction; fi"
+NoNewPrivileges=true
+Pull=newer
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=900
+
+[Install]
+WantedBy=racklab-runtime.target

@@ -1,0 +1,33 @@
+[Unit]
+Description=RackLab script worker %i
+Documentation=https://github.com/cyberbalsa/racklab
+Requires=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+After=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+PartOf=racklab-runtime.target
+
+[Container]
+Image=ghcr.io/cyberbalsa/racklab/script-worker:main
+ContainerName=racklab-script-worker-%i
+Network=racklab.network
+EnvironmentFile=/etc/racklab/racklab.env
+Environment=RACKLAB_WORKER_POOL=script
+Environment=RACKLAB_WORKER_REPLICA=%i
+Environment=CONTAINER_HOST=unix:///run/podman/podman.sock
+Volume=/etc/racklab:/etc/racklab:ro,Z
+Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
+Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z
+Volume=/run/podman/podman.sock:/run/podman/podman.sock
+Exec=php artisan queue:work redis --queue=scripts,cleanup --sleep=1 --tries=1 --timeout=900 --max-time=3600
+StopSignal=SIGTERM
+StopTimeout=900
+NoNewPrivileges=true
+Pull=newer
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+TimeoutStopSec=930
+
+[Install]
+WantedBy=racklab-runtime.target
+DefaultInstance=1

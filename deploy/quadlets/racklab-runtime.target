@@ -1,0 +1,8 @@
+[Unit]
+Description=RackLab Baseline runtime
+Documentation=https://github.com/cyberbalsa/racklab
+Wants=racklab-network.service racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service racklab-web.service racklab-reverb.service racklab-provider-worker@1.service racklab-script-worker@1.service racklab-console-worker@1.service racklab-scheduler-reconciler@1.service racklab-notification-worker@1.service
+After=network-online.target racklab-network.service racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+
+[Install]
+WantedBy=multi-user.target

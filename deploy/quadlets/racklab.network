@@ -1,0 +1,10 @@
+[Unit]
+Description=RackLab private Podman network
+Documentation=https://github.com/cyberbalsa/racklab
+
+[Network]
+NetworkName=racklab
+Driver=bridge
+
+[Install]
+WantedBy=racklab-runtime.target

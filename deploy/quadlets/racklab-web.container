@@ -1,0 +1,33 @@
+[Unit]
+Description=RackLab web tier
+Documentation=https://github.com/cyberbalsa/racklab
+Requires=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+After=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+PartOf=racklab-runtime.target
+
+[Container]
+Image=ghcr.io/cyberbalsa/racklab/web:main
+ContainerName=racklab-web
+Network=racklab.network
+EnvironmentFile=/etc/racklab/racklab.env
+Environment=OCTANE_SERVER=frankenphp
+Volume=/etc/racklab:/etc/racklab:ro,Z
+Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
+Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z
+Volume=/var/lib/racklab/tls:/var/lib/racklab/tls:ro,Z
+PublishPort=0.0.0.0:443:8000
+Exec=php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=8000 --https --http-redirect --caddyfile=/etc/racklab/Caddyfile
+HealthCmd=php artisan about --only=environment
+HealthInterval=30s
+HealthRetries=3
+HealthTimeout=10s
+NoNewPrivileges=true
+Pull=newer
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+TimeoutStopSec=120
+
+[Install]
+WantedBy=racklab-runtime.target

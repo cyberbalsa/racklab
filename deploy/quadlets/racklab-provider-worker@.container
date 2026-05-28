@@ -1,0 +1,31 @@
+[Unit]
+Description=RackLab provider worker %i
+Documentation=https://github.com/cyberbalsa/racklab
+Requires=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+After=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+PartOf=racklab-runtime.target
+
+[Container]
+Image=ghcr.io/cyberbalsa/racklab/provider-worker:main
+ContainerName=racklab-provider-worker-%i
+Network=racklab.network
+EnvironmentFile=/etc/racklab/racklab.env
+Environment=RACKLAB_WORKER_POOL=provider
+Environment=RACKLAB_WORKER_REPLICA=%i
+Volume=/etc/racklab:/etc/racklab:ro,Z
+Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
+Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z
+Exec=php artisan queue:work redis --queue=provider,default --sleep=1 --tries=1 --timeout=300 --max-time=3600
+StopSignal=SIGTERM
+StopTimeout=300
+NoNewPrivileges=true
+Pull=newer
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+TimeoutStopSec=330
+
+[Install]
+WantedBy=racklab-runtime.target
+DefaultInstance=1

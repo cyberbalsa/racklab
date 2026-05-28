@@ -1,0 +1,33 @@
+[Unit]
+Description=RackLab scheduler and reconciler %i
+Documentation=https://github.com/cyberbalsa/racklab
+Requires=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+After=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+PartOf=racklab-runtime.target
+
+[Container]
+Image=ghcr.io/cyberbalsa/racklab/scheduler-reconciler:main
+ContainerName=racklab-scheduler-reconciler-%i
+Network=racklab.network
+EnvironmentFile=/etc/racklab/racklab.env
+Environment=RACKLAB_WORKER_POOL=scheduler-reconciler
+Environment=RACKLAB_WORKER_REPLICA=%i
+Environment=CONTAINER_HOST=unix:///run/podman/podman.sock
+Volume=/etc/racklab:/etc/racklab:ro,Z
+Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
+Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z
+Volume=/run/podman/podman.sock:/run/podman/podman.sock
+Exec=/bin/sh -lc "while true; do php artisan racklab:reconcile-provider-tasks; php artisan racklab:expire-deployments; php artisan racklab:detect-provider-drift; php artisan racklab:reap-script-containers --max-age=3600; sleep ${RACKLAB_RECONCILER_INTERVAL:-30}; done"
+StopSignal=SIGTERM
+StopTimeout=60
+NoNewPrivileges=true
+Pull=newer
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+TimeoutStopSec=90
+
+[Install]
+WantedBy=racklab-runtime.target
+DefaultInstance=1

@@ -1,0 +1,27 @@
+[Unit]
+Description=RackLab PostgreSQL
+Documentation=https://github.com/cyberbalsa/racklab
+Requires=racklab-network.service
+After=racklab-network.service
+PartOf=racklab-runtime.target
+
+[Container]
+Image=docker.io/library/postgres:16
+ContainerName=racklab-postgres
+Network=racklab.network
+EnvironmentFile=/etc/racklab/racklab.env
+Volume=/var/lib/racklab/postgres:/var/lib/postgresql/data:Z
+HealthCmd=pg_isready -U racklab -d racklab
+HealthInterval=10s
+HealthRetries=6
+HealthTimeout=5s
+NoNewPrivileges=true
+Pull=newer
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+TimeoutStopSec=120
+
+[Install]
+WantedBy=racklab-runtime.target

@@ -1,0 +1,31 @@
+[Unit]
+Description=RackLab notification worker %i
+Documentation=https://github.com/cyberbalsa/racklab
+Requires=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+After=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
+PartOf=racklab-runtime.target
+
+[Container]
+Image=ghcr.io/cyberbalsa/racklab/notification-worker:main
+ContainerName=racklab-notification-worker-%i
+Network=racklab.network
+EnvironmentFile=/etc/racklab/racklab.env
+Environment=RACKLAB_WORKER_POOL=notification
+Environment=RACKLAB_WORKER_REPLICA=%i
+Volume=/etc/racklab:/etc/racklab:ro,Z
+Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
+Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z
+Exec=php artisan queue:work redis --queue=notifications,default --sleep=1 --tries=3 --timeout=120 --max-time=3600
+StopSignal=SIGTERM
+StopTimeout=120
+NoNewPrivileges=true
+Pull=newer
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+TimeoutStopSec=150
+
+[Install]
+WantedBy=racklab-runtime.target
+DefaultInstance=1
