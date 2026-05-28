@@ -1755,6 +1755,42 @@ endpoint (`Artifact(kind=docs_image)`), packaging the docs
 surface into `packages/racklab/docs-plugin/`, and the TipTap +
 `racklab-ref` status-pill JS island that consumes this endpoint.
 
+### Live Proxmox + containerized-stack E2E (2026-05-28)
+
+First end-to-end validation of RackLab against **real infrastructure**,
+closing the long-standing "Proxmox/Podman not verified" gap noted across
+prior sessions.
+
+- **Live Proxmox provider (M3).** Pointed the real `GuzzleProxmoxClient`
+  at a live PVE **9.1.7** endpoint (`RACKLAB_PROXMOX_*` in the gitignored
+  `.env`). Drove a full **clone → power → delete (purge)** lifecycle of
+  real VMs on node `csr-hv-07` through RackLab's own typed client +
+  `ProxmoxUpid` decoding + `taskStatus` polling discipline — not raw API.
+- **RackLab-deployed VM as the test host.** Provisioned a Debian 12
+  cloud-init VM (import qcow2 + cloud-init user/key/static-IP), 100 GB
+  disk, reachable over SSH. The earlier desktop-template failure was
+  cloud-init never applying an IP (no agent), not a firewall — a Debian
+  cloud image self-assigns the static IP and is reachable.
+- **Container sandbox verified on real rootless Podman.** RackLab's
+  hardened-manifest assertions pass on an actual container host: uid
+  `10001`, `CapEff=0000000000000000` (all caps dropped), `NoNewPrivs=1`,
+  read-only root denies writes, `network=none` has no default route.
+- **Full stack runs in containers.** Built the `Containerfile` `web`
+  target (FrankenPHP + PHP 8.3) in the VM and ran it with Postgres 16 +
+  Redis 7 via Podman. `migrate` (incl. docs/vpnaas/quota/networking) +
+  `racklab:sync-rbac-defaults` (5 roles / 67 perms / 257 edges) +
+  `racklab:bootstrap-admin` all succeed. `/healthz` and `/readyz`
+  (`database`/`schema`/`redis` ok) return 200. Fixed a real portability
+  bug: the FrankenPHP base image was a short name that fails
+  `podman build` without an unqualified-search registry — now
+  fully-qualified (commit `07aa72f`).
+- **App driven with Playwright.** Logged in as the bootstrapped admin;
+  the public dashboard (Projects / API tokens / Automation / Deployments)
+  and the Filament 5.6.6 admin panel (Courses, Projects, Users, Horizon,
+  Networking, Operations) render fully styled with **zero console
+  errors**. Write paths verified: created an API token and a deployment
+  (`New VM`) through the live UI; both persisted and rendered.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker
