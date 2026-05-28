@@ -46,8 +46,10 @@ it('builds and publishes every Baseline image with SBOM and license gates', func
     $workflow = Yaml::parseFile(base_path('.github/workflows/build-images.yml'));
     $job = $workflow['jobs']['build-images'];
     $matrix = $job['strategy']['matrix']['include'];
+    $stepNames = array_column($job['steps'], 'name');
     $steps = array_column($job['steps'], 'run', 'name');
     $uses = array_column($job['steps'], 'uses', 'name');
+    $licensePolicy = (string) file_get_contents(base_path('scripts/ci/check-image-licenses.sh'));
 
     $images = array_column($matrix, 'image');
     $targets = array_column($matrix, 'target');
@@ -74,7 +76,82 @@ it('builds and publishes every Baseline image with SBOM and license gates', func
         ->and($steps['Artisan smoke inside image'])->toContain('-e BROADCAST_CONNECTION=null')
         ->and($steps['Install Syft'])->toContain('anchore/syft')
         ->and($steps['Generate CycloneDX SBOM'])->toContain('cyclonedx-json')
-        ->and($steps['License policy gate'])->toContain('GPL-3.0')
-        ->and($steps['License policy gate'])->toContain('AGPL-3.0')
+        ->and(array_search('Upload image SBOM', $stepNames, true))->toBeLessThan(array_search('License policy gate', $stepNames, true))
+        ->and($licensePolicy)->toContain('GPL-3.0')
+        ->and($licensePolicy)->toContain('AGPL-3.0')
+        ->and($steps['License policy gate'])->toContain('scripts/ci/check-image-licenses.sh')
         ->and($steps['Publish image'])->toContain('ghcr.io/cyberbalsa/racklab/${IMAGE}');
 });
+
+it('allows documented runtime image license exceptions only', function (): void {
+    $sbom = buildImagesWorkflowTemporarySbom([
+        [
+            'name' => 'nette/utils',
+            'licenses' => ['BSD-3-Clause', 'GPL-3.0-only'],
+        ],
+        [
+            'name' => 'sysvinit-utils',
+            'licenses' => ['GPL-3.0'],
+        ],
+    ]);
+
+    exec(
+        sprintf(
+            'bash %s %s %s 2>&1',
+            escapeshellarg(base_path('scripts/ci/check-image-licenses.sh')),
+            escapeshellarg($sbom),
+            escapeshellarg(base_path('.github/license-policy.allowlist.json')),
+        ),
+        $output,
+        $exitCode,
+    );
+
+    @unlink($sbom);
+
+    expect($exitCode)->toBe(0)
+        ->and(implode("\n", $output))->toBe('');
+});
+
+it('rejects unallowlisted forbidden runtime image licenses', function (): void {
+    $sbom = buildImagesWorkflowTemporarySbom([
+        [
+            'name' => 'example/forbidden',
+            'licenses' => [
+                ['value' => 'AGPL-3.0-only'],
+            ],
+        ],
+    ]);
+
+    exec(
+        sprintf(
+            'bash %s %s %s 2>&1',
+            escapeshellarg(base_path('scripts/ci/check-image-licenses.sh')),
+            escapeshellarg($sbom),
+            escapeshellarg(base_path('.github/license-policy.allowlist.json')),
+        ),
+        $output,
+        $exitCode,
+    );
+
+    @unlink($sbom);
+
+    expect($exitCode)->toBe(1)
+        ->and(implode("\n", $output))->toContain('example/forbidden')
+        ->and(implode("\n", $output))->toContain('AGPL-3.0-only');
+});
+
+/**
+ * @param  list<array{name: string, licenses: list<mixed>}>  $artifacts
+ */
+function buildImagesWorkflowTemporarySbom(array $artifacts): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'racklab-sbom-');
+
+    if ($path === false) {
+        throw new RuntimeException('Unable to create temporary SBOM file.');
+    }
+
+    file_put_contents($path, json_encode(['artifacts' => $artifacts], JSON_THROW_ON_ERROR));
+
+    return $path;
+}

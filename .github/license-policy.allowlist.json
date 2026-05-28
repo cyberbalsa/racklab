@@ -1,0 +1,22 @@
+[
+  {
+    "artifact": "nette/php-generator",
+    "license": "GPL-3.0-only",
+    "reason": "Composer also declares BSD-3-Clause for this package; RackLab uses the BSD-3-Clause license choice."
+  },
+  {
+    "artifact": "nette/schema",
+    "license": "GPL-3.0-only",
+    "reason": "Composer also declares BSD-3-Clause for this package; RackLab uses the BSD-3-Clause license choice."
+  },
+  {
+    "artifact": "nette/utils",
+    "license": "GPL-3.0-only",
+    "reason": "Composer also declares BSD-3-Clause for this package; RackLab uses the BSD-3-Clause license choice."
+  },
+  {
+    "artifact": "sysvinit-utils",
+    "license": "GPL-3.0",
+    "reason": "Debian base-image independent userland package accepted for Baseline images while using the Debian FrankenPHP base."
+  }
+]

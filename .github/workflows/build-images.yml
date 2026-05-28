@@ -91,31 +91,6 @@ jobs:
           syft "$LOCAL_IMAGE" -o cyclonedx-json > "dist/sboms/${IMAGE}.cdx.json"
           syft "$LOCAL_IMAGE" -o json > "dist/sboms/${IMAGE}.syft.json"
 
-      - name: License policy gate
-        env:
-          IMAGE: ${{ matrix.image }}
-        run: |
-          set -euo pipefail
-          forbidden="$(
-            jq -r '
-              .artifacts[]? as $artifact
-              | ($artifact.licenses[]? | if type == "object" then (.value // .spdxExpression // .name // "") else . end) as $license
-              | ($license | ascii_upcase) as $upper
-              | select(
-                  ($upper | test("(^|[^L])GPL-3\\.0"))
-                  or ($upper | contains("AGPL-3.0"))
-                  or ($upper | contains("BUSL-1.1"))
-                  or ($upper | contains("BSL-1.1"))
-                )
-              | "\($artifact.name)\t\($license)"
-            ' "dist/sboms/${IMAGE}.syft.json"
-          )"
-
-          if [ -n "$forbidden" ]; then
-            printf 'Forbidden runtime image license(s):\n%s\n' "$forbidden" >&2
-            exit 1
-          fi
-
       - name: Upload image SBOM
         uses: actions/upload-artifact@v4
         with:
@@ -123,6 +98,11 @@ jobs:
           path: |
             dist/sboms/${{ matrix.image }}.cdx.json
             dist/sboms/${{ matrix.image }}.syft.json
+
+      - name: License policy gate
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: bash scripts/ci/check-image-licenses.sh "dist/sboms/${IMAGE}.syft.json" .github/license-policy.allowlist.json
 
       - name: Publish image
         if: github.event_name != 'pull_request'
