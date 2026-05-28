@@ -116,3 +116,16 @@ it('serves the maintenance queue from the Podman-free app pool and cleanup from 
     expect($supervisors['racklab-provider']['queue'])->toContain('maintenance')
         ->and($supervisors['racklab-scripts']['queue'])->toContain('cleanup');
 });
+
+it('makes maintenance jobs unique so a slow run cannot pile up across ticks', function (): void {
+    // Scheduler-level withoutOverlapping only guards enqueue; ShouldBeUnique
+    // guards execution by refusing a duplicate while one is pending/running.
+    foreach ([
+        new ReconcileProviderTasksJob,
+        new ExpireDeploymentsJob,
+        new DetectProviderDriftJob,
+        new ReapScriptContainersJob,
+    ] as $job) {
+        expect($job)->toBeInstanceOf(Illuminate\Contracts\Queue\ShouldBeUnique::class);
+    }
+});

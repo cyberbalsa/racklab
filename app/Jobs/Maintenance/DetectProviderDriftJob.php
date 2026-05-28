@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs\Maintenance;
 
 use App\Networking\ProviderDriftDetector;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -14,13 +15,21 @@ use Illuminate\Foundation\Queue\Queueable;
  * `racklab:detect-provider-drift` invocation in the reconciler loop; scans all
  * tenants/providers (null filters).
  */
-final class DetectProviderDriftJob implements ShouldQueue
+final class DetectProviderDriftJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
+
+    /** Lock TTL safety net; prevents overlapping drift scans. */
+    public int $uniqueFor = 3600;
 
     public function __construct()
     {
         $this->onQueue('maintenance');
+    }
+
+    public function uniqueId(): string
+    {
+        return self::class;
     }
 
     public function handle(ProviderDriftDetector $detector): void

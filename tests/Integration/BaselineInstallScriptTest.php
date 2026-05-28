@@ -71,7 +71,11 @@ it('ships the baseline Quadlet topology required by the runtime target', functio
     // plugin-bootstrap retains write access. codex v2 P2 hardening.
     expect($web)->toContain('Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z');
     expect($reverb)->toContain('Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z');
-    expect($scheduler)->toContain('Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z');
+    expect($scheduler)->toContain('Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z')
+        // Scheduler only enqueues jobs (schedule:work); no host Podman control.
+        ->toContain('Exec=php artisan schedule:work')
+        ->not->toContain('podman.sock')
+        ->not->toContain('CONTAINER_HOST');
     expect($bootstrap)
         ->toContain('Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z')
         ->not->toContain('Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z');

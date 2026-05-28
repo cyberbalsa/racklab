@@ -12,11 +12,9 @@ Network=racklab.network
 EnvironmentFile=/etc/racklab/racklab.env
 Environment=RACKLAB_WORKER_POOL=scheduler-reconciler
 Environment=RACKLAB_WORKER_REPLICA=%i
-Environment=CONTAINER_HOST=unix:///run/podman/podman.sock
 Volume=/etc/racklab:/etc/racklab:ro,Z
 Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
 Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z
-Volume=/run/podman/podman.sock:/run/podman/podman.sock
 # Laravel scheduler: dispatches the reconcile/expire/drift/reap jobs onto Redis
 # at their scheduled cadence (see bootstrap/app.php withSchedule). Horizon
 # workers (maintenance → app pool, cleanup → runner pool) process them. The
