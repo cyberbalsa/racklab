@@ -284,7 +284,7 @@ final readonly class DefaultRoleCatalog implements RolePermissionLookup
         // tenant-wide — keep it to genuinely tenant-shared, read-only surfaces.
         'tenant_member' => [
             'catalog.read',
-            'network.read',
+            'network.offering.read',
         ],
     ];
 

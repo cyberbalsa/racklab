@@ -42,6 +42,7 @@ return [
         'field_name' => 'Stack name',
         'field_project' => 'Project',
         'nav' => 'Stacks',
+        'mixed_providers' => 'All networks on one stack must use the same provider.',
         'name_placeholder' => 'e.g. Two-tier lab network',
         'networks' => 'Networks',
         'no_networks' => 'No networks attached.',

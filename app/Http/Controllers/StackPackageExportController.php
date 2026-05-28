@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Audit\AuditEventWriter;
 use App\Domain\Rbac\Permission;
 use App\Domain\Tenancy\AccessResolver;
 use App\Domain\Tenancy\ActorIdentity;
@@ -33,6 +34,7 @@ final class StackPackageExportController extends Controller
         TenantContextStore $tenantContext,
         AccessResolver $accessResolver,
         StackPackageExporter $exporter,
+        AuditEventWriter $auditEvents,
     ): Response {
         $user = $request->user();
 
@@ -68,6 +70,8 @@ final class StackPackageExportController extends Controller
         );
 
         if (! $decision->allowed) {
+            $this->audit($auditEvents, $user, $context, $definition, 'denied');
+
             throw new NotFoundHttpException('Stack not found.');
         }
 
@@ -77,9 +81,34 @@ final class StackPackageExportController extends Controller
             definition: $definition->definition ?? [],
         );
 
+        $this->audit($auditEvents, $user, $context, $definition, 'allowed');
+
         return new Response($package->bytes, 200, [
             'Content-Type' => 'application/zip',
             'Content-Disposition' => 'attachment; filename="'.$package->filename.'"',
+        ]);
+    }
+
+    private function audit(
+        AuditEventWriter $auditEvents,
+        User $user,
+        TenantContext $context,
+        StackDefinition $stack,
+        string $result,
+    ): void {
+        $auditEvents->append([
+            'event_type' => 'catalog.stack_package.export',
+            'action' => 'export',
+            'result' => $result,
+            'actor_type' => 'user',
+            'actor_id' => (string) $user->id,
+            'actor_tenant' => $context->activeTenantId,
+            'resource_type' => $stack->resourceType(),
+            'resource_id' => $stack->resourceId(),
+            'resource_tenant' => $stack->tenant_id,
+            'target_tenant_set' => [$stack->tenant_id],
+            'effective_permissions' => ['catalog.stack_package.export'],
+            'metadata' => ['stack_slug' => $stack->slug],
         ]);
     }
 }

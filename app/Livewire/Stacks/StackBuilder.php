@@ -103,8 +103,19 @@ final class StackBuilder extends Component
             return null;
         }
 
+        // Provider is derived from the attached offerings, never hard-coded: a
+        // stack built with Proxmox offerings must route to the Proxmox
+        // lifecycle, and mixing providers in one stack is rejected.
+        $providers = $this->attachedProviders($user, $context);
+
+        if (count($providers) > 1) {
+            $this->addError('vms', __('racklab.stacks.mixed_providers'));
+
+            return null;
+        }
+
         try {
-            $authoring->create($user, $context, $project, $this->stackName, $this->definition());
+            $authoring->create($user, $context, $project, $this->stackName, $this->definition($providers[0] ?? null));
         } catch (AuthorizationException) {
             $this->addError('save', __('racklab.stacks.save_denied'));
 
@@ -155,11 +166,10 @@ final class StackBuilder extends Component
     /**
      * @return array<string, mixed>
      */
-    private function definition(): array
+    private function definition(?string $provider): array
     {
-        return [
+        $definition = [
             'version' => 1,
-            'provider' => 'fake',
             'components' => array_map(
                 static fn (array $vm): array => [
                     'key' => $vm['key'],
@@ -169,6 +179,47 @@ final class StackBuilder extends Component
                 $this->vms,
             ),
         ];
+
+        // Only set provider when it can be inferred from attached offerings.
+        // A networkless draft leaves it unset so the deploy path applies the
+        // platform default rather than silently claiming a provider.
+        if ($provider !== null) {
+            $definition['provider'] = $provider;
+        }
+
+        return $definition;
+    }
+
+    /**
+     * Distinct providers across all attached network offerings.
+     *
+     * @return list<string>
+     */
+    private function attachedProviders(User $user, TenantContext $context): array
+    {
+        $bySlug = [];
+
+        foreach (app(VisibleNetworkOfferingList::class)->forUser($user, $context) as $offering) {
+            $provider = $offering->providerNetwork?->provider;
+
+            if (is_string($provider) && $provider !== '') {
+                $bySlug[(string) $offering->slug] = $provider;
+            }
+        }
+
+        $providers = [];
+
+        foreach ($this->vms as $vm) {
+            foreach ($vm['networks'] as $network) {
+                $slug = $network['offering_slug'];
+
+                if (isset($bySlug[$slug]) && ! in_array($bySlug[$slug], $providers, strict: true)) {
+                    $providers[] = $bySlug[$slug];
+                }
+            }
+        }
+
+        return $providers;
     }
 
     private function currentUser(): User

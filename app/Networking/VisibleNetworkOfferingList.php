@@ -27,7 +27,7 @@ final readonly class VisibleNetworkOfferingList
     public function forUser(User $user, TenantContext $context): array
     {
         $actor = new ActorIdentity((string) $user->id);
-        $permission = new Permission('network.read');
+        $permission = new Permission('network.offering.read');
         $visible = [];
 
         /** @var NetworkOffering $offering */

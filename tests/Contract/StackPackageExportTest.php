@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Identity\PersonalProjectProvisioner;
+use App\Models\AuditEvent;
 use App\Models\Project;
 use App\Models\StackDefinition;
 use App\Models\Tenant;
@@ -67,6 +68,12 @@ it('lets a project owner export their stack as a downloadable package', function
         ->assertOk()
         ->assertHeader('content-type', 'application/zip')
         ->assertDownload('exportable-lab.racklab-stack.zip');
+
+    expect(AuditEvent::query()
+        ->where('event_type', 'catalog.stack_package.export')
+        ->where('result', 'allowed')
+        ->where('actor_id', (string) $user->id)
+        ->exists())->toBeTrue();
 });
 
 it('does not let another tenant member export a stack they do not own', function (): void {
@@ -78,4 +85,10 @@ it('does not let another tenant member export a stack they do not own', function
     $this->actingAs($outsider)
         ->get('/stacks/'.$stack->getKey().'/export')
         ->assertNotFound();
+
+    expect(AuditEvent::query()
+        ->where('event_type', 'catalog.stack_package.export')
+        ->where('result', 'denied')
+        ->where('actor_id', (string) $outsider->id)
+        ->exists())->toBeTrue();
 });

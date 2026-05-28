@@ -42,6 +42,7 @@ return [
         'field_name' => 'Nombre del stack',
         'field_project' => 'Proyecto',
         'nav' => 'Stacks',
+        'mixed_providers' => 'Todas las redes de un stack deben usar el mismo proveedor.',
         'name_placeholder' => 'p. ej. Red de laboratorio de dos capas',
         'networks' => 'Redes',
         'no_networks' => 'No hay redes adjuntas.',

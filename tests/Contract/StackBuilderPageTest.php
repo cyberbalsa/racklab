@@ -118,6 +118,10 @@ it('creates a project-local stack with a VM and an attached network', function (
         ->and($stack?->scope)->toBe('project_local')
         ->and($stack?->is_reserved_default)->toBeFalse();
 
+    // Provider is derived from the attached offering's provider network
+    // (here 'fake'), never hard-coded.
+    expect($stack?->definition['provider'] ?? null)->toBe('fake');
+
     $components = $stack?->definition['components'] ?? [];
     expect($components)->toHaveCount(1)
         ->and($components[0]['kind'] ?? null)->toBe('vm')
