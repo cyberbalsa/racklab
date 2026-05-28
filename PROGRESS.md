@@ -1163,6 +1163,62 @@ increment is in place:
   four integration tests are skipped in the default SQLite/Toolbx
   profile.
 
+The M5c sub-slice 1 VPNaaS data-model + permission catalog increment is in place:
+
+- New migration creates the five M5c persistence tables:
+  `vpn_public_ip_pools`, `network_vpn_endpoints`,
+  `network_vpn_endpoint_bindings`, `vpn_client_profiles`, and
+  `vpn_sessions`. All five tables are tenant-scoped (ULID
+  primary keys + tenant foreign key + `sharing_scope` /
+  `shared_with_tenants` columns where applicable). The
+  `network_vpn_endpoint_bindings` table has a unique
+  `(public_ip, udp_port)` constraint, the bedrock guarantee that
+  M5c sub-slice 3's port allocator builds on. Profile rows carry
+  separate `config_ciphertext` and `private_key_ciphertext` blobs
+  so revocation can wipe the private key while keeping the
+  config metadata + audit trail intact.
+- Eloquent models: `VpnPublicIpPool`, `NetworkVpnEndpoint` (with
+  state constants `pending` / `running` / `stopped` / `released` /
+  `failed`), `NetworkVpnEndpointBinding` (with state constants
+  `pending` / `active` / `released` / `failed`),
+  `VpnClientProfile` (`active` / `revoked` / `expired` + an
+  `isActive()` helper that requires both `state === active` and a
+  null `revoked_at`), and `VpnSession` (`active` / `closed`). All
+  five models implement `TenantScopedResource` so they plug into
+  AccessResolver as first-class resources.
+- `DefaultRoleCatalog` now carries the PRD §06 VPNaaS permission
+  set: `network.vpnaas.endpoint.{create,delete,read,update}`,
+  `network.vpnaas.profile.{create,delete,download,read,revoke,update}`,
+  and `network.vpnaas.session.read`. Admin + support get the full
+  catalog; instructor gets the full catalog within their projects;
+  TA + student get read-only endpoint visibility plus
+  profile.{create,download,read} for their own use and
+  session.read. `tests/Snapshots/roles.json` regenerated from the
+  catalog. Codex P2: PRD §06/§09 list `profile.revoke` as a
+  separate permission from `profile.delete`, so admin/support/
+  instructor receive both — without revoke the M5c group-project
+  flow that revokes another user's profile or the membership-loss
+  auto-revocation would always fail.
+- `VpnClientProfile::isActive()` now requires the row to be in
+  `active` state, have a null `revoked_at`, AND a future-or-null
+  `expires_at`. Codex P2: download/connect guards must reject
+  expired credentials even before a maintenance job flips the row
+  to `expired`.
+- Coverage: 5 Tiny tests lock the documented state constants on
+  every VPN model + 3 Contract tests for `VpnClientProfile::isActive()`
+  (expired in past, future/null expiry, revoked-with-future-expiry).
+  The snapshot gate keeps the permission catalog from drifting
+  silently.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, and
+  `composer test` pass with 361 tests / 2172 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker
