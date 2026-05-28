@@ -31,4 +31,22 @@ final readonly class EloquentRoleBindingRepository implements RoleBindingReposit
 
         return $records;
     }
+
+    /**
+     * @return list<RoleBindingRecord>
+     */
+    public function forActor(ActorIdentity $actor): array
+    {
+        $records = [];
+
+        /** @var RoleBinding $binding */
+        foreach (RoleBinding::query()
+            ->where('principal_type', 'user')
+            ->where('principal_id', $actor->id)
+            ->get() as $binding) {
+            $records[] = $binding->toRecord();
+        }
+
+        return $records;
+    }
 }

@@ -18,7 +18,57 @@ it('binds tenant context for the duration of a tenant-aware job and clears it af
     $store->set(new TenantContext(activeTenantId: 'stale-tenant'));
 
     $middleware = new BindTenantContext($store);
-    $job = new class($tenant->getKey()) implements TenantAwareJob
+    $job = makeTenantAwareJob($tenant->getKey());
+
+    $middleware->handle($job, function () use ($store, $tenant): void {
+        expect($store->current()?->activeTenantId)->toBe($tenant->getKey());
+    });
+
+    expect($store->current())->toBeNull();
+});
+
+it('drives Spatie current-tenant alongside the RackLab store', function (): void {
+    $tenant = Tenant::query()->create(['name' => 'Tenant A', 'slug' => 'tenant-a']);
+    $store = new TenantContextStore;
+    $middleware = new BindTenantContext($store);
+    $job = makeTenantAwareJob($tenant->getKey());
+
+    Tenant::forgetCurrent();
+
+    $middleware->handle($job, function () use ($tenant): void {
+        // Inside the job, both RackLab + Spatie current tenant resolve to $tenant.
+        $current = Tenant::current();
+        expect($current)->not->toBeNull();
+        expect($current?->getKey())->toBe($tenant->getKey());
+    });
+
+    // After the job, Spatie current is cleared too.
+    expect(Tenant::current())->toBeNull();
+});
+
+it('does not leak Spatie current-tenant between two sequential jobs on different tenants', function (): void {
+    // codex v1 P1 regression guard. Without the Spatie call in BindTenantContext,
+    // Job B would observe Tenant A's current-tenant slot until something else cleared it.
+    $tenantA = Tenant::query()->create(['name' => 'Tenant A', 'slug' => 'tenant-a']);
+    $tenantB = Tenant::query()->create(['name' => 'Tenant B', 'slug' => 'tenant-b']);
+    $store = new TenantContextStore;
+    $middleware = new BindTenantContext($store);
+
+    $middleware->handle(makeTenantAwareJob($tenantA->getKey()), function () use ($tenantA): void {
+        expect(Tenant::current()?->getKey())->toBe($tenantA->getKey());
+    });
+    expect(Tenant::current())->toBeNull();
+
+    $middleware->handle(makeTenantAwareJob($tenantB->getKey()), function () use ($tenantB): void {
+        // The critical assertion: Spatie current must reflect tenantB, not the previous tenantA.
+        expect(Tenant::current()?->getKey())->toBe($tenantB->getKey());
+    });
+    expect(Tenant::current())->toBeNull();
+});
+
+function makeTenantAwareJob(string $tenantId): TenantAwareJob
+{
+    return new class($tenantId) implements TenantAwareJob
     {
         use CarriesTenantContext;
 
@@ -27,10 +77,4 @@ it('binds tenant context for the duration of a tenant-aware job and clears it af
             $this->tenantId = $tenantId;
         }
     };
-
-    $middleware->handle($job, function () use ($store, $tenant): void {
-        expect($store->current()?->activeTenantId)->toBe($tenant->getKey());
-    });
-
-    expect($store->current())->toBeNull();
-});
+}

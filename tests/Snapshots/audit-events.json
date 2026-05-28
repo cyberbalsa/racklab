@@ -8,6 +8,8 @@
     "deployment.lifecycle",
     "deployment.request",
     "deployment.scheduled",
+    "horizon.access",
+    "horizon.access.denied",
     "host_key.phone_home",
     "network.attach",
     "network.create",

@@ -6,9 +6,12 @@ namespace App\Console\Commands;
 
 use App\Auth\Tokens\TrackBTokenService;
 use App\Domain\Rbac\DefaultRoleCatalog;
+use App\Domain\Tenancy\PlatformResource;
+use App\Domain\Tenancy\RoleBindingScopeType;
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Identity\PersonalProjectProvisioner;
+use App\Models\RoleBinding;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Rbac\RbacDefaultsSynchronizer;
@@ -76,6 +79,25 @@ final class BootstrapAdmin extends Command
 
         try {
             $project = $projects->ensureFor($user, $context);
+
+            // Platform-scope admin binding for Horizon + future platform-level
+            // endpoints. Idempotent: composite-key lookup means a re-run is a
+            // no-op. See docs/superpowers/specs/2026-05-28-horizon-and-supply-chain-design.md §3.
+            RoleBinding::query()->firstOrCreate(
+                [
+                    'principal_type' => 'user',
+                    'principal_id' => (string) $user->id,
+                    'scope_type' => RoleBindingScopeType::Global,
+                    'role' => 'admin',
+                    'resource_type' => PlatformResource::RESOURCE_TYPE,
+                    'resource_id' => PlatformResource::RACKLAB_ID,
+                ],
+                [
+                    'tenant_id' => null,
+                    'tenant_set' => null,
+                ],
+            );
+
             $tokenFile = $this->stringOption('token-file');
 
             if ($tokenFile !== null) {

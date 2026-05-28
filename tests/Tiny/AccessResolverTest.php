@@ -169,6 +169,14 @@ function resolverWith(array $bindings, array $rolePermissions): AccessResolver
                     && $binding->resourceId === $resource->resourceId(),
             ));
         }
+
+        public function forActor(ActorIdentity $actor): array
+        {
+            return array_values(array_filter(
+                $this->bindings,
+                static fn (RoleBindingRecord $b): bool => $b->principalId === $actor->id,
+            ));
+        }
     };
 
     $rolePermissionLookup = new readonly class($rolePermissions) implements RolePermissionLookup

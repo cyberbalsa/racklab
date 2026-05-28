@@ -70,7 +70,9 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // RackLab default: 3700s — must stay > longest supervisor timeout
+            // (console = 3600s). See docs/superpowers/specs/2026-05-28-horizon-...
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 3700),
             'block_for' => null,
             'after_commit' => false,
         ],
