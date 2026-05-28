@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Providers\Proxmox\CapabilityProbe;
-use App\Providers\Proxmox\Contracts\ProxmoxClientContract;
 use App\Providers\Proxmox\Models\ProxmoxTaskStatus;
 use App\Providers\Proxmox\Models\ProxmoxVersion;
 use App\Providers\Proxmox\Models\ProxmoxVmCloneRequest;
@@ -11,7 +10,7 @@ use App\Providers\Proxmox\Models\ProxmoxVmDeleteRequest;
 use App\Providers\Proxmox\Models\ProxmoxVmPowerRequest;
 
 it('surfaces PVE 9.2 dynamic SDN load-balancer capability separately from older PVE lines', function (): void {
-    $pve92 = new CapabilityProbe(new class implements ProxmoxClientContract
+    $pve92 = new CapabilityProbe(new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public function version(): ProxmoxVersion
         {
@@ -43,7 +42,7 @@ it('surfaces PVE 9.2 dynamic SDN load-balancer capability separately from older 
             return [];
         }
     });
-    $pve84 = new CapabilityProbe(new class implements ProxmoxClientContract
+    $pve84 = new CapabilityProbe(new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public function version(): ProxmoxVersion
         {

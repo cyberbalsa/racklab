@@ -15,6 +15,7 @@ use App\Contracts\ContainerRuntime;
 use App\Domain\Rbac\RolePermissionLookup;
 use App\Domain\Tenancy\RoleBindingRepository;
 use App\Domain\Tenancy\TenantContextStore;
+use App\Plugins\PluginRegistry;
 use App\Providers\Proxmox\Contracts\ProxmoxClientContract;
 use App\Providers\Proxmox\GuzzleProxmoxClient;
 use App\Providers\Proxmox\ProxmoxConsoleProxy;
@@ -31,6 +32,7 @@ use App\Tenancy\EloquentRoleBindingRepository;
 use GuzzleHttp\Client;
 use Illuminate\Support\ServiceProvider;
 use Override;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -71,7 +73,7 @@ class AppServiceProvider extends ServiceProvider
         });
         $this->app->bind(ProviderConsoleProxy::class, fn (): ProviderConsoleProxy => match (config('racklab.console.proxy')) {
             'in-memory' => app(InMemoryProviderConsoleProxy::class),
-            'proxmox' => app(ProxmoxConsoleProxy::class),
+            'proxmox' => $this->resolveProxmoxConsoleProxy(),
             default => app(UnavailableProviderConsoleProxy::class),
         });
     }
@@ -82,6 +84,29 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         //
+    }
+
+    /**
+     * Proxmox console requires both the env-var (`RACKLAB_CONSOLE_PROXY=proxmox`)
+     * AND the `racklab/console-proxmox` plugin to be enabled. The plugin
+     * lifecycle is the operator-facing gate; the env-var alone is not enough
+     * to start handing out Proxmox tickets, so disabling/uninstalling the
+     * plugin reliably removes the capability.
+     */
+    private function resolveProxmoxConsoleProxy(): ProviderConsoleProxy
+    {
+        try {
+            $registry = $this->app->make(PluginRegistry::class);
+            $enabled = $registry->enabledPlugins();
+        } catch (Throwable) {
+            return $this->app->make(UnavailableProviderConsoleProxy::class);
+        }
+
+        if (! isset($enabled['racklab/console-proxmox'])) {
+            return $this->app->make(UnavailableProviderConsoleProxy::class);
+        }
+
+        return $this->app->make(ProxmoxConsoleProxy::class);
     }
 
     /**

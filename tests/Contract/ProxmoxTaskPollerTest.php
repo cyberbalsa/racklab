@@ -26,7 +26,7 @@ uses(RefreshDatabase::class);
 
 it('polls an existing Proxmox UPID to completion without resubmitting the original operation', function (): void {
     [$tenant, $task, $operation] = provisionProxmoxTaskFixture();
-    $client = new class implements ProxmoxClientContract
+    $client = new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public int $statusCalls = 0;
 
@@ -94,7 +94,7 @@ it('polls an existing Proxmox UPID to completion without resubmitting the origin
 
 it('stops waiting on a still-running Proxmox task while leaving the original operation pending', function (): void {
     [, $task, $operation] = provisionProxmoxTaskFixture(idempotencyKey: 'proxmox-wait-timeout');
-    $client = new class implements ProxmoxClientContract
+    $client = new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public int $statusCalls = 0;
 

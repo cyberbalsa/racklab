@@ -1044,6 +1044,79 @@ The M4 sub-slice 4 Livewire console pane increment is in place:
   same four integration tests are skipped in the default
   SQLite/Toolbx profile.
 
+The M4 sub-slice 5 Proxmox console adapter + plugin package increment is in place:
+
+- `App\Providers\Proxmox\Contracts\ProxmoxClientContract` gains
+  `vncProxy(ProxmoxVncProxyRequest)` and
+  `termProxy(ProxmoxTermProxyRequest)`. The Guzzle implementation
+  POSTs `/api2/json/nodes/{node}/qemu/{vmid}/vncproxy` and
+  `/termproxy`, returning typed `ProxmoxVncTicket` and
+  `ProxmoxTermProxyTicket` DTOs sourced directly from the Proxmox
+  apidoc.js schema (cert/password/port/ticket/upid/user for vnc;
+  port/ticket/upid/user for termproxy). `UnavailableProxmoxClient`
+  picks up the new methods through a shared `fail()` path.
+- `App\Providers\Proxmox\ProxmoxConsoleProxy` is now the real
+  implementation. It guards the grant on expiry, console-kind
+  mismatch, deployment mismatch, and tenant mismatch — same
+  invariants as the in-memory fake — and additionally rejects
+  deployments without an active Proxmox VM resource
+  (`not_a_proxmox_deployment`), missing node metadata
+  (`missing_node`), or missing VMID (`missing_vmid`). The Proxmox API
+  call is try/caught and surfaced as `provider_error` so the audit
+  trail captures the failure even when the Guzzle layer throws. Every
+  request emits a hash-chained `console.proxy.request` audit row with
+  provider metadata.
+- `packages/racklab/console-proxmox/` ships as an in-monorepo
+  Composer path package mirroring `racklab/plugin-hello`. The plugin
+  declares the `console:proxmox:v1` capability in `composer.json`
+  extra metadata and exposes a `Manifest` + a minimal
+  `ConsoleProxmoxServiceProvider`. The plugin participates in the
+  standard `racklab plugin install|migrate|enable|disable|uninstall`
+  lifecycle; contract coverage drives the full cycle and asserts the
+  capability list.
+- `tests/Doubles/AbstractProxmoxClientDouble` provides a default-fail
+  test double so existing anonymous-class implementers of
+  `ProxmoxClientContract` (cap probe, deployment lifecycle, provider
+  operations, task poller) automatically inherit safe stubs for any
+  newly-added contract methods.
+- 2 Guzzle contract tests (vncproxy and termproxy mapping with
+  PVE API token headers, form-params shape, and typed-DTO mapping)
+  and 4 ProxmoxConsoleProxy tests (authorized VNC, authorized
+  terminal, wrapped provider exception, not-a-Proxmox deployment)
+  plus 2 console-proxmox plugin lifecycle tests cover the new
+  surface. The Proxmox API references were verified against the
+  official `https://pve.proxmox.com/pve-docs/api-viewer/apidoc.js`
+  schema rather than recalled from training data.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, and
+  `composer test` pass with 348 tests / 2123 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
+
+Codex P2 findings folded into this slice:
+
+- `ProxmoxConsoleProxy::buildWebsocketUrl()` now URL-encodes and
+  includes the Proxmox `vncticket=` query parameter alongside `port`,
+  matching the schema for `vncwebsocket`. The contract test locks the
+  encoded parameter; without it, real Proxmox console upgrades would
+  be rejected before the stream starts.
+- `AppServiceProvider::resolveProxmoxConsoleProxy()` now requires
+  BOTH `RACKLAB_CONSOLE_PROXY=proxmox` AND the
+  `racklab/console-proxmox` plugin to be enabled in
+  `plugin_installations` before binding the real
+  `ProxmoxConsoleProxy`. Otherwise the container resolves
+  `UnavailableProviderConsoleProxy`, so
+  `racklab plugin disable racklab/console-proxmox` reliably removes
+  the capability and the plugin lifecycle is the real operator-facing
+  gate. Three additional contract tests cover the env-only case (no
+  plugin → unavailable), the lifecycle progression
+  (install → migrate → enable → real binding; disable → unavailable),
+  and the in-memory env-value case (plugin-enabled does not override).
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

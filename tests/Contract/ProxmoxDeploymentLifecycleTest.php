@@ -36,7 +36,7 @@ it('routes Proxmox-backed catalog deployments through the clone adapter and pers
     Queue::fake();
 
     [$tenant, $user, $project, $version] = provisionProxmoxCatalogDeploymentFixture();
-    $client = new class implements ProxmoxClientContract
+    $client = new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public ?ProxmoxVmCloneRequest $cloneRequest = null;
 
@@ -118,7 +118,7 @@ it('routes Proxmox deployment release operations through the delete adapter', fu
     Queue::fake();
 
     [$tenant, $user, $project, $version] = provisionProxmoxCatalogDeploymentFixture();
-    $client = new class implements ProxmoxClientContract
+    $client = new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public ?ProxmoxVmDeleteRequest $deleteRequest = null;
 
@@ -241,7 +241,7 @@ it('schedules Proxmox deployments onto an eligible capacity snapshot when no nod
         'observed_at' => now(),
     ]);
 
-    $client = new class implements ProxmoxClientContract
+    $client = new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public ?ProxmoxVmCloneRequest $cloneRequest = null;
 
@@ -299,7 +299,7 @@ it('routes Proxmox power-off operations through the power adapter', function ():
     Queue::fake();
 
     [$tenant, $user, $project, $version] = provisionProxmoxCatalogDeploymentFixture();
-    $client = new class implements ProxmoxClientContract
+    $client = new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public ?ProxmoxVmPowerRequest $powerRequest = null;
 

@@ -30,7 +30,7 @@ it('submits a Proxmox clone once per idempotency key and dispatches polling by p
     Queue::fake();
 
     [$tenant, $operation] = provisionProxmoxCloneOperationFixture();
-    $client = new class implements ProxmoxClientContract
+    $client = new class extends Tests\Doubles\AbstractProxmoxClientDouble
     {
         public int $cloneCalls = 0;
 

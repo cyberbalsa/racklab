@@ -159,6 +159,87 @@ it('submits a QEMU delete request and returns the Proxmox UPID', function (): vo
         ->and((string) $history[0]['request']->getUri())->toContain('purge=1');
 });
 
+it('issues a Proxmox vncproxy ticket request and maps the response into a typed ticket', function (): void {
+    $history = [];
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
+            'data' => [
+                'ticket' => 'PVE:racklab@pve!provider:ABCDEF:vncticket',
+                'cert' => '-----BEGIN CERTIFICATE-----\nMIIDX...',
+                'port' => 5901,
+                'upid' => 'UPID:pve01:0009C3C2:067CF15D:6656B700:vncproxy:101:racklab@pve!provider:',
+                'user' => 'racklab@pve!provider',
+            ],
+        ], JSON_THROW_ON_ERROR)),
+    ]);
+    $stack = HandlerStack::create($mock);
+    $stack->push(Middleware::history($history));
+
+    $client = new GuzzleProxmoxClient(
+        ProxmoxEndpointConfig::fromArray([
+            'base_uri' => 'https://pve.example.test:8006',
+            'api_token_id' => 'racklab@pve!provider',
+            'api_token_secret' => 'secret',
+            'verify_ssl' => true,
+        ]),
+        new Client(['handler' => $stack]),
+    );
+
+    $ticket = $client->vncProxy(new App\Providers\Proxmox\Models\ProxmoxVncProxyRequest(
+        node: 'pve01',
+        vmid: 101,
+        websocket: true,
+    ));
+
+    expect($ticket->ticket)->toBe('PVE:racklab@pve!provider:ABCDEF:vncticket')
+        ->and($ticket->port)->toBe(5901)
+        ->and($ticket->upid)->toContain('vncproxy')
+        ->and($ticket->user)->toBe('racklab@pve!provider')
+        ->and($history[0]['request']->getMethod())->toBe('POST')
+        ->and((string) $history[0]['request']->getUri())->toContain('/api2/json/nodes/pve01/qemu/101/vncproxy')
+        ->and((string) $history[0]['request']->getBody())->toContain('websocket=1')
+        ->and($history[0]['request']->getHeaderLine('Authorization'))->toBe('PVEAPIToken=racklab@pve!provider=secret');
+});
+
+it('issues a Proxmox termproxy ticket request and maps the response into a typed ticket', function (): void {
+    $history = [];
+    $mock = new MockHandler([
+        new Response(200, [], json_encode([
+            'data' => [
+                'ticket' => 'PVE:racklab@pve!provider:ABCDEF:termticket',
+                'port' => 5902,
+                'upid' => 'UPID:pve01:0009C3C2:067CF15D:6656B700:vncshell:101:racklab@pve!provider:',
+                'user' => 'racklab@pve!provider',
+            ],
+        ], JSON_THROW_ON_ERROR)),
+    ]);
+    $stack = HandlerStack::create($mock);
+    $stack->push(Middleware::history($history));
+
+    $client = new GuzzleProxmoxClient(
+        ProxmoxEndpointConfig::fromArray([
+            'base_uri' => 'https://pve.example.test:8006',
+            'api_token_id' => 'racklab@pve!provider',
+            'api_token_secret' => 'secret',
+            'verify_ssl' => true,
+        ]),
+        new Client(['handler' => $stack]),
+    );
+
+    $ticket = $client->termProxy(new App\Providers\Proxmox\Models\ProxmoxTermProxyRequest(
+        node: 'pve01',
+        vmid: 101,
+        serial: 'serial0',
+    ));
+
+    expect($ticket->ticket)->toBe('PVE:racklab@pve!provider:ABCDEF:termticket')
+        ->and($ticket->port)->toBe(5902)
+        ->and($ticket->user)->toBe('racklab@pve!provider')
+        ->and($history[0]['request']->getMethod())->toBe('POST')
+        ->and((string) $history[0]['request']->getUri())->toContain('/api2/json/nodes/pve01/qemu/101/termproxy')
+        ->and((string) $history[0]['request']->getBody())->toContain('serial=serial0');
+});
+
 it('submits a QEMU power request and returns the Proxmox UPID', function (): void {
     $upid = 'UPID:pve01:0009C3C2:067CF15D:6656B700:qmstop:101:root@pam:';
     $history = [];

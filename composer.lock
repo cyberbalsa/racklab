@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6f630264b59351b2918a612ba87d3216",
+    "content-hash": "bff5dbd93aca0f022f2b17072ba40b6f",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -6006,6 +6006,47 @@
                 "source": "https://github.com/pusher/pusher-http-php/tree/7.2.8"
             },
             "time": "2026-05-18T13:11:36+00:00"
+        },
+        {
+            "name": "racklab/console-proxmox",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "packages/racklab/console-proxmox",
+                "reference": "58d86fac1192e48f33ef2bf53afb2647c2de039d"
+            },
+            "require": {
+                "illuminate/support": "^13.0",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "extra": {
+                "racklab": {
+                    "plugin": true,
+                    "slug": "racklab/console-proxmox",
+                    "capabilities": [
+                        "console:proxmox:v1"
+                    ]
+                },
+                "laravel": {
+                    "dont-discover": [
+                        "racklab/console-proxmox"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Racklab\\ConsoleProxmox\\": "src/"
+                }
+            },
+            "license": [
+                "Apache-2.0"
+            ],
+            "description": "RackLab Proxmox console capability plugin (console:proxmox:v1).",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "racklab/plugin-hello",
@@ -16249,6 +16290,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
+        "racklab/console-proxmox": 20,
         "racklab/plugin-hello": 20,
         "roave/security-advisories": 20
     },

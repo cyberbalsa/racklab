@@ -10,10 +10,14 @@ use App\Providers\Proxmox\Exceptions\ProviderBug;
 use App\Providers\Proxmox\Exceptions\ProviderNotFound;
 use App\Providers\Proxmox\Exceptions\ProviderTransient;
 use App\Providers\Proxmox\Models\ProxmoxTaskStatus;
+use App\Providers\Proxmox\Models\ProxmoxTermProxyRequest;
+use App\Providers\Proxmox\Models\ProxmoxTermProxyTicket;
 use App\Providers\Proxmox\Models\ProxmoxVersion;
 use App\Providers\Proxmox\Models\ProxmoxVmCloneRequest;
 use App\Providers\Proxmox\Models\ProxmoxVmDeleteRequest;
 use App\Providers\Proxmox\Models\ProxmoxVmPowerRequest;
+use App\Providers\Proxmox\Models\ProxmoxVncProxyRequest;
+use App\Providers\Proxmox\Models\ProxmoxVncTicket;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
@@ -97,6 +101,56 @@ final readonly class GuzzleProxmoxClient implements ProxmoxClientContract
         }
 
         return $data;
+    }
+
+    public function vncProxy(ProxmoxVncProxyRequest $request): ProxmoxVncTicket
+    {
+        $data = $this->json(
+            method: 'POST',
+            path: sprintf(
+                '/api2/json/nodes/%s/qemu/%d/vncproxy',
+                rawurlencode($request->node),
+                $request->vmid,
+            ),
+            options: ['form_params' => $request->formParams()],
+        );
+
+        if (! is_array($data)) {
+            throw new ProviderBug('Proxmox vncproxy response was not an object.');
+        }
+
+        return new ProxmoxVncTicket(
+            ticket: is_string($data['ticket'] ?? null) ? $data['ticket'] : throw new ProviderBug('Proxmox vncproxy response missing ticket.'),
+            cert: is_string($data['cert'] ?? null) ? $data['cert'] : throw new ProviderBug('Proxmox vncproxy response missing cert.'),
+            port: is_int($data['port'] ?? null) ? $data['port'] : (is_numeric($data['port'] ?? null) ? (int) $data['port'] : throw new ProviderBug('Proxmox vncproxy response missing port.')),
+            upid: is_string($data['upid'] ?? null) ? $data['upid'] : throw new ProviderBug('Proxmox vncproxy response missing upid.'),
+            user: is_string($data['user'] ?? null) ? $data['user'] : throw new ProviderBug('Proxmox vncproxy response missing user.'),
+            password: is_string($data['password'] ?? null) ? $data['password'] : null,
+        );
+    }
+
+    public function termProxy(ProxmoxTermProxyRequest $request): ProxmoxTermProxyTicket
+    {
+        $data = $this->json(
+            method: 'POST',
+            path: sprintf(
+                '/api2/json/nodes/%s/qemu/%d/termproxy',
+                rawurlencode($request->node),
+                $request->vmid,
+            ),
+            options: ['form_params' => $request->formParams()],
+        );
+
+        if (! is_array($data)) {
+            throw new ProviderBug('Proxmox termproxy response was not an object.');
+        }
+
+        return new ProxmoxTermProxyTicket(
+            ticket: is_string($data['ticket'] ?? null) ? $data['ticket'] : throw new ProviderBug('Proxmox termproxy response missing ticket.'),
+            port: is_int($data['port'] ?? null) ? $data['port'] : (is_numeric($data['port'] ?? null) ? (int) $data['port'] : throw new ProviderBug('Proxmox termproxy response missing port.')),
+            upid: is_string($data['upid'] ?? null) ? $data['upid'] : throw new ProviderBug('Proxmox termproxy response missing upid.'),
+            user: is_string($data['user'] ?? null) ? $data['user'] : throw new ProviderBug('Proxmox termproxy response missing user.'),
+        );
     }
 
     public function taskStatus(string $node, string $upid): ProxmoxTaskStatus
