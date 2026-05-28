@@ -801,13 +801,108 @@ The M0.5 container image build-pipeline increment is in place:
 - Current focused verification: `APP_ENV=production BROADCAST_CONNECTION=null REVERB_APP_KEY=null REVERB_APP_SECRET=null REVERB_APP_ID=null DB_CONNECTION=sqlite DB_DATABASE=/tmp/racklab-missing-reverb.sqlite php artisan package:discover --ansi` passes, and `vendor/bin/pest tests/Integration/BuildImagesWorkflowTest.php tests/Integration/PluginRegistryBootSafetyTest.php tests/Integration/ScribeConfigurationTest.php tests/Integration/OpenApiSchemaTest.php` passes with 14 tests / 309 assertions. Current full gate: `composer validate --strict --no-check-publish`, `composer pint:test`, `composer larastan`, `composer rector:dry`, `composer security:racklab`, `composer openapi:check`, `composer audit`, `composer security:semgrep`, `composer pest:snapshots`, `composer i18n:missing`, `composer check-platform-reqs --no-interaction`, `npm audit --audit-level=high`, `npm run build`, `git diff --check`, and `composer test` pass with 252 tests / 1717 assertions; the same two integration tests are skipped in the default SQLite profile.
 - Local image-build verification remains blocked on the workstation runtime, not on the RackLab image files: `podman build --target web --file Containerfile --tag racklab/web:local-smoke .` still exits before build start with Podman's user-namespace pause-process error, and `docker` is not installed in this shell. The image workflow remains the authoritative verification path.
 
+The Horizon install + supply-chain hardening increment is in place:
+
+- `laravel/horizon` v5.47.1 is installed; the four legacy worker
+  Quadlets are replaced by TWO Horizon containers partitioned by
+  Podman-socket exposure: `racklab-horizon-app` (provider +
+  notifications, no socket) and `racklab-horizon-runner` (scripts +
+  console, with socket). `config/horizon.php` partitions supervisors
+  via `RACKLAB_HORIZON_POOL_GROUP` (`app`|`runner`|`all`). Supervisor
+  queue names now match the actual job dispatches
+  (`provider-worker`, `script-worker`, `console-worker`,
+  `notification-worker`), fixing a pre-existing latent bug where the
+  workers were listening on the wrong queue names.
+- `AccessResolver::permittedPlatform()` gates platform-scope
+  resources (Horizon, future admin endpoints) by requiring a
+  global-scope role binding targeting a dedicated `(platform,
+  racklab)` resource; a global binding on any other resource does
+  NOT carry over (over-auth regression guard locked by a tiny test).
+  `App\Auth\HorizonAuthGate::authorize()` calls `permittedPlatform()`
+  with `horizon.view` and emits hash-chained `horizon.access` /
+  `horizon.access.denied` audit rows for both allow and deny paths.
+  Bootstrap admin (`racklab:bootstrap-admin`) gains a
+  platform-resource admin binding alongside its existing
+  project-scope one.
+- `BindTenantContext` job middleware now drives Spatie's
+  `Tenant::makeCurrent()` / `Tenant::forgetCurrent()`, closing a real
+  tenant leak between two sequential Horizon-driven jobs on different
+  tenants. Locked by a `TenantLeakBetweenJobsTest`-style contract
+  test.
+- `audit_events.actor_tenant` is now nullable so anonymous denial
+  rows can be persisted (the un-authed `/horizon` probe path).
+- `REDIS_QUEUE_RETRY_AFTER` default raised from 90 to 3700 in
+  `config/queue.php` so the longest queue timeout (console, 3600s)
+  stays strictly less than `retry_after`. `RunConsoleScript`
+  explicitly overrides the parent's `$timeout=330` to 3630 and its
+  `ContainerManifest::timeoutSeconds` to 3600.
+- `Containerfile` collapses four legacy worker targets into a single
+  `horizon` target; `.github/workflows/build-images.yml` matrix
+  shrinks from seven to four (`web`, `reverb`, `horizon`,
+  `scheduler-reconciler`). Legacy image tags
+  (`provider-worker`/`script-worker`/`console-worker`/`notification-worker`)
+  continue to publish for one release cycle as mirror tags pointing
+  at the horizon image, so external consumers don't break instantly.
+- Plugin volume is now `:ro,Z` on every runtime container
+  (horizon-app, horizon-runner, web, reverb, scheduler-reconciler).
+  Only `racklab-plugin-bootstrap` retains write access.
+- `.github/dependabot.yml` enables Dependabot for composer, npm,
+  github-actions, and docker (weekly Monday cadence, conventional-
+  commit prefixes, grouped minor/patch updates). Bot-PR commits are
+  not Bitwarden-signed; maintainers re-sign on merge.
+- `.github/workflows/build-images.yml` adds a two-scan Anchore Grype
+  pipeline on the Syft SBOMs already being generated: a full SARIF
+  report uploaded via `github/codeql-action/upload-sarif@v4`
+  (non-blocking, `continue-on-error` for fork-PR safety), plus a
+  fixed-only `severity-cutoff=high` failure gate that blocks the
+  workflow on actionable CVEs. Uses `anchore/scan-action@v7`
+  (Node 24). `.grype.yaml` at repo root carries the allowlist.
+  `security-events: write` permission declared.
+- `scripts/dev/register-host-runner.sh` registers a labelled
+  self-hosted GitHub Actions runner on the workstation host
+  (`self-hosted,linux,podman,cgroup-delegated`). Token via
+  stdin or `--token-file=`; `--token=` flag is refused because it
+  leaks the secret into shell history. The runner archive is
+  sha256-verified before extraction. `systemd-user` template
+  preserved across reboots.
+- Filament admin panel surfaces a `Horizon` navigation link.
+  Visibility uses a non-auditing `HorizonAuthGate::canView()` so the
+  link only appears for platform admins (no UX dead-end, no
+  audit-row noise on nav render).
+- `enlightn/security-checker` is dropped from the PRD and `docs/prd/17`.
+  `composer audit` covers the same upstream advisory database. No
+  Symfony-8 pin to keep watching for.
+- Codex review across three spec iterations surfaced 14 P1 findings;
+  all folded.
+
 ## Next
 
-Remaining MVP hardening after the deployment-lifecycle, script-approval, cloud-init, Proxmox, fake-runtime, audit-snapshot, OpenAPI-drift/body-detail/response-defaults/summaries, Semgrep/RackLab security checks, Podman-harness, dashboard Dusk, Baseline health/readiness, Baseline backup/restore, local worker-restart ops-smoke, host-Podman PostgreSQL/Redis release-smoke, GitHub Code CI, GitHub Release Smoke CI, Reverb live-broadcast, first M6 quota-reservation, first M6 placement-scheduler/anti-affinity primitive, M6 quota-admin/lease-policy, M5a network-offering/reachability/validation/admin-UI, M5b managed networking, M5b provider-drift repair/adoption, and host Podman runtime verification increments:
+1. **`baseline-worker-host-soak`** — run the real systemd/worker
+   version of the M2.5 drain/soak path on a Baseline host or
+   self-hosted runner: install with `scripts/baseline-install.sh`,
+   restart the new `racklab-horizon-runner.service` and
+   `racklab-horizon-app.service` during active fake-provider work,
+   run the 4-hour soak. The local host-Podman release smoke covers
+   PostgreSQL/Redis, Redis-backed ops-smoke backups, and restore of
+   running fake-provider deployments. The remaining gap is the
+   literal Quadlet/systemd worker drain under real Horizon.
+2. **`podman-runtime-github`** — the workflow exists at
+   `.github/workflows/podman-runtime-ci.yml`; the registration
+   helpers in `scripts/dev/register-host-runner.sh` +
+   `racklab-self-hosted-runner.service.template` are now in place.
+   Generate a runner registration token at
+   `github.com/cyberbalsa/racklab/settings/actions/runners/new` and
+   run the helper script on the host. Cancelled queued runs from
+   earlier should be re-dispatched once the runner is online.
+3. **`reconciler-as-jobs`** — wrap `racklab:reconcile-provider-tasks`,
+   `racklab:expire-deployments`, `racklab:detect-provider-drift`,
+   and `racklab:reap-script-containers` as Horizon-dispatched Job
+   classes driven by `bootstrap/app.php`'s `withSchedule()`
+   callback. The existing `racklab-scheduler-reconciler@.container`
+   keeps its `while true` shell loop until then. Out of scope for
+   the v3 Horizon slice.
+4. **`packaging-release`** — cut the MVP release notes from
+   `PROGRESS.md` after the Baseline worker-host soak is green.
 
-1. **`baseline-worker-host-soak`** — run the real systemd/worker version of the M2.5 drain/soak path on a Baseline host or self-hosted runner: install with `scripts/baseline-install.sh`, restart `racklab-provider-worker@1` during active fake-provider work, and run the 4-hour soak. The local host-Podman release smoke covers PostgreSQL/Redis, Redis-backed ops-smoke backups, and restore of running fake-provider deployments; the remaining gap is the literal Quadlet/systemd worker drain. Horizon remains a dependency gap: current Packagist metadata for `laravel/horizon` v5.47.1 / 6.x-dev still allows Illuminate only through 12.x, so adding Horizon to this Laravel 13 repo is blocked until upstream compatibility changes or RackLab carries a fork.
-2. **`podman-runtime-github`** — the workflow exists but requires a self-hosted runner labeled `linux`, `podman`, and `cgroup-delegated`; the attempted run was cancelled after remaining queued. The current shell can see Podman 5.8.2, but it is not yet a hardened-runtime pass without a cgroup-delegated/rootless-subuid or equivalent host fix.
-3. **`ci-gates`** — monitor for a Symfony 8-compatible upstream release of `enlightn/security-checker` or an equivalent Laravel-specific scanner, add any final custom Larastan behavior gaps that emerge from the MVP code surface, and resolve the GitHub Actions Node 20 deprecation annotations before the June 2026 forced Node 24 switch.
-4. **`packaging-release`** — cut the MVP release notes from `PROGRESS.md` after the Baseline worker-host soak is green.
-
-The next concrete step is external verification on a real Quadlet/systemd Baseline host or self-hosted runner.
+The next concrete step is external verification on a real Baseline
+host or self-hosted runner with the new Quadlet/Horizon topology.

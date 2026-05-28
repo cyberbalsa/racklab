@@ -105,7 +105,7 @@ CI rejects on:
 - Test failures at any layer.
 - Coverage gates per layer (TDD discipline section below).
 - Dependency audit failures (`composer audit` + `npm audit`).
-- Security scan failures (`roave/security-advisories` abort on install; `enlightn/security-checker`; Semgrep with Laravel/PHP rule packs; CodeQL on `main`).
+- Security scan failures (`roave/security-advisories` abort on install; `composer audit` against the GitHub Security Advisories DB; Anchore Grype on image SBOMs with both a full-visibility SARIF report and a fixed-CVE failure gate; Semgrep with Laravel/PHP rule packs; CodeQL on `main`).
 - Permission-snapshot drift without a paired test update.
 - Audit-event-emission test failures (missing emission for a documented event is a P0).
 - OpenAPI schema drift without a committed-schema update (Scribe-generated artifact must be committed and diff-clean).
@@ -248,7 +248,7 @@ Required PR-blocking jobs:
 9. Permission-snapshot gate (`RolePermissions.test.php`) — refuses to merge if the role-permission snapshot changes without an explicit test update.
 10. Audit-emission gate (`AuditEvents.test.php`) — refuses to merge if a documented audit event has no code path emitting it.
 11. `composer audit` + `npm audit` — dependency CVE scan.
-12. Security scanning: `roave/security-advisories` (composer dev dep that aborts install on known-CVE deps), `enlightn/security-checker` for Laravel-specific patterns, `phpcs-security-audit` for taint analysis on `app/Http/`, Semgrep with Laravel + PHP rule packs for OWASP Top 10; CodeQL on push to `main`.
+12. Security scanning: `roave/security-advisories` (composer dev dep that aborts install on known-CVE deps), `composer audit` against the GitHub Security Advisories database (Composer 2.4+, no extra dep), Anchore Grype scanning the Syft CycloneDX SBOMs in `build-images.yml` (two scans: a full-visibility SARIF report uploaded via `github/codeql-action/upload-sarif@v4`, plus a `severity-cutoff=high only-fixed=true` failure gate that blocks the workflow on actionable CVEs), `phpcs-security-audit` for taint analysis on `app/Http/`, Semgrep with Laravel + PHP rule packs for OWASP Top 10, GitHub Dependabot (`.github/dependabot.yml`) for weekly auto-PRs on composer/npm/github-actions/docker, and CodeQL on push to `main`. `enlightn/security-checker` is explicitly NOT installed — it duplicates `composer audit` against the same upstream advisory database and its `symfony/console` pin lags the Symfony 8 stack. Dependabot bot-PR commits are NOT signed by the local Bitwarden SSH agent; maintainers re-sign on merge.
 13. OpenAPI schema-drift gate: `php artisan scribe:generate --no-extraction` then `git diff --exit-code docs/api/openapi.yaml` — PRs that change the route surface must update the committed OpenAPI artifact.
 14. a11y gate — axe-core runs inside every Dusk browser test; new violations fail the build.
 15. i18n catalog drift — `php artisan racklab:lang:check` (custom artisan command, not a Laravel core command) fails if any Blade/Livewire template uses `__('…')` with a string not present in `resources/lang/en/*.php` or vice-versa.

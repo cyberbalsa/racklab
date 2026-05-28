@@ -159,7 +159,7 @@ From spec §2. **If the spec table changes, update this table with it.**
 | Auth — OAuth providers | Socialite | v5.27.0 |
 | Auth — OIDC | Kovah/laravel-socialite-oidc | ^0.8.0 |
 | Auth — SAML | socialiteproviders/saml2 | v4.8.0 |
-| Queue + jobs | Horizon (Redis; requires `pcntl` + `posix`) | v5.47 |
+| Queue + jobs | Horizon (Redis; explicit `ext-pcntl` + `ext-posix` composer requires); two-container Quadlet split partitioned by Podman-socket exposure (`racklab-horizon-app` for provider + notifications, `racklab-horizon-runner` for scripts + console) selected via `RACKLAB_HORIZON_POOL_GROUP`. | v5.47.1 |
 | Audit | Custom append-only `AuditEvent` + hash chain + owen-it/laravel-auditing (subordinate model-change feed) | owen-it v14 |
 | OpenAPI | knuckleswtf/scribe | v5.10 |
 | File uploads | spatie/livewire-filepond + custom chunk/retry/checksum design | spatie v1.7.1 |
