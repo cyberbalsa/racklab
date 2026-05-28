@@ -17,6 +17,8 @@ use App\Http\Controllers\JwksController;
 use App\Http\Controllers\ScriptFakeRunnerController;
 use App\Http\Middleware\BindAuthenticatedTenant;
 use App\Http\Middleware\SetUserLocale;
+use App\Livewire\Docs\DocEditor;
+use App\Livewire\Docs\DocIndex;
 use App\Livewire\Hello;
 use Illuminate\Support\Facades\Route;
 
@@ -71,6 +73,10 @@ Route::get('/plugins/docs/refs/resolve/{kind}/{id}', RefResolveController::class
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('plugins.docs.refs.resolve');
 
-Route::get('/docs/{doc}', DocReaderController::class)
-    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
-    ->name('docs.show');
+Route::middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])->group(function (): void {
+    // Order matters: literal /docs and /docs/create must precede /docs/{doc}.
+    Route::get('/docs', DocIndex::class)->name('docs.index');
+    Route::get('/docs/create', DocEditor::class)->name('docs.create');
+    Route::get('/docs/{doc}', DocReaderController::class)->name('docs.show');
+    Route::get('/docs/{doc}/edit', DocEditor::class)->name('docs.edit');
+});

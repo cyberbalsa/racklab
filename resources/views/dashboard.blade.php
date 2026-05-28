@@ -23,10 +23,13 @@
                     </select>
                     <button dusk="save-locale" type="submit" class="btn btn-sm">{{ __('racklab.account.save_locale') }}</button>
                 </form>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="btn btn-sm btn-outline">{{ __('racklab.auth.logout') }}</button>
-                </form>
+                <div class="flex items-center gap-2">
+                    <a href="{{ route('docs.index') }}" wire:navigate class="btn btn-sm btn-ghost" dusk="nav-docs">{{ __('racklab.docs.nav') }}</a>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="btn btn-sm btn-outline">{{ __('racklab.auth.logout') }}</button>
+                    </form>
+                </div>
             </div>
         </div>
 
