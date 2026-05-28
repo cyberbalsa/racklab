@@ -267,6 +267,7 @@
         "token.create"
     ],
     "tenant_member": [
-        "catalog.read"
+        "catalog.read",
+        "network.read"
     ]
 }

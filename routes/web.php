@@ -21,6 +21,7 @@ use App\Livewire\Catalog\CatalogBrowser;
 use App\Livewire\Docs\DocEditor;
 use App\Livewire\Docs\DocIndex;
 use App\Livewire\Hello;
+use App\Livewire\Stacks\StackBuilder;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -41,6 +42,10 @@ Route::get('/dashboard', DashboardController::class)
 Route::get('/catalog', CatalogBrowser::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('catalog');
+
+Route::get('/stacks/build', StackBuilder::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('stacks.build');
 
 Route::put('/account/locale', AccountLocaleController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
