@@ -76,7 +76,7 @@ jobs:
         run: docker run --rm "$LOCAL_IMAGE" composer audit --no-interaction
 
       - name: Artisan smoke inside image
-        run: docker run --rm -e APP_ENV=testing -e APP_KEY=base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE= "$LOCAL_IMAGE" php artisan --version
+        run: docker run --rm -e APP_ENV=testing -e APP_KEY=base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE= -e BROADCAST_CONNECTION=null "$LOCAL_IMAGE" php artisan --version
 
       - name: Install Syft
         run: |

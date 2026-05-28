@@ -78,7 +78,7 @@ RUN set -eux; \
         /var/lib/racklab/plugins/config \
         /var/lib/racklab/plugins/packages; \
     composer dump-autoload --no-dev --classmap-authoritative --no-scripts; \
-    php artisan package:discover --ansi
+    BROADCAST_CONNECTION=null php artisan package:discover --ansi
 
 EXPOSE 8000 8080
 ENTRYPOINT []

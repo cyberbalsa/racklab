@@ -25,6 +25,9 @@ it('defines one multi-target Containerfile for the Baseline image family', funct
 
     expect(strpos($containerfile, 'mkdir -p'))
         ->toBeLessThan(strpos($containerfile, 'php artisan package:discover --ansi'));
+
+    expect($containerfile)
+        ->toContain('BROADCAST_CONNECTION=null php artisan package:discover --ansi');
 });
 
 it('keeps local-only files out of the production image build context', function (): void {
@@ -68,6 +71,7 @@ it('builds and publishes every Baseline image with SBOM and license gates', func
         ->and($uses['Upload image SBOM'])->toBe('actions/upload-artifact@v4')
         ->and($steps['Build local image'])->toContain('docker build')
         ->and($steps['Composer audit inside image'])->toContain('composer audit')
+        ->and($steps['Artisan smoke inside image'])->toContain('-e BROADCAST_CONNECTION=null')
         ->and($steps['Install Syft'])->toContain('anchore/syft')
         ->and($steps['Generate CycloneDX SBOM'])->toContain('cyclonedx-json')
         ->and($steps['License policy gate'])->toContain('GPL-3.0')
