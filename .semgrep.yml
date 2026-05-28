@@ -1,0 +1,56 @@
+rules:
+  - id: racklab.no-spatie-rbac-bypass
+    message: Use AccessResolver for permission checks; raw Spatie role/capability checks bypass RackLab tenant policy.
+    severity: ERROR
+    languages:
+      - php
+    paths:
+      include:
+        - /app/**/*.php
+        - /packages/racklab/*/src/**/*.php
+      exclude:
+        - /app/Domain/Tenancy/AccessResolver.php
+    pattern-either:
+      - pattern: $USER->hasRole(...)
+      - pattern: $USER->can(...)
+
+  - id: racklab.no-bare-tenant-scope-bypass
+    message: Use CrossTenantFetch for tenant-scope bypasses so access provenance and audit events are preserved.
+    severity: ERROR
+    languages:
+      - php
+    paths:
+      include:
+        - /app/**/*.php
+        - /packages/racklab/*/src/**/*.php
+      exclude:
+        - /app/Domain/Tenancy/CrossTenantFetch.php
+    pattern-either:
+      - pattern: $QUERY->withoutGlobalScope(...)
+      - pattern: $QUERY->withoutGlobalScopes(...)
+
+  - id: racklab.no-lint-suppression-in-production
+    message: Production code may not suppress linters; fix the code or the rule.
+    severity: ERROR
+    languages:
+      - generic
+    paths:
+      include:
+        - /app/**/*.php
+        - /packages/racklab/*/src/**/*.php
+    pattern-regex: '@(?:phpstan-ignore|psalm-suppress|phpcs:ignore)'
+
+  - id: racklab.no-shell-commandline-process
+    message: Build process arguments as argv arrays; shell command lines make escaping and redaction harder to audit.
+    severity: ERROR
+    languages:
+      - php
+    paths:
+      include:
+        - /app/**/*.php
+        - /packages/racklab/*/src/**/*.php
+    pattern-either:
+      - pattern: Process::fromShellCommandline(...)
+      - pattern: shell_exec(...)
+      - pattern: system(...)
+      - pattern: passthru(...)

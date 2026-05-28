@@ -11,6 +11,7 @@
 /.idea
 /.nova
 /.phpunit.cache
+/.scribe
 /.vscode
 /.serena/
 /.zed

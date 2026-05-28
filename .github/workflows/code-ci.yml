@@ -64,6 +64,9 @@ jobs:
       - name: Audit Composer dependencies
         run: composer audit
 
+      - name: RackLab security config
+        run: composer security:racklab
+
       - name: Check platform requirements
         run: composer check-platform-reqs --no-interaction
 
@@ -75,6 +78,9 @@ jobs:
 
       - name: Rector
         run: composer rector:dry
+
+      - name: OpenAPI schema drift
+        run: composer openapi:check
 
       - name: Pest tiny
         run: composer pest:tiny
@@ -90,6 +96,76 @@ jobs:
 
       - name: Translation coverage
         run: composer i18n:missing
+
+  postgres-smoke:
+    name: PostgreSQL smoke
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: racklab_ci
+          POSTGRES_USER: racklab
+          POSTGRES_PASSWORD: racklab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U racklab -d racklab_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      APP_ENV: testing
+      APP_KEY: "base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
+      APP_MAINTENANCE_DRIVER: file
+      BCRYPT_ROUNDS: "4"
+      BROADCAST_CONNECTION: "null"
+      CACHE_STORE: array
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_DATABASE: racklab_ci
+      DB_USERNAME: racklab
+      DB_PASSWORD: racklab
+      DB_SSLMODE: disable
+      MAIL_MAILER: array
+      NIGHTWATCH_ENABLED: "false"
+      PULSE_ENABLED: "false"
+      QUEUE_CONNECTION: sync
+      SESSION_DRIVER: array
+      TELESCOPE_ENABLED: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: curl, dom, fileinfo, intl, mbstring, openssl, pdo_pgsql, simplexml, xml, xmlreader, xmlwriter, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            docker exec "${{ job.services.postgres.id }}" pg_isready -U racklab -d racklab_ci && exit 0
+            sleep 1
+          done
+          docker logs "${{ job.services.postgres.id }}"
+          exit 1
+
+      - name: Run RackLab migrations
+        run: php artisan racklab:migrate
+
+      - name: PostgreSQL contract smoke
+        run: composer pest:contract -- tests/Contract/TenancyPersistenceTest.php tests/Contract/RbacPersistenceTest.php tests/Contract/AuditHashChainTest.php tests/Contract/TenantScopeAndCrossTenantFetchTest.php
 
   assets:
     name: Assets
@@ -116,9 +192,36 @@ jobs:
       - name: Build assets
         run: npm run build
 
+  security:
+    name: Security scanners
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Install Semgrep
+        run: python -m pip install semgrep
+
+      - name: Semgrep
+        run: semgrep scan --config=.semgrep.yml --error --metrics=off --no-git-ignore app packages
+
   browser:
     name: Browser
     runs-on: ubuntu-24.04
+    env:
+      APP_URL: http://127.0.0.1:8000
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ${{ github.workspace }}/database/dusk.sqlite
+      RACKLAB_CONTAINER_RUNTIME: fake
+      SESSION_DRIVER: file
 
     steps:
       - name: Checkout
@@ -152,21 +255,40 @@ jobs:
       - name: Match ChromeDriver to runner Chrome
         run: php artisan dusk:chrome-driver --detect
 
+      - name: Prepare browser database
+        run: |
+          rm -f database/dusk.sqlite
+          touch database/dusk.sqlite
+
+      - name: Run browser migrations
+        run: php artisan racklab:migrate --skip-plugins
+
       - name: Start Laravel server
         run: |
           php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/dusk-server.log 2>&1 &
           echo "SERVER_PID=$!" >> "$GITHUB_ENV"
 
       - name: Wait for Laravel server
-        run: curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://127.0.0.1:8000/hello
+        run: curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://127.0.0.1:8000/readyz
 
       - name: Pest browser
-        env:
-          APP_URL: http://127.0.0.1:8000
         run: composer pest:browser
 
       - name: Pa11y CI
         run: npm run a11y
+
+      - name: Upload browser failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-artifacts
+          if-no-files-found: ignore
+          path: |
+            storage/logs/dusk-server.log
+            storage/logs/laravel.log
+            tests/Browser/console
+            tests/Browser/screenshots
+            tests/Browser/source
 
       - name: Stop Laravel server
         if: always()

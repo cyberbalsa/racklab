@@ -10,6 +10,7 @@ const chromeCandidates = [
 ].filter(Boolean);
 
 const executablePath = chromeCandidates.find((candidate) => existsSync(candidate));
+const baseUrl = (process.env.PA11Y_BASE_URL || process.env.APP_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 
 module.exports = {
     defaults: {
@@ -24,7 +25,7 @@ module.exports = {
         timeout: 30000,
     },
     urls: [
-        'http://127.0.0.1:8000/',
-        'http://127.0.0.1:8000/hello',
+        `${baseUrl}/`,
+        `${baseUrl}/hello`,
     ],
 };

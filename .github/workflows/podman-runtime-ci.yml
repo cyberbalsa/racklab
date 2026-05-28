@@ -1,0 +1,66 @@
+name: Podman Runtime CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      podman-binary:
+        description: "Podman command to use on the self-hosted runner, for example podman or sudo podman."
+        required: true
+        default: podman
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_ENV: testing
+  APP_KEY: "base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
+  APP_MAINTENANCE_DRIVER: file
+  BCRYPT_ROUNDS: "4"
+  BROADCAST_CONNECTION: "null"
+  CACHE_STORE: array
+  DB_CONNECTION: sqlite
+  DB_DATABASE: ":memory:"
+  MAIL_MAILER: array
+  NIGHTWATCH_ENABLED: "false"
+  PULSE_ENABLED: "false"
+  QUEUE_CONNECTION: sync
+  RACKLAB_PODMAN_BINARY: ${{ inputs.podman-binary }}
+  RACKLAB_REQUIRE_PODMAN_INTEGRATION: "1"
+  SESSION_DRIVER: array
+  TELESCOPE_ENABLED: "false"
+
+jobs:
+  podman-runtime:
+    name: Hardened Podman runtime
+    runs-on:
+      - self-hosted
+      - linux
+      - podman
+      - cgroup-delegated
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: curl, dom, fileinfo, intl, mbstring, openssl, pdo_sqlite, simplexml, xml, xmlreader, xmlwriter, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Show Podman host info
+        run: ${{ inputs.podman-binary }} info
+
+      - name: Hardened Podman integration
+        run: composer pest:integration -- tests/Integration/PodmanRuntimeIntegrationTest.php

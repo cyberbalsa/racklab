@@ -16,9 +16,11 @@
         "axios": "^1.11.0",
         "concurrently": "^9.0.1",
         "daisyui": "^5.5.20",
+        "laravel-echo": "^2.3.4",
         "laravel-vite-plugin": "^3.1",
         "lefthook": "^2.1.8",
         "pa11y-ci": "^4.1.1",
+        "pusher-js": "^8.5.0",
         "tailwindcss": "^4.0.0",
         "typescript": "^6.0.3",
         "vite": "^8.0.0"

@@ -1,0 +1,165 @@
+name: Release Smoke CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-smoke:
+    name: PostgreSQL browser smoke
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: racklab_smoke
+          POSTGRES_USER: racklab
+          POSTGRES_PASSWORD: racklab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U racklab -d racklab_smoke"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      APP_ENV: testing
+      APP_KEY: "base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
+      APP_MAINTENANCE_DRIVER: file
+      APP_URL: http://127.0.0.1:8000
+      BCRYPT_ROUNDS: "4"
+      BROADCAST_CONNECTION: "null"
+      CACHE_STORE: array
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_DATABASE: racklab_smoke
+      DB_USERNAME: racklab
+      DB_PASSWORD: racklab
+      DB_SSLMODE: disable
+      MAIL_MAILER: array
+      NIGHTWATCH_ENABLED: "false"
+      PULSE_ENABLED: "false"
+      QUEUE_CONNECTION: sync
+      RACKLAB_CONTAINER_RUNTIME: fake
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_CACHE_DB: "1"
+      SESSION_DRIVER: file
+      TELESCOPE_ENABLED: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: curl, dom, fileinfo, intl, mbstring, openssl, pdo_pgsql, redis, simplexml, xml, xmlreader, xmlwriter, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL and Redis client tools
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client redis-tools
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            docker exec "${{ job.services.postgres.id }}" pg_isready -U racklab -d racklab_smoke && exit 0
+            sleep 1
+          done
+          docker logs "${{ job.services.postgres.id }}"
+          exit 1
+
+      - name: Run RackLab migrations
+        run: php artisan racklab:migrate
+
+      - name: Baseline ops smoke
+        run: php artisan racklab:ops-smoke --cycles=3 --backup-dir=/tmp/racklab-ops-smoke-backups --include-redis-backup
+
+      - name: PostgreSQL and Redis backup restore smoke
+        run: |
+          redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -n "$REDIS_DB" set racklab:release-smoke redis-ok
+          php artisan racklab:backup --to=/tmp/racklab-release-smoke.zip --include-redis
+          php artisan migrate:fresh --force
+          php -r '$pdo = new PDO("pgsql:host=".getenv("DB_HOST").";port=".getenv("DB_PORT").";dbname=".getenv("DB_DATABASE"), getenv("DB_USERNAME"), getenv("DB_PASSWORD")); if ((int) $pdo->query("select count(*) from tenants")->fetchColumn() !== 0) { exit(1); }'
+          redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -n "$REDIS_DB" flushdb
+          php artisan racklab:restore --from=/tmp/racklab-release-smoke.zip --force
+          php -r '$pdo = new PDO("pgsql:host=".getenv("DB_HOST").";port=".getenv("DB_PORT").";dbname=".getenv("DB_DATABASE"), getenv("DB_USERNAME"), getenv("DB_PASSWORD")); $stmt = $pdo->prepare("select count(*) from tenants where slug = ?"); $stmt->execute(["default"]); if ((int) $stmt->fetchColumn() !== 1) { exit(1); }'
+          php -r '$pdo = new PDO("pgsql:host=".getenv("DB_HOST").";port=".getenv("DB_PORT").";dbname=".getenv("DB_DATABASE"), getenv("DB_USERNAME"), getenv("DB_PASSWORD")); $stmt = $pdo->prepare("select count(*) from deployments where state = ?"); $stmt->execute(["running"]); if ((int) $stmt->fetchColumn() < 1) { exit(1); }'
+          test "$(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -n "$REDIS_DB" get racklab:release-smoke)" = "redis-ok"
+          php artisan racklab:verify-audit-chain
+
+      - name: RackLab security config
+        run: composer security:racklab
+
+      - name: Match ChromeDriver to runner Chrome
+        run: php artisan dusk:chrome-driver --detect
+
+      - name: Start Laravel server
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/release-smoke-server.log 2>&1 &
+          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for Laravel server
+        run: curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://127.0.0.1:8000/readyz
+
+      - name: Pest browser smoke
+        run: composer pest:browser
+
+      - name: Pa11y smoke
+        run: npm run a11y
+
+      - name: Upload release-smoke failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-smoke-failure-artifacts
+          if-no-files-found: ignore
+          path: |
+            storage/logs/release-smoke-server.log
+            storage/logs/laravel.log
+            tests/Browser/console
+            tests/Browser/screenshots
+            tests/Browser/source
+
+      - name: Stop Laravel server
+        if: always()
+        run: |
+          if [ -n "${SERVER_PID:-}" ]; then
+            kill "$SERVER_PID" || true
+          fi

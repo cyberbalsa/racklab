@@ -14,15 +14,23 @@
     "require": {
         "php": "^8.3",
         "filament/filament": "^5.6.5",
+        "firebase/php-jwt": "^7.0",
+        "laravel/fortify": "^1.37",
         "laravel/framework": "^13.8",
         "laravel/octane": "^2.17.4",
+        "laravel/reverb": "^1.10",
+        "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
         "livewire/livewire": "^4.3.0",
-        "racklab/plugin-hello": "dev-main"
+        "racklab/plugin-hello": "dev-main",
+        "spatie/laravel-multitenancy": "^4.1",
+        "spatie/laravel-permission": "^7.4",
+        "symfony/yaml": "^8.0"
     },
     "require-dev": {
         "diglabby/laravel-find-missing-translations": "^1.7",
         "fakerphp/faker": "^1.23",
+        "knuckleswtf/scribe": "^5.10",
         "larastan/larastan": "^3.9.6",
         "laravel/dusk": "^8.0",
         "laravel/pail": "^1.2.5",
@@ -33,7 +41,8 @@
         "pestphp/pest": "^4.7",
         "pestphp/pest-plugin-laravel": "^4.0",
         "phpunit/phpunit": "^12.5.23",
-        "rector/rector": "^2.0"
+        "rector/rector": "^2.0",
+        "roave/security-advisories": "dev-latest"
     },
     "autoload": {
         "psr-4": {
@@ -65,6 +74,11 @@
     "scripts": {
         "larastan": "@php -d memory_limit=1G vendor/bin/phpstan analyse --no-progress",
         "i18n:missing": "@php artisan translations:missing --base=en --only=es",
+        "openapi:check": [
+            "@php artisan scribe:generate --force --no-upgrade-check --quiet",
+            "git diff --exit-code -- docs/api/openapi.yaml"
+        ],
+        "openapi:generate": "@php artisan scribe:generate --force --no-upgrade-check",
         "pest": "@php vendor/bin/pest --testsuite=default",
         "pest:browser": "@php vendor/bin/pest --testsuite=browser",
         "pest:contract": "@php vendor/bin/pest --testsuite=contract",
@@ -75,11 +89,13 @@
         "pint:test": "@php vendor/bin/pint --test",
         "rector": "@php vendor/bin/rector process",
         "rector:dry": "@php vendor/bin/rector process --dry-run --no-progress-bar",
+        "security:racklab": "@php artisan racklab:security-check",
+        "security:semgrep": "semgrep scan --config=.semgrep.yml --error --metrics=off --no-git-ignore app packages",
         "setup": [
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
-            "@php artisan migrate --force",
+            "@php artisan racklab:migrate",
             "npm install --ignore-scripts",
             "npm run build"
         ],
@@ -106,7 +122,7 @@
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi",
             "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
-            "@php artisan migrate --graceful --ansi"
+            "@php artisan racklab:migrate"
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"

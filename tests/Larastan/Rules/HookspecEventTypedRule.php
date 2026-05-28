@@ -5,26 +5,22 @@ declare(strict_types=1);
 namespace Tests\Larastan\Rules;
 
 use PhpParser\Node;
+use PhpParser\Node\Stmt\Class_;
+use PhpParser\Node\Stmt\ClassMethod;
+use PhpParser\Node\Stmt\Property;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleError;
+use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * Stub for the HookspecEventTypedRule from spec §8.
- *
- * Real implementation: every class under app/Events/Hookspecs/{Domain}/{Verb}Event.php
- * must be `final readonly` (or `final` with all properties readonly) and
- * have typed promoted-constructor properties. At scaffold time there are
- * no hookspec event classes yet (they land in plugin-lifecycle), so the
- * rule applies to no nodes.
- *
- * @implements Rule<Node>
+ * @implements Rule<Class_>
  */
 final class HookspecEventTypedRule implements Rule
 {
     public function getNodeType(): string
     {
-        return Node::class;
+        return Class_::class;
     }
 
     /**
@@ -32,7 +28,38 @@ final class HookspecEventTypedRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        // Stub — see plugin-lifecycle sub-plan for the real implementation.
-        return [];
+        if (! $this->isHookspecEventFile($scope->getFile())) {
+            return [];
+        }
+
+        $errors = [];
+
+        if (! $node->isReadonly()) {
+            $errors[] = RuleErrorBuilder::message('Hookspec event classes must be readonly.')->build();
+        }
+
+        foreach ($node->stmts as $statement) {
+            if ($statement instanceof Property && ! $statement->type instanceof Node) {
+                $errors[] = RuleErrorBuilder::message('Hookspec event properties must be typed.')->build();
+            }
+
+            if ($statement instanceof ClassMethod && $statement->name->toString() === '__construct') {
+                foreach ($statement->params as $parameter) {
+                    if ($parameter->flags !== 0 && $parameter->type === null) {
+                        $errors[] = RuleErrorBuilder::message('Promoted hookspec constructor properties must be typed.')->build();
+                    }
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    private function isHookspecEventFile(string $file): bool
+    {
+        $file = str_replace('\\', '/', $file);
+
+        return str_contains($file, '/app/Events/Hookspecs/')
+            && str_ends_with($file, 'Event.php');
     }
 }

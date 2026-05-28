@@ -10,7 +10,9 @@ it('defines Pa11y coverage for the scaffold browser routes', function (): void {
         "'--no-sandbox'",
         "'--disable-dev-shm-usage'",
         "'/usr/bin/chromium-browser'",
-        "'http://127.0.0.1:8000/'",
-        "'http://127.0.0.1:8000/hello'",
+        'process.env.PA11Y_BASE_URL',
+        'process.env.APP_URL',
+        '`${baseUrl}/`',
+        '`${baseUrl}/hello`',
     );
 });

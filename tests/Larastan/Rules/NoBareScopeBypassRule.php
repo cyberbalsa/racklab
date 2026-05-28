@@ -5,18 +5,15 @@ declare(strict_types=1);
 namespace Tests\Larastan\Rules;
 
 use PhpParser\Node;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Identifier;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleError;
+use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * Stub for the NoBareScopeBypassRule from spec §8.
- *
- * Real implementation: any call to ->withoutGlobalScopes() or
- * ->withoutGlobalScope(TenantScope::class) outside
- * app/Domain/Tenancy/CrossTenantFetch.php is a security violation.
- * At scaffold time the TenantScope and CrossTenantFetch don't exist
- * yet (they land in tenancy-auth), so the rule applies to no nodes.
+ * Forbids tenant global-scope bypasses outside CrossTenantFetch.
  *
  * @implements Rule<Node>
  */
@@ -24,7 +21,7 @@ final class NoBareScopeBypassRule implements Rule
 {
     public function getNodeType(): string
     {
-        return Node::class;
+        return MethodCall::class;
     }
 
     /**
@@ -32,7 +29,34 @@ final class NoBareScopeBypassRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        // Stub — see tenancy-auth sub-plan for the real implementation.
-        return [];
+        if (! $node instanceof MethodCall) {
+            return [];
+        }
+
+        if (! $node->name instanceof Identifier) {
+            return [];
+        }
+
+        if (! in_array($node->name->toString(), ['withoutGlobalScope', 'withoutGlobalScopes'], strict: true)) {
+            return [];
+        }
+
+        if ($this->isAllowedPath($scope->getFile())) {
+            return [];
+        }
+
+        return [
+            RuleErrorBuilder::message(
+                'Bare Eloquent global-scope bypass is forbidden outside app/Domain/Tenancy/CrossTenantFetch.php. Use CrossTenantFetch so cross-tenant reads carry provenance and emit tenant.cross_access audit rows.'
+            )->build(),
+        ];
+    }
+
+    private function isAllowedPath(string $filename): bool
+    {
+        return str_ends_with(
+            str_replace('\\', '/', $filename),
+            '/app/Domain/Tenancy/CrossTenantFetch.php',
+        );
     }
 }

@@ -19,6 +19,7 @@ it('answers role to permission lookups from the default catalog', function (): v
     $catalog = new DefaultRoleCatalog;
 
     expect($catalog->roleGrants('student', new Permission('deployment.console')))->toBeTrue()
-        ->and($catalog->roleGrants('guest', new Permission('project.update')))->toBeFalse()
+        ->and($catalog->roleGrants('ta', new Permission('catalog.publish')))->toBeFalse()
+        ->and($catalog->roleGrants('support', new Permission('audit.read')))->toBeTrue()
         ->and($catalog->roleGrants('unknown', new Permission('project.read')))->toBeFalse();
 });

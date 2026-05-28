@@ -5,19 +5,15 @@ declare(strict_types=1);
 namespace Tests\Larastan\Rules;
 
 use PhpParser\Node;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Identifier;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\Rule;
 use PHPStan\Rules\RuleError;
+use PHPStan\Rules\RuleErrorBuilder;
 
 /**
- * Stub for the NoSpatieBypassRule from spec §8.
- *
- * Real implementation: any call to $user->hasRole(...) or $user->can(...)
- * outside App\Domain\Tenancy\AccessResolver is a security violation —
- * AccessResolver is the only authorisation gatekeeper per spec §5.
- * At scaffold time the User model is unchanged Laravel default and
- * AccessResolver doesn't exist (lands in tenancy-auth), so the rule
- * applies to no nodes.
+ * Forbids direct role/permission checks outside AccessResolver.
  *
  * @implements Rule<Node>
  */
@@ -25,7 +21,7 @@ final class NoSpatieBypassRule implements Rule
 {
     public function getNodeType(): string
     {
-        return Node::class;
+        return MethodCall::class;
     }
 
     /**
@@ -33,7 +29,34 @@ final class NoSpatieBypassRule implements Rule
      */
     public function processNode(Node $node, Scope $scope): array
     {
-        // Stub — see tenancy-auth sub-plan for the real implementation.
-        return [];
+        if (! $node instanceof MethodCall) {
+            return [];
+        }
+
+        if (! $node->name instanceof Identifier) {
+            return [];
+        }
+
+        if (! in_array($node->name->toString(), ['can', 'hasRole'], strict: true)) {
+            return [];
+        }
+
+        if ($this->isAllowedPath($scope->getFile())) {
+            return [];
+        }
+
+        return [
+            RuleErrorBuilder::message(
+                'Direct user role/permission checks are forbidden outside app/Domain/Tenancy/AccessResolver.php. Route authorization through AccessResolver so RackLab applies binding scope, resource visibility, and permission grants together.'
+            )->build(),
+        ];
+    }
+
+    private function isAllowedPath(string $filename): bool
+    {
+        return str_ends_with(
+            str_replace('\\', '/', $filename),
+            '/app/Domain/Tenancy/AccessResolver.php',
+        );
     }
 }

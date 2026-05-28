@@ -1,0 +1,81 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Domain\Tenancy\TenantScopedResource;
+use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Override;
+
+/**
+ * @property string $id
+ * @property string $tenant_id
+ * @property string $name
+ * @property string $slug
+ * @property int|null $created_for_user_id
+ * @property bool $is_personal_default
+ * @property string $sharing_scope
+ * @property list<string>|null $shared_with_tenants
+ */
+#[Fillable([
+    'tenant_id',
+    'name',
+    'slug',
+    'created_for_user_id',
+    'is_personal_default',
+    'sharing_scope',
+    'shared_with_tenants',
+])]
+class Project extends Model implements TenantScopedResource
+{
+    use BelongsToTenant;
+    use HasUlids;
+
+    /**
+     * @var bool
+     */
+    public $incrementing = false;
+
+    /**
+     * @var string
+     */
+    protected $keyType = 'string';
+
+    /**
+     * @return BelongsTo<Tenant, $this>
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function createdForUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_for_user_id');
+    }
+
+    protected function tenantResourceTypeName(): string
+    {
+        return 'project';
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    #[Override]
+    protected function casts(): array
+    {
+        return [
+            'is_personal_default' => 'boolean',
+            'shared_with_tenants' => 'array',
+        ];
+    }
+}
