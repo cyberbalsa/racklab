@@ -5,6 +5,7 @@
     "auth.password_change",
     "auth.signup",
     "cloud_init.render",
+    "console.access.denied",
     "deployment.lifecycle",
     "deployment.request",
     "deployment.scheduled",

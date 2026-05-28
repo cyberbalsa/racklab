@@ -26,7 +26,7 @@ it('issues a short-lived Track A JWT with RackLab claims and a retained grant ro
     $issue = app(TrackAIssuer::class)->issue(
         issuer: $user,
         context: new TenantContext(activeTenantId: $tenant->getKey()),
-        project: $project,
+        resource: $project,
         permissions: ['project.read'],
         tokenType: 'console',
     );
@@ -50,7 +50,7 @@ it('publishes the active signing key through JWKS so sidecars can verify Track A
     $issue = app(TrackAIssuer::class)->issue(
         issuer: $user,
         context: new TenantContext(activeTenantId: $tenant->getKey()),
-        project: $project,
+        resource: $project,
         permissions: ['project.read'],
         tokenType: 'deployment',
     );
@@ -89,7 +89,7 @@ it('rejects revoked Track A JWTs by jti within one request cycle', function (): 
     $issue = app(TrackAIssuer::class)->issue(
         issuer: $user,
         context: new TenantContext(activeTenantId: $tenant->getKey()),
-        project: $project,
+        resource: $project,
         permissions: ['project.read'],
         tokenType: 'api',
     );

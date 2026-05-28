@@ -875,6 +875,52 @@ The Horizon install + supply-chain hardening increment is in place:
 - Codex review across three spec iterations surfaced 14 P1 findings;
   all folded.
 
+The M4 sub-slice 1 ConsoleAccessGrant token model increment is in place:
+
+- `App\Domain\Console\ConsoleKind` enum (`vnc` / `terminal`) parses canonical and
+  trimmed/mixed-case names and exposes `supportedValues()` for route/OpenAPI
+  enumeration; unknown values throw `ValueError`. `App\Domain\Console\ConsoleAccessGrant`
+  is a readonly DTO carrying `grantId`, `jti`, `tenantId`, `deploymentId`,
+  `consoleKind`, `expiresAt`, with `isExpired(?CarbonImmutable $now = null)`.
+- `App\Auth\Jwt\TrackAIssuer` now accepts any `TenantScopedResource` and an
+  optional `extraClaims` map. Existing Project-scoped Track-A issuance is
+  unaffected; the wider type signature lets the console issuer reuse the same
+  JWT/JWKS/audit/grant plumbing without duplicating logic.
+- `App\Auth\Jwt\ConsoleAccessGrantIssuer` requires `deployment.console.connect`
+  through `AccessResolver` against the target `Deployment`, then delegates to
+  `TrackAIssuer` with `tokenType=console`, `extraClaims={console_kind,deployment_id}`,
+  and a 5-minute default TTL (configurable via `RACKLAB_CONSOLE_GRANT_TTL_SECONDS`
+  / `racklab.console.grant_ttl_seconds`). Denied issuance emits a
+  hash-chained `console.access.denied` audit row and throws
+  `Illuminate\Auth\Access\AuthorizationException`; no `TokenGrant` is created.
+- `App\Auth\Jwt\ConsoleAccessGrantVerifier` wraps `TrackAJwtVerifier`, then
+  cross-checks `token_type=console`, `resource_type=deployment`, the presence
+  of `deployment.console.connect` in `permissions`, a non-empty `console_kind`
+  matching `ConsoleKind::fromName`, a non-empty `deployment_id` matching
+  `resource_id`, and `exp` in the future. Any failure throws
+  `Illuminate\Auth\AuthenticationException`. Revoked `jti` rejection is inherited
+  from the wrapped Track-A verifier (`jwt_revocations` table).
+- `App\Domain\Rbac\DefaultRoleCatalog` adds `deployment.console.connect` to
+  admin/support/instructor/ta/student, alongside the existing
+  `deployment.console` see-permission. `AccessResolver` enforces the
+  three-predicate tenant gate so a student-role binding only authorizes
+  connect on deployments the student already has access to. `tests/Snapshots/roles.json`
+  and `tests/Snapshots/audit-events.json` are updated; `docs/prd/06-auth-rbac-sharing-tokens.md`
+  lists the new permission.
+- Coverage: 6 Tiny tests (enum + DTO) and 7 Contract tests (issuer allow path
+  with TokenGrant + JWT claim assertions; configurable TTL; denied issuance
+  with `console.access.denied` audit row and zero `TokenGrant` rows; verifier
+  round-trip; rejection of non-console Track-A tokens; rejection of revoked
+  `jti`; rejection of tampered JWT payloads).
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`, `composer audit`,
+  `composer security:semgrep`, `composer pest:snapshots`,
+  `composer i18n:missing`, `composer check-platform-reqs --no-interaction`,
+  and `composer test` pass with 315 tests / 1951 assertions; the same four
+  integration tests are skipped in the default SQLite/Toolbx profile (Podman
+  host capability and PostgreSQL-only migration behavior).
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

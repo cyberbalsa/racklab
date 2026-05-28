@@ -10,7 +10,7 @@ use App\Domain\Tenancy\AccessResolver;
 use App\Domain\Tenancy\ActorIdentity;
 use App\Domain\Tenancy\RoleBindingScopeType;
 use App\Domain\Tenancy\TenantContext;
-use App\Models\Project;
+use App\Domain\Tenancy\TenantScopedResource;
 use App\Models\TokenGrant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -30,14 +30,16 @@ final readonly class TrackAIssuer
 
     /**
      * @param  list<string>  $permissions
+     * @param  array<string, scalar|array<int|string, scalar>>  $extraClaims
      */
     public function issue(
         User $issuer,
         TenantContext $context,
-        Project $project,
+        TenantScopedResource $resource,
         array $permissions,
         string $tokenType,
         ?CarbonImmutable $expiresAt = null,
+        array $extraClaims = [],
     ): TrackAJwtIssue {
         $permissions = $this->normalizePermissions($permissions);
         $actor = new ActorIdentity((string) $issuer->id);
@@ -46,15 +48,15 @@ final readonly class TrackAIssuer
             $decision = $this->accessResolver->permitted(
                 $actor,
                 new Permission($permission),
-                $project,
+                $resource,
                 $context,
             );
 
             if (! $decision->allowed) {
-                $this->auditDenied($issuer, $context, $project, $permissions, 'permission_not_granted');
+                $this->auditDenied($issuer, $context, $resource, $permissions, 'permission_not_granted');
 
                 throw ValidationException::withMessages([
-                    'permissions' => sprintf('The JWT permission [%s] exceeds the issuer permissions for this project.', $permission),
+                    'permissions' => sprintf('The JWT permission [%s] exceeds the issuer permissions for this %s.', $permission, $resource->resourceType()),
                 ]);
             }
         }
@@ -63,7 +65,7 @@ final readonly class TrackAIssuer
             throw ValidationException::withMessages(['permissions' => 'A Track A JWT requires at least one permission.']);
         }
 
-        return DB::transaction(function () use ($issuer, $context, $project, $permissions, $tokenType, $expiresAt): TrackAJwtIssue {
+        return DB::transaction(function () use ($issuer, $context, $resource, $permissions, $tokenType, $expiresAt, $extraClaims): TrackAJwtIssue {
             $now = CarbonImmutable::now();
             $ttl = $this->jwtTtlSeconds();
             $expiresAt ??= $now->addSeconds($ttl > 0 ? $ttl : 300);
@@ -84,14 +86,14 @@ final readonly class TrackAIssuer
                 'track' => 'jwt',
                 'scope_type' => RoleBindingScopeType::TenantLocal,
                 'tenant_set' => [],
-                'resource_type' => $project->resourceType(),
-                'resource_id' => $project->resourceId(),
+                'resource_type' => $resource->resourceType(),
+                'resource_id' => $resource->resourceId(),
                 'abilities' => $permissions,
                 'allowed_ip_cidrs' => [],
                 'expires_at' => $expiresAt,
             ]);
 
-            $payload = [
+            $payload = array_merge([
                 'iss' => $this->jwtConfigString('issuer'),
                 'aud' => $this->jwtConfigString('audience'),
                 'sub' => (string) $issuer->id,
@@ -102,11 +104,11 @@ final readonly class TrackAIssuer
                 'grant_id' => $grant->resourceId(),
                 'tenant_id' => $context->activeTenantId,
                 'scope_type' => RoleBindingScopeType::TenantLocal->value,
-                'resource_type' => $project->resourceType(),
-                'resource_id' => $project->resourceId(),
+                'resource_type' => $resource->resourceType(),
+                'resource_id' => $resource->resourceId(),
                 'permissions' => $permissions,
                 'token_type' => $tokenType,
-            ];
+            ], $extraClaims);
 
             $jwt = JWT::encode($payload, $key->private_key_pem, 'RS256', $key->kid);
 
@@ -172,7 +174,7 @@ final readonly class TrackAIssuer
     private function auditDenied(
         User $issuer,
         TenantContext $context,
-        Project $project,
+        TenantScopedResource $resource,
         array $permissions,
         string $reason,
     ): void {
@@ -191,8 +193,8 @@ final readonly class TrackAIssuer
             'metadata' => [
                 'track' => 'jwt',
                 'reason' => $reason,
-                'resource_type' => $project->resourceType(),
-                'resource_id' => $project->resourceId(),
+                'resource_type' => $resource->resourceType(),
+                'resource_id' => $resource->resourceId(),
             ],
         ]);
     }

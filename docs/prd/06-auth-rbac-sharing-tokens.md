@@ -80,6 +80,7 @@ Example permissions:
 - `deployment.resource.delete`
 - `deployment.power`
 - `deployment.console`
+- `deployment.console.connect`
 - `deployment.snapshot.restore`
 - `project.read`
 - `project.create`
