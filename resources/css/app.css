@@ -42,7 +42,7 @@ racklab-ref {
 }
 racklab-ref .racklab-ref__link { color: inherit; text-decoration: none; }
 racklab-ref.racklab-ref--pending { background: color-mix(in oklab, currentColor 10%, transparent); color: inherit; }
-racklab-ref.racklab-ref--resolved { background: color-mix(in oklab, #16a34a 18%, transparent); border-color: color-mix(in oklab, #16a34a 40%, transparent); color: #15803d; }
+racklab-ref.racklab-ref--resolved { background: color-mix(in oklab, #16a34a 18%, transparent); border-color: color-mix(in oklab, #16a34a 40%, transparent); color: #14532d; }
 racklab-ref.racklab-ref--redacted { background: color-mix(in oklab, #6b7280 18%, transparent); border-color: color-mix(in oklab, #6b7280 40%, transparent); color: #4b5563; }
 racklab-ref.racklab-ref--missing { background: color-mix(in oklab, #dc2626 15%, transparent); border-color: color-mix(in oklab, #dc2626 40%, transparent); color: #b91c1c; }
 racklab-ref.racklab-ref--unsupported,

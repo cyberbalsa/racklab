@@ -24,6 +24,8 @@ use App\Docs\Refs\Resolving\RefResolverRegistry;
 use App\Domain\Rbac\RolePermissionLookup;
 use App\Domain\Tenancy\RoleBindingRepository;
 use App\Domain\Tenancy\TenantContextStore;
+use App\Http\Middleware\BindAuthenticatedTenant;
+use App\Http\Middleware\SetUserLocale;
 use App\Networking\PlaceholderVpnClientProfileGenerator;
 use App\Networking\VpnClientProfileGenerator;
 use App\Plugins\HookDispatcher;
@@ -44,6 +46,7 @@ use App\Tenancy\EloquentRoleBindingRepository;
 use GuzzleHttp\Client;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 use Override;
 use Throwable;
 
@@ -119,7 +122,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Livewire update requests (`/livewire/update`) do not re-run a
+        // component route's own middleware. Persist the tenant-binding and
+        // locale middleware so Livewire actions on authenticated component
+        // pages (catalog, docs, ...) keep the same tenant context + locale as
+        // the initial render instead of losing it on the first interaction.
+        Livewire::addPersistentMiddleware([
+            BindAuthenticatedTenant::class,
+            SetUserLocale::class,
+        ]);
     }
 
     /**
