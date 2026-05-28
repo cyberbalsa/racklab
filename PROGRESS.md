@@ -1798,13 +1798,16 @@ authoring/export and labels) is now in place and browser-verified.
 
 - **Tenant-wide catalog read.** Catalog items published `tenant_local` were
   unreadable without a per-item RoleBinding, so the catalog could never be
-  browsed. Added a minimal `tenant_member` role (`catalog.read` + later
-  `network.read` only) bound at **tenant scope** (`resource_type=tenant`);
+  browsed. Added a minimal `tenant_member` role (`catalog.read` +
+  `network.offering.read` only — a dedicated offering-read permission so the
+  tenant-wide binding never also grants broad `network.read`/project-network
+  access) bound at **tenant scope** (`resource_type=tenant`);
   `EloquentRoleBindingRepository::forActorAndResource` now also returns
   tenant-scoped bindings, and `PersonalProjectProvisioner` grants every member
   that binding (pre-existing members self-heal on next login). `AccessResolver`
-  remains the only gate; cross-tenant isolation is preserved and tested. Codex
-  reviewed the change — no over-authorization or isolation findings.
+  remains the only gate; cross-tenant isolation is preserved and tested. Two
+  Codex review passes hardened this slice (offering-read scoping, builder
+  provider derivation, audited stack-package export).
 - **Demo catalog.** Idempotent `CatalogDemoSeeder` (gated by
   `RACKLAB_SEED_DEMO_CATALOG`, default on) publishes starter single-VM
   fake-provider catalog items so a fresh install has a browsable catalog.
