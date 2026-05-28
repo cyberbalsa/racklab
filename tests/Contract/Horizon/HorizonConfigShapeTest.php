@@ -9,7 +9,7 @@ it('declares four RackLab supervisors with queues matching actual job dispatches
 
     $defaults = $config['defaults'];
 
-    expect($defaults['racklab-provider']['queue'])->toBe(['provider-worker', 'provider', 'default']);
+    expect($defaults['racklab-provider']['queue'])->toBe(['provider-worker', 'provider', 'maintenance', 'default']);
     expect($defaults['racklab-scripts']['queue'])->toBe(['script-worker', 'scripts', 'cleanup']);
     expect($defaults['racklab-console']['queue'])->toBe(['console-worker', 'console']);
     expect($defaults['racklab-notifications']['queue'])->toBe(['notification-worker', 'notifications', 'default']);

@@ -17,7 +17,11 @@ Volume=/etc/racklab:/etc/racklab:ro,Z
 Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
 Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z
 Volume=/run/podman/podman.sock:/run/podman/podman.sock
-Exec=/bin/sh -lc "while true; do php artisan racklab:reconcile-provider-tasks; php artisan racklab:expire-deployments; php artisan racklab:detect-provider-drift; php artisan racklab:reap-script-containers --max-age=3600; sleep ${RACKLAB_RECONCILER_INTERVAL:-30}; done"
+# Laravel scheduler: dispatches the reconcile/expire/drift/reap jobs onto Redis
+# at their scheduled cadence (see bootstrap/app.php withSchedule). Horizon
+# workers (maintenance → app pool, cleanup → runner pool) process them. The
+# scheduler only enqueues, so it no longer needs the Podman socket.
+Exec=php artisan schedule:work
 StopSignal=SIGTERM
 StopTimeout=60
 NoNewPrivileges=true

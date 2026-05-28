@@ -1855,6 +1855,27 @@ authoring/export and labels) is now in place and browser-verified.
   real link to `/horizon`, gated by Horizon's own auth/asset serving under
   local `artisan serve`) — not an MVP button.
 
+### reconciler-as-jobs — scheduled maintenance via Horizon (2026-05-28)
+
+Replaced the scheduler Quadlet's `while true` shell loop with Horizon-dispatched
+jobs driven by `bootstrap/app.php`'s `withSchedule()`:
+
+- Four `App\Jobs\Maintenance\*` jobs wrap the existing services —
+  `ReconcileProviderTasksJob` (`ProviderTaskReconciler`, every minute),
+  `ExpireDeploymentsJob` (`DeploymentLeaseExpiry`, every 5 min),
+  `DetectProviderDriftJob` (`ProviderDriftDetector`, every 15 min), and
+  `ReapScriptContainersJob` (`PodmanStaleContainerReaper`, hourly). All
+  `withoutOverlapping()->onOneServer()`.
+- Queue routing matches capability: reconcile/expire/drift run on a new
+  `maintenance` queue served by the **app** pool (`racklab-provider`, no Podman);
+  the reaper runs on `cleanup` served by the **runner** pool (`racklab-scripts`,
+  Podman socket). Horizon config updated accordingly.
+- The `racklab-scheduler-reconciler@.container` Quadlet now runs
+  `php artisan schedule:work` (enqueue-only; no Podman socket needed).
+- Covered by contract tests: schedule registration + cadence, queue-by-capability
+  routing, the Horizon supervisor queue shape, and an end-to-end
+  `ExpireDeploymentsJob` run expiring a due deployment.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker
@@ -1874,14 +1895,7 @@ authoring/export and labels) is now in place and browser-verified.
    `github.com/cyberbalsa/racklab/settings/actions/runners/new` and
    run the helper script on the host. Cancelled queued runs from
    earlier should be re-dispatched once the runner is online.
-3. **`reconciler-as-jobs`** — wrap `racklab:reconcile-provider-tasks`,
-   `racklab:expire-deployments`, `racklab:detect-provider-drift`,
-   and `racklab:reap-script-containers` as Horizon-dispatched Job
-   classes driven by `bootstrap/app.php`'s `withSchedule()`
-   callback. The existing `racklab-scheduler-reconciler@.container`
-   keeps its `while true` shell loop until then. Out of scope for
-   the v3 Horizon slice.
-4. **`packaging-release`** — cut the MVP release notes from
+3. **`packaging-release`** — cut the MVP release notes from
    `PROGRESS.md` after the Baseline worker-host soak is green.
 
 The next concrete step is external verification on a real Baseline

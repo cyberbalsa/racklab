@@ -86,7 +86,9 @@ return [
     'defaults' => [
         'racklab-provider' => [
             'connection' => 'redis',
-            'queue' => ['provider-worker', 'provider', 'default'],
+            // `maintenance` carries the scheduled reconcile/expire/drift jobs
+            // (no Podman needed). The reaper runs on `cleanup` (runner pool).
+            'queue' => ['provider-worker', 'provider', 'maintenance', 'default'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 6,
