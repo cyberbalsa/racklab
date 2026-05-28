@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\ArtifactShowController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentNewVmController;
 use App\Http\Controllers\DeploymentReleaseController;
+use App\Http\Controllers\DeploymentShowController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\JwksController;
 use App\Http\Controllers\ScriptFakeRunnerController;
@@ -51,6 +52,10 @@ Route::post('/deployments/new-vm', DeploymentNewVmController::class)
 Route::post('/deployments/{deployment}/release', DeploymentReleaseController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('deployments.release');
+
+Route::get('/deployments/{deployment}', DeploymentShowController::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('deployments.show');
 
 Route::post('/scripts/fake-runner', ScriptFakeRunnerController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])

@@ -5094,6 +5094,36 @@ paths:
           type: string
           examples:
             - architecto
+  '/api/v1/deployments/{deployment}/console-sessions/{grant}':
+    delete:
+      summary: 'End console session'
+      operationId: deleteApiV1DeploymentsDeploymentConsoleSessionsGrant
+      description: 'Revokes a console access grant by jti and emits the console.session.end audit row when the user disconnects.'
+      parameters: []
+      responses:
+        204:
+          description: 'No content.'
+      tags:
+        - Endpoints
+    parameters:
+      -
+        in: path
+        name: deployment
+        description: 'The deployment.'
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
+      -
+        in: path
+        name: grant
+        description: ''
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
   '/api/v1/deployments/{deployment_id}/operations':
     post:
       summary: 'Create deployment operation'

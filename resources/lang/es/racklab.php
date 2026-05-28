@@ -86,6 +86,14 @@ return [
         'title' => 'Consola de :name',
         'unavailable' => 'No tienes acceso a la consola de este despliegue.',
     ],
+    'deployments' => [
+        'show' => [
+            'back_to_dashboard' => 'Volver al panel',
+            'state_label' => 'Estado',
+            'provider_label' => 'Proveedor',
+            'open' => 'Abrir despliegue',
+        ],
+    ],
     'hello' => [
         'description' => 'Pagina de prueba del andamiaje de RackLab.',
         'greeting' => 'Hola, :subject',

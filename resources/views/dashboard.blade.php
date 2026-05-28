@@ -331,7 +331,13 @@
                             @foreach ($deployments as $deployment)
                                 <tr>
                                     <td>
-                                        <div class="font-medium">{{ $deployment->name }}</div>
+                                        <div class="font-medium">
+                                            <a
+                                                href="{{ route('deployments.show', ['deployment' => $deployment->getKey()]) }}"
+                                                class="link link-hover"
+                                                dusk="deployment-open-{{ $deployment->getKey() }}"
+                                            >{{ $deployment->name }}</a>
+                                        </div>
                                         <div class="text-xs text-base-content/60">{{ $deployment->getKey() }}</div>
                                     </td>
                                     <td>{{ $deployment->state }}</td>

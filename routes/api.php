@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CatalogVersionShowController;
 use App\Http\Controllers\Api\CourseIndexController;
 use App\Http\Controllers\Api\DeploymentCloudInitStoreController;
 use App\Http\Controllers\Api\DeploymentConsoleGrantController;
+use App\Http\Controllers\Api\DeploymentConsoleSessionEndController;
 use App\Http\Controllers\Api\DeploymentIndexController;
 use App\Http\Controllers\Api\DeploymentOperationStoreController;
 use App\Http\Controllers\Api\DeploymentShowController;
@@ -81,6 +82,7 @@ Route::prefix('v1')
         Route::post('/deployments', DeploymentStoreController::class)->name('api.v1.deployments.store');
         Route::post('/deployments/{deployment}/cloud-init', DeploymentCloudInitStoreController::class)->name('api.v1.deployments.cloud-init.store');
         Route::post('/deployments/{deployment}/console-grant', DeploymentConsoleGrantController::class)->name('api.v1.deployments.console-grant.store');
+        Route::delete('/deployments/{deployment}/console-sessions/{grant}', DeploymentConsoleSessionEndController::class)->name('api.v1.deployments.console-sessions.end');
         Route::post('/deployments/{deployment}/operations', DeploymentOperationStoreController::class)->name('api.v1.deployments.operations.store');
         Route::get('/deployments/{deployment}', DeploymentShowController::class)->name('api.v1.deployments.show');
         Route::get('/replay', ReplayController::class)->name('api.v1.replay');

@@ -1097,7 +1097,7 @@ The M4 sub-slice 5 Proxmox console adapter + plugin package increment is in plac
   four integration tests are skipped in the default SQLite/Toolbx
   profile.
 
-Codex P2 findings folded into this slice:
+Codex P2 findings folded into the M4 sub-slice 5 commit:
 
 - `ProxmoxConsoleProxy::buildWebsocketUrl()` now URL-encodes and
   includes the Proxmox `vncticket=` query parameter alongside `port`,
@@ -1116,6 +1116,52 @@ Codex P2 findings folded into this slice:
   plugin → unavailable), the lifecycle progression
   (install → migrate → enable → real binding; disable → unavailable),
   and the in-memory env-value case (plugin-enabled does not override).
+
+The M4 sub-slice 6 deployment-detail page + session end + Dusk E2E
+increment is in place:
+
+- `GET /deployments/{deployment}` (web route) renders a new
+  `resources/views/deployments/show.blade.php` page that mounts the
+  Livewire `DeploymentConsolePane` for the deployment, with the
+  console kind inferred from `deployment.metadata.console_kind` or
+  the first resource's `kind` (`lxc` → terminal, anything else → vnc).
+  The dashboard's deployment-name column now links to this page via
+  `route('deployments.show', ...)` with a stable `dusk` selector per
+  deployment.
+- `DELETE /api/v1/deployments/{deployment}/console-sessions/{grant}`
+  ends a console session: the controller resolves the grant scoped to
+  the deployment + tenant + owner, refuses revocation by a console
+  JWT (same self-refresh rule as the issuer), revokes the underlying
+  `jti` through `TrackAJwtRevoker`, and emits a hash-chained
+  `console.session.end` audit row with grant id, jti, and session
+  duration in seconds.
+- `audit-events.json` snapshot picks up `console.session.end`. Scribe
+  regenerates `docs/api/openapi.yaml` with summary + description for
+  the new end-session route; `OpenApiSchemaTest` locks both routes.
+- `DeploymentShowController` enforces `deployment.read` through
+  `AccessResolver` against the deployment and returns 404 (same shape
+  as the API show endpoint) for actors who lack it. A same-tenant
+  outsider cannot probe the existence of a deployment by guessing or
+  copying an id. Folded after codex flagged the original direct-URL
+  bypass; the Dusk and contract tests for the unauthorized path now
+  assert the 404 instead of a rendered empty-state pane.
+- Coverage: 3 contract tests for the deployment-detail page
+  (authorized render with console pane visible, 404 for same-tenant
+  outsider, 404 on unknown deployment), 3 contract tests
+  for the end-session endpoint (revoke + audit, 404 for unknown
+  grant id, 403 for another user's grant), and 2 Dusk browser tests
+  for the authorized + unauthorized deployment-detail render path
+  including a guard that asserts the JWT does not leak into the
+  rendered HTML.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, `composer test`,
+  and `npm run build` pass with 354 tests / 2156 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
 
 ## Next
 

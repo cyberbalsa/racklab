@@ -140,6 +140,10 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
                 'Issue console access grant',
                 'Issues a short-lived Track A JWT scoped to a single deployment + console kind for opening a noVNC/xterm console pane.',
             ],
+            'delete /api/v1/deployments/{}/console-sessions/{}' => [
+                'End console session',
+                'Revokes a console access grant by jti and emits the console.session.end audit row when the user disconnects.',
+            ],
             'post /api/v1/deployments/{}/operations' => [
                 'Create deployment operation',
                 'Creates or replays an idempotent deployment lifecycle operation.',

@@ -86,6 +86,14 @@ return [
         'title' => 'Console for :name',
         'unavailable' => 'You do not have access to this deployment console.',
     ],
+    'deployments' => [
+        'show' => [
+            'back_to_dashboard' => 'Back to dashboard',
+            'state_label' => 'State',
+            'provider_label' => 'Provider',
+            'open' => 'Open deployment',
+        ],
+    ],
     'hello' => [
         'description' => 'RackLab scaffold smoke test page.',
         'greeting' => 'Hello, :subject',
