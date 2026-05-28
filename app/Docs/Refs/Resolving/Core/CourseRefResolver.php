@@ -44,6 +44,7 @@ final readonly class CourseRefResolver implements RefResolver
             return ResolvedRef::redacted($this->kind(), $id);
         }
 
-        return ResolvedRef::resolved($this->kind(), $id, $course->name, '/courses/'.$id, null);
+        // No public course detail page yet (M10a); render a non-link pill.
+        return ResolvedRef::resolved($this->kind(), $id, $course->name, null, null);
     }
 }

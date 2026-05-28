@@ -43,6 +43,7 @@ final readonly class NetworkRefResolver implements RefResolver
             return ResolvedRef::redacted($this->kind(), $id);
         }
 
-        return ResolvedRef::resolved($this->kind(), $id, $network->name, '/networks/'.$id, $network->state);
+        // No public network detail page yet (M10a); render a non-link pill.
+        return ResolvedRef::resolved($this->kind(), $id, $network->name, null, $network->state);
     }
 }

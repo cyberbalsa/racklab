@@ -39,7 +39,8 @@ final readonly class PluginRefResolver implements RefResolver
             return ResolvedRef::notFound($this->kind(), $id);
         }
 
-        return ResolvedRef::resolved($this->kind(), $id, $plugin->name, '/plugins/'.$plugin->slug, $plugin->state);
+        // No public plugin detail page yet (M10a); render a non-link pill.
+        return ResolvedRef::resolved($this->kind(), $id, $plugin->name, null, $plugin->state);
     }
 
     /**

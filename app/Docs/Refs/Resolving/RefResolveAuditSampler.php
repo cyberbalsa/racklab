@@ -7,13 +7,19 @@ namespace App\Docs\Refs\Resolving;
 /**
  * Decides whether a single cross-link resolution should be audited.
  *
- * Resolver pills poll on an interval, so successful resolutions are
- * high-volume and mostly noise; security-relevant outcomes (redacted,
- * not-found, unsupported) are comparatively rare and must not be lost.
- * Implementations therefore sample successful resolutions while always
- * recording the rest.
+ * Resolver pills poll on an interval, so every outcome — including the
+ * security-relevant redacted / not-found / unsupported ones — recurs on
+ * each poll. Recording every poll would let a single bad ref or denied
+ * reader append unbounded audit rows. Implementations therefore bound
+ * volume for *all* outcomes (e.g. record once per actor/ref/outcome
+ * window) and additionally thin the high-volume successful resolutions.
  */
 interface RefResolveAuditSampler
 {
-    public function shouldRecord(RefResolutionStatus $status): bool;
+    public function shouldRecord(
+        string $actorId,
+        string $kind,
+        string $id,
+        RefResolutionStatus $status,
+    ): bool;
 }

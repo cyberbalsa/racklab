@@ -1724,15 +1724,23 @@ will poll.
   (`RefResolveController`, web/session auth + tenant binding):
   validates the ref against the `RackLabRef` grammar (malformed →
   404), resolves through the registry, and returns
-  `{kind,id,status,label,url,detail,rbac_visible}`.
-- **Sampled cross-link audit** — `docs.ref_resolve` is emitted
-  through `RefResolveAuditSampler`. The default
-  `ProbabilityRefResolveAuditSampler` always records the
-  security-relevant outcomes (redacted/not-found/unsupported) and
-  samples the high-volume successful resolutions at
-  `config('docs.ref_resolve_audit_sample_rate')` (default 0.1).
-  Added to the `audit-events.json` snapshot with contract
-  coverage.
+  `{kind,id,status,label,url,detail,rbac_visible}`. Resolved pills
+  link to a real route only where one exists (deployment →
+  `deployments.show`); kinds without a public detail page yet
+  (project/course/network/script/plugin) return a null `url` so
+  the pill renders as a non-link label until M10a builds those
+  pages — no broken links.
+- **Sampled + de-duplicated cross-link audit** —
+  `docs.ref_resolve` is emitted through `RefResolveAuditSampler`.
+  The default `CacheDedupRefResolveAuditSampler` thins successful
+  resolutions by `config('docs.ref_resolve_audit_sample_rate')`
+  (default 0.1) AND de-duplicates *every* outcome per
+  `(actor, kind, id, status)` within
+  `config('docs.ref_resolve_audit_dedup_window_seconds')` (default
+  300) via an atomic `Cache::add`, so a status pill polling a
+  redacted/missing/unsupported ref records at most one row per
+  window instead of one per poll. Added to the
+  `audit-events.json` snapshot with contract coverage.
 - **Tests** — 10 tiny tests (ResolvedRef factories + array shape,
   registry core-precedence / hookspec fall-through / non-resolver
   guard, context construction) and 9 contract tests (resolved,

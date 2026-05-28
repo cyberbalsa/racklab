@@ -12,13 +12,13 @@ use App\Console\Proxy\InMemoryProviderConsoleProxy;
 use App\Console\Proxy\ProviderConsoleProxy;
 use App\Console\Proxy\UnavailableProviderConsoleProxy;
 use App\Contracts\ContainerRuntime;
+use App\Docs\Refs\Resolving\CacheDedupRefResolveAuditSampler;
 use App\Docs\Refs\Resolving\Core\CourseRefResolver;
 use App\Docs\Refs\Resolving\Core\DeploymentRefResolver;
 use App\Docs\Refs\Resolving\Core\NetworkRefResolver;
 use App\Docs\Refs\Resolving\Core\PluginRefResolver;
 use App\Docs\Refs\Resolving\Core\ProjectRefResolver;
 use App\Docs\Refs\Resolving\Core\ScriptRefResolver;
-use App\Docs\Refs\Resolving\ProbabilityRefResolveAuditSampler;
 use App\Docs\Refs\Resolving\RefResolveAuditSampler;
 use App\Docs\Refs\Resolving\RefResolverRegistry;
 use App\Domain\Rbac\RolePermissionLookup;
@@ -42,6 +42,7 @@ use App\Runtime\PodmanContainerRuntime;
 use App\Runtime\UnavailableContainerRuntime;
 use App\Tenancy\EloquentRoleBindingRepository;
 use GuzzleHttp\Client;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\ServiceProvider;
 use Override;
 use Throwable;
@@ -69,8 +70,13 @@ class AppServiceProvider extends ServiceProvider
         ));
         $this->app->bind(RefResolveAuditSampler::class, function (): RefResolveAuditSampler {
             $rate = config('docs.ref_resolve_audit_sample_rate', 0.1);
+            $window = config('docs.ref_resolve_audit_dedup_window_seconds', 300);
 
-            return new ProbabilityRefResolveAuditSampler(is_numeric($rate) ? (float) $rate : 0.1);
+            return new CacheDedupRefResolveAuditSampler(
+                $this->app->make(CacheRepository::class),
+                is_numeric($rate) ? (float) $rate : 0.1,
+                is_numeric($window) ? (int) $window : 300,
+            );
         });
         $this->app->bind(RoleBindingRepository::class, EloquentRoleBindingRepository::class);
         $this->app->bind(RolePermissionLookup::class, EloquentRolePermissionLookup::class);

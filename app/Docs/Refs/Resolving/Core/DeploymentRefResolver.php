@@ -10,6 +10,7 @@ use App\Docs\Refs\Resolving\ResolvedRef;
 use App\Domain\Rbac\Permission;
 use App\Domain\Tenancy\AccessResolver;
 use App\Models\Deployment;
+use Illuminate\Support\Facades\Route;
 
 /**
  * Core resolver for `[[deployment:id]]` cross-links.
@@ -52,8 +53,18 @@ final readonly class DeploymentRefResolver implements RefResolver
             $this->kind(),
             $id,
             $deployment->name,
-            '/deployments/'.$id,
+            $this->url($id),
             $deployment->state,
         );
+    }
+
+    /**
+     * Deployments have a real public detail route; link the pill to it.
+     */
+    private function url(string $id): ?string
+    {
+        return Route::has('deployments.show')
+            ? route('deployments.show', $id, absolute: false)
+            : null;
     }
 }

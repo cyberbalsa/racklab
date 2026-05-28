@@ -44,6 +44,7 @@ final readonly class ProjectRefResolver implements RefResolver
             return ResolvedRef::redacted($this->kind(), $id);
         }
 
-        return ResolvedRef::resolved($this->kind(), $id, $project->name, '/projects/'.$id, null);
+        // No public project detail page yet (M10a); render a non-link pill.
+        return ResolvedRef::resolved($this->kind(), $id, $project->name, null, null);
     }
 }

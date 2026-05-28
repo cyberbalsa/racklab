@@ -8,6 +8,7 @@ use App\Audit\AuditEventWriter;
 use App\Docs\Refs\RackLabRef;
 use App\Docs\Refs\Resolving\RefResolutionContext;
 use App\Docs\Refs\Resolving\RefResolveAuditSampler;
+use App\Docs\Refs\Resolving\RefResolver;
 use App\Docs\Refs\Resolving\RefResolverRegistry;
 use App\Docs\Refs\Resolving\ResolvedRef;
 use App\Domain\Tenancy\ActorIdentity;
@@ -65,14 +66,14 @@ final class RefResolveController extends Controller
 
         $resolver = $registry->resolverFor($ref->kind);
 
-        $result = $resolver instanceof \App\Docs\Refs\Resolving\RefResolver
+        $result = $resolver instanceof RefResolver
             ? $resolver->resolve(
                 new RefResolutionContext(new ActorIdentity((string) $user->id), $context),
                 $ref->id,
             )
             : ResolvedRef::unsupported($ref->kind, $ref->id);
 
-        if ($sampler->shouldRecord($result->status)) {
+        if ($sampler->shouldRecord((string) $user->id, $result->kind, $result->id, $result->status)) {
             $this->audit($auditEvents, $user, $context, $result);
         }
 

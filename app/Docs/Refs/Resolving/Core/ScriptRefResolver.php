@@ -43,6 +43,7 @@ final readonly class ScriptRefResolver implements RefResolver
             return ResolvedRef::redacted($this->kind(), $id);
         }
 
-        return ResolvedRef::resolved($this->kind(), $id, $script->name, '/scripts/'.$id, $script->state);
+        // No public script detail page yet (M10a); render a non-link pill.
+        return ResolvedRef::resolved($this->kind(), $id, $script->name, null, $script->state);
     }
 }

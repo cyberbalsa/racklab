@@ -7,10 +7,11 @@ namespace App\Docs\Refs\Resolving;
 /**
  * The result of resolving a `[[kind:id]]` cross-link reference.
  *
- * Content fields (`label`, `url`, `detail`) are populated only for a
- * `Resolved` reference. Redacted / not-found / unsupported refs carry
- * the kind (and id, which the client already supplied) but never leak
- * the target's label, URL, or live status.
+ * A `Resolved` reference always carries a `label`; its `url` and
+ * `detail` may still be null (e.g. a kind whose public detail page does
+ * not exist yet, or an object with no lifecycle state). Redacted /
+ * not-found / unsupported refs carry the kind (and id, which the client
+ * already supplied) but never leak the target's label, URL, or status.
  */
 final readonly class ResolvedRef
 {
@@ -27,7 +28,7 @@ final readonly class ResolvedRef
         string $kind,
         string $id,
         string $label,
-        string $url,
+        ?string $url,
         ?string $detail,
     ): self {
         return new self($kind, $id, RefResolutionStatus::Resolved, $label, $url, $detail);
