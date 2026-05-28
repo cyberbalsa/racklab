@@ -144,6 +144,30 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
                 'End console session',
                 'Revokes a console access grant by jti and emits the console.session.end audit row when the user disconnects.',
             ],
+            'post /api/v1/docs' => [
+                'Create doc',
+                "Creates a new Markdown document with an initial revision, gated on the parent project's docs.create permission.",
+            ],
+            'get /api/v1/docs' => [
+                'List docs',
+                'Returns docs in the active tenant the requester can view; drafts are hidden from non-owners without docs.publish.',
+            ],
+            'get /api/v1/docs/{}' => [
+                'Show doc',
+                'Returns a single doc with its current rendered version. Returns 404 if the requester lacks docs.view or the doc is a draft they cannot read.',
+            ],
+            'patch /api/v1/docs/{}' => [
+                'Update doc',
+                'Appends a new doc version (immutable history) and advances the doc to that version. Drafts are owner-editable only.',
+            ],
+            'post /api/v1/docs/{}/publish' => [
+                'Publish doc',
+                'Stamps the doc as published, making it visible to all docs.view holders in scope. Idempotent — already-published docs are returned unchanged.',
+            ],
+            'get /api/v1/docs/{}/versions' => [
+                'List doc revisions',
+                'Returns the immutable revision ledger for a doc, ordered newest-first.',
+            ],
             'post /api/v1/network-vpn-endpoints' => [
                 'Create VPN endpoint',
                 'Creates a pending VPNaaS endpoint attached to a tenant network and provisions tracked VPN endpoint quota.',
@@ -342,6 +366,20 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
         }
 
         if ($method === 'post') {
+            // Codex M8 S2 P2-3: a few state-toggle POSTs never return 201
+            // — they idempotently flip a flag on an existing resource and
+            // always return 200. Documenting both 200 + 201 misleads
+            // clients; emit only 200 for those.
+            if ($this->isIdempotentTogglePost($this->comparableUri($uri))) {
+                return [
+                    '200' => $this->jsonDataEnvelope(
+                        'Resource representation after the toggle.',
+                        false,
+                        $this->responseExample($method, $uri),
+                    ),
+                ];
+            }
+
             return [
                 '200' => $this->jsonDataEnvelope(
                     'Existing resource returned for an idempotent replay.',
@@ -405,6 +443,11 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
         ];
     }
 
+    private function isIdempotentTogglePost(string $comparableUri): bool
+    {
+        return str_ends_with($comparableUri, '/docs/{}/publish');
+    }
+
     private function isListEndpoint(string $method, string $uri): bool
     {
         if ($method !== 'get') {
@@ -415,12 +458,14 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             '/api/v1/catalog/items',
             '/api/v1/courses',
             '/api/v1/deployments',
+            '/api/v1/docs',
             '/api/v1/projects',
             '/api/v1/tokens',
         ], true)
             || str_ends_with($uri, '/ssh-keys')
             || str_ends_with($uri, '/stacks')
-            || str_ends_with($uri, '/sessions'); // VPN session ledger collection
+            || str_ends_with($uri, '/sessions') // VPN session ledger collection
+            || str_ends_with($uri, '/versions'); // Doc revision history collection
     }
 
     /**
@@ -472,6 +517,12 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             'post /api/v1/deployments/{}/console-grant' => $this->consoleGrantExample(),
             'get /api/v1/tokens' => $this->tokenGrantExample(false),
             'post /api/v1/tokens' => $this->tokenGrantExample(true),
+            'get /api/v1/docs',
+            'get /api/v1/docs/{}',
+            'post /api/v1/docs',
+            'patch /api/v1/docs/{}',
+            'post /api/v1/docs/{}/publish' => $this->docExample(),
+            'get /api/v1/docs/{}/versions' => $this->docVersionExample(),
             'post /api/v1/scripts',
             'patch /api/v1/scripts/{}' => $this->scriptExample(),
             'post /api/v1/scripts/{}/approvals' => $this->scriptApprovalExample(),
@@ -1048,6 +1099,45 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
         }
 
         return $grant;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function docExample(): array
+    {
+        return [
+            'id' => '01HZDOC00000000000000000000',
+            'tenant_id' => '01HZTENANT0000000000000000',
+            'project_id' => '01HZPROJECT000000000000000',
+            'course_id' => null,
+            'owner_user_id' => 17,
+            'slug' => 'lab-1-building-the-network',
+            'title' => 'Lab 1: Building the network',
+            'sharing_scope' => 'tenant_local',
+            'shared_with_tenants' => [],
+            'published_at' => null,
+            'created_at' => '2026-05-28T15:00:00+00:00',
+            'updated_at' => '2026-05-28T15:00:00+00:00',
+            'current_version' => $this->docVersionExample(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function docVersionExample(): array
+    {
+        return [
+            'id' => '01HZDOCVERSION000000000000',
+            'doc_id' => '01HZDOC00000000000000000000',
+            'version_number' => 1,
+            'markdown_source' => "# Lab 1\n\nIntroductory exercise.",
+            'html_cache' => "<p># Lab 1</p>\n<p>Introductory exercise.</p>",
+            'author_user_id' => 17,
+            'editor_message' => 'initial version',
+            'created_at' => '2026-05-28T15:00:00+00:00',
+        ];
     }
 
     /**

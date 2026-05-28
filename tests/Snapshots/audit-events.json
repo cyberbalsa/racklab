@@ -12,6 +12,7 @@
     "deployment.lifecycle",
     "deployment.request",
     "deployment.scheduled",
+    "docs.page",
     "horizon.access",
     "horizon.access.denied",
     "host_key.phone_home",

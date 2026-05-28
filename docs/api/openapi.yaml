@@ -6547,6 +6547,976 @@ paths:
                     events: []
       tags:
         - Endpoints
+  /api/v1/docs:
+    get:
+      summary: 'List docs'
+      operationId: getApiV1Docs
+      description: 'Returns docs in the active tenant the requester can view; drafts are hidden from non-owners without docs.publish.'
+      parameters: []
+      responses:
+        200:
+          description: 'Resource collection.'
+          content:
+            application/json:
+              example:
+                data:
+                  -
+                    id: 01HZDOC00000000000000000000
+                    tenant_id: 01HZTENANT0000000000000000
+                    project_id: 01HZPROJECT000000000000000
+                    course_id: null
+                    owner_user_id: 17
+                    slug: lab-1-building-the-network
+                    title: 'Lab 1: Building the network'
+                    sharing_scope: tenant_local
+                    shared_with_tenants: []
+                    published_at: null
+                    created_at: '2026-05-28T15:00:00+00:00'
+                    updated_at: '2026-05-28T15:00:00+00:00'
+                    current_version:
+                      id: 01HZDOCVERSION000000000000
+                      doc_id: 01HZDOC00000000000000000000
+                      version_number: 1
+                      markdown_source: "# Lab 1\n\nIntroductory exercise."
+                      html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                      author_user_id: 17
+                      editor_message: 'initial version'
+                      created_at: '2026-05-28T15:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        tenant_id:
+                          type: string
+                        project_id:
+                          type: string
+                        course_id:
+                          type: 'null'
+                        owner_user_id:
+                          type: integer
+                        slug:
+                          type: string
+                        title:
+                          type: string
+                        sharing_scope:
+                          type: string
+                        shared_with_tenants:
+                          type: array
+                          items:
+                            type: object
+                        published_at:
+                          type: 'null'
+                        created_at:
+                          type: string
+                        updated_at:
+                          type: string
+                        current_version:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            doc_id:
+                              type: string
+                            version_number:
+                              type: integer
+                            markdown_source:
+                              type: string
+                            html_cache:
+                              type: string
+                            author_user_id:
+                              type: integer
+                            editor_message:
+                              type: string
+                            created_at:
+                              type: string
+                          required:
+                            - id
+                            - doc_id
+                            - version_number
+                            - markdown_source
+                            - html_cache
+                            - author_user_id
+                            - editor_message
+                            - created_at
+                      required:
+                        - id
+                        - tenant_id
+                        - project_id
+                        - course_id
+                        - owner_user_id
+                        - slug
+                        - title
+                        - sharing_scope
+                        - shared_with_tenants
+                        - published_at
+                        - created_at
+                        - updated_at
+                        - current_version
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      -
+                        id: 01HZDOC00000000000000000000
+                        tenant_id: 01HZTENANT0000000000000000
+                        project_id: 01HZPROJECT000000000000000
+                        course_id: null
+                        owner_user_id: 17
+                        slug: lab-1-building-the-network
+                        title: 'Lab 1: Building the network'
+                        sharing_scope: tenant_local
+                        shared_with_tenants: []
+                        published_at: null
+                        created_at: '2026-05-28T15:00:00+00:00'
+                        updated_at: '2026-05-28T15:00:00+00:00'
+                        current_version:
+                          id: 01HZDOCVERSION000000000000
+                          doc_id: 01HZDOC00000000000000000000
+                          version_number: 1
+                          markdown_source: "# Lab 1\n\nIntroductory exercise."
+                          html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                          author_user_id: 17
+                          editor_message: 'initial version'
+                          created_at: '2026-05-28T15:00:00+00:00'
+      tags:
+        - Endpoints
+    post:
+      summary: 'Create doc'
+      operationId: postApiV1Docs
+      description: "Creates a new Markdown document with an initial revision, gated on the parent project's docs.create permission."
+      parameters: []
+      responses:
+        200:
+          description: 'Existing resource returned for an idempotent replay.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZDOC00000000000000000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  project_id: 01HZPROJECT000000000000000
+                  course_id: null
+                  owner_user_id: 17
+                  slug: lab-1-building-the-network
+                  title: 'Lab 1: Building the network'
+                  sharing_scope: tenant_local
+                  shared_with_tenants: []
+                  published_at: null
+                  created_at: '2026-05-28T15:00:00+00:00'
+                  updated_at: '2026-05-28T15:00:00+00:00'
+                  current_version:
+                    id: 01HZDOCVERSION000000000000
+                    doc_id: 01HZDOC00000000000000000000
+                    version_number: 1
+                    markdown_source: "# Lab 1\n\nIntroductory exercise."
+                    html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                    author_user_id: 17
+                    editor_message: 'initial version'
+                    created_at: '2026-05-28T15:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      project_id:
+                        type: string
+                      course_id:
+                        type: 'null'
+                      owner_user_id:
+                        type: integer
+                      slug:
+                        type: string
+                      title:
+                        type: string
+                      sharing_scope:
+                        type: string
+                      shared_with_tenants:
+                        type: array
+                        items:
+                          type: object
+                      published_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                      current_version:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          doc_id:
+                            type: string
+                          version_number:
+                            type: integer
+                          markdown_source:
+                            type: string
+                          html_cache:
+                            type: string
+                          author_user_id:
+                            type: integer
+                          editor_message:
+                            type: string
+                          created_at:
+                            type: string
+                        required:
+                          - id
+                          - doc_id
+                          - version_number
+                          - markdown_source
+                          - html_cache
+                          - author_user_id
+                          - editor_message
+                          - created_at
+                    required:
+                      - id
+                      - tenant_id
+                      - project_id
+                      - course_id
+                      - owner_user_id
+                      - slug
+                      - title
+                      - sharing_scope
+                      - shared_with_tenants
+                      - published_at
+                      - created_at
+                      - updated_at
+                      - current_version
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZDOC00000000000000000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      project_id: 01HZPROJECT000000000000000
+                      course_id: null
+                      owner_user_id: 17
+                      slug: lab-1-building-the-network
+                      title: 'Lab 1: Building the network'
+                      sharing_scope: tenant_local
+                      shared_with_tenants: []
+                      published_at: null
+                      created_at: '2026-05-28T15:00:00+00:00'
+                      updated_at: '2026-05-28T15:00:00+00:00'
+                      current_version:
+                        id: 01HZDOCVERSION000000000000
+                        doc_id: 01HZDOC00000000000000000000
+                        version_number: 1
+                        markdown_source: "# Lab 1\n\nIntroductory exercise."
+                        html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                        author_user_id: 17
+                        editor_message: 'initial version'
+                        created_at: '2026-05-28T15:00:00+00:00'
+        201:
+          description: 'Resource created.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZDOC00000000000000000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  project_id: 01HZPROJECT000000000000000
+                  course_id: null
+                  owner_user_id: 17
+                  slug: lab-1-building-the-network
+                  title: 'Lab 1: Building the network'
+                  sharing_scope: tenant_local
+                  shared_with_tenants: []
+                  published_at: null
+                  created_at: '2026-05-28T15:00:00+00:00'
+                  updated_at: '2026-05-28T15:00:00+00:00'
+                  current_version:
+                    id: 01HZDOCVERSION000000000000
+                    doc_id: 01HZDOC00000000000000000000
+                    version_number: 1
+                    markdown_source: "# Lab 1\n\nIntroductory exercise."
+                    html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                    author_user_id: 17
+                    editor_message: 'initial version'
+                    created_at: '2026-05-28T15:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      project_id:
+                        type: string
+                      course_id:
+                        type: 'null'
+                      owner_user_id:
+                        type: integer
+                      slug:
+                        type: string
+                      title:
+                        type: string
+                      sharing_scope:
+                        type: string
+                      shared_with_tenants:
+                        type: array
+                        items:
+                          type: object
+                      published_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                      current_version:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          doc_id:
+                            type: string
+                          version_number:
+                            type: integer
+                          markdown_source:
+                            type: string
+                          html_cache:
+                            type: string
+                          author_user_id:
+                            type: integer
+                          editor_message:
+                            type: string
+                          created_at:
+                            type: string
+                        required:
+                          - id
+                          - doc_id
+                          - version_number
+                          - markdown_source
+                          - html_cache
+                          - author_user_id
+                          - editor_message
+                          - created_at
+                    required:
+                      - id
+                      - tenant_id
+                      - project_id
+                      - course_id
+                      - owner_user_id
+                      - slug
+                      - title
+                      - sharing_scope
+                      - shared_with_tenants
+                      - published_at
+                      - created_at
+                      - updated_at
+                      - current_version
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZDOC00000000000000000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      project_id: 01HZPROJECT000000000000000
+                      course_id: null
+                      owner_user_id: 17
+                      slug: lab-1-building-the-network
+                      title: 'Lab 1: Building the network'
+                      sharing_scope: tenant_local
+                      shared_with_tenants: []
+                      published_at: null
+                      created_at: '2026-05-28T15:00:00+00:00'
+                      updated_at: '2026-05-28T15:00:00+00:00'
+                      current_version:
+                        id: 01HZDOCVERSION000000000000
+                        doc_id: 01HZDOC00000000000000000000
+                        version_number: 1
+                        markdown_source: "# Lab 1\n\nIntroductory exercise."
+                        html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                        author_user_id: 17
+                        editor_message: 'initial version'
+                        created_at: '2026-05-28T15:00:00+00:00'
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_id:
+                  type: string
+                  description: 'Project that scopes the document.'
+                  examples:
+                    - 01HZPROJECT0000000000000000
+                title:
+                  type: string
+                  description: 'Human-readable title shown in navigation and search. Must be at least 1 character. Must not be greater than 200 characters.'
+                  examples:
+                    - 'Lab 1: Building the network'
+                markdown:
+                  type: string
+                  description: 'Markdown source. Stored verbatim and re-rendered to HTML on every save. Must not be greater than 524288 characters.'
+                  examples:
+                    - "# Lab 1\n\nIntroductory exercise."
+                editor_message:
+                  type:
+                    - string
+                    - 'null'
+                  description: 'Optional commit-message style note attached to the initial version. Must not be greater than 280 characters.'
+                  examples:
+                    - 'initial draft'
+              required:
+                - project_id
+                - title
+                - markdown
+  '/api/v1/docs/{id}':
+    get:
+      summary: 'Show doc'
+      operationId: getApiV1DocsId
+      description: 'Returns a single doc with its current rendered version. Returns 404 if the requester lacks docs.view or the doc is a draft they cannot read.'
+      parameters: []
+      responses:
+        200:
+          description: 'Resource representation.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZDOC00000000000000000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  project_id: 01HZPROJECT000000000000000
+                  course_id: null
+                  owner_user_id: 17
+                  slug: lab-1-building-the-network
+                  title: 'Lab 1: Building the network'
+                  sharing_scope: tenant_local
+                  shared_with_tenants: []
+                  published_at: null
+                  created_at: '2026-05-28T15:00:00+00:00'
+                  updated_at: '2026-05-28T15:00:00+00:00'
+                  current_version:
+                    id: 01HZDOCVERSION000000000000
+                    doc_id: 01HZDOC00000000000000000000
+                    version_number: 1
+                    markdown_source: "# Lab 1\n\nIntroductory exercise."
+                    html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                    author_user_id: 17
+                    editor_message: 'initial version'
+                    created_at: '2026-05-28T15:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      project_id:
+                        type: string
+                      course_id:
+                        type: 'null'
+                      owner_user_id:
+                        type: integer
+                      slug:
+                        type: string
+                      title:
+                        type: string
+                      sharing_scope:
+                        type: string
+                      shared_with_tenants:
+                        type: array
+                        items:
+                          type: object
+                      published_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                      current_version:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          doc_id:
+                            type: string
+                          version_number:
+                            type: integer
+                          markdown_source:
+                            type: string
+                          html_cache:
+                            type: string
+                          author_user_id:
+                            type: integer
+                          editor_message:
+                            type: string
+                          created_at:
+                            type: string
+                        required:
+                          - id
+                          - doc_id
+                          - version_number
+                          - markdown_source
+                          - html_cache
+                          - author_user_id
+                          - editor_message
+                          - created_at
+                    required:
+                      - id
+                      - tenant_id
+                      - project_id
+                      - course_id
+                      - owner_user_id
+                      - slug
+                      - title
+                      - sharing_scope
+                      - shared_with_tenants
+                      - published_at
+                      - created_at
+                      - updated_at
+                      - current_version
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZDOC00000000000000000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      project_id: 01HZPROJECT000000000000000
+                      course_id: null
+                      owner_user_id: 17
+                      slug: lab-1-building-the-network
+                      title: 'Lab 1: Building the network'
+                      sharing_scope: tenant_local
+                      shared_with_tenants: []
+                      published_at: null
+                      created_at: '2026-05-28T15:00:00+00:00'
+                      updated_at: '2026-05-28T15:00:00+00:00'
+                      current_version:
+                        id: 01HZDOCVERSION000000000000
+                        doc_id: 01HZDOC00000000000000000000
+                        version_number: 1
+                        markdown_source: "# Lab 1\n\nIntroductory exercise."
+                        html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                        author_user_id: 17
+                        editor_message: 'initial version'
+                        created_at: '2026-05-28T15:00:00+00:00'
+      tags:
+        - Endpoints
+    patch:
+      summary: 'Update doc'
+      operationId: patchApiV1DocsId
+      description: 'Appends a new doc version (immutable history) and advances the doc to that version. Drafts are owner-editable only.'
+      parameters: []
+      responses:
+        200:
+          description: 'Resource representation.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZDOC00000000000000000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  project_id: 01HZPROJECT000000000000000
+                  course_id: null
+                  owner_user_id: 17
+                  slug: lab-1-building-the-network
+                  title: 'Lab 1: Building the network'
+                  sharing_scope: tenant_local
+                  shared_with_tenants: []
+                  published_at: null
+                  created_at: '2026-05-28T15:00:00+00:00'
+                  updated_at: '2026-05-28T15:00:00+00:00'
+                  current_version:
+                    id: 01HZDOCVERSION000000000000
+                    doc_id: 01HZDOC00000000000000000000
+                    version_number: 1
+                    markdown_source: "# Lab 1\n\nIntroductory exercise."
+                    html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                    author_user_id: 17
+                    editor_message: 'initial version'
+                    created_at: '2026-05-28T15:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      project_id:
+                        type: string
+                      course_id:
+                        type: 'null'
+                      owner_user_id:
+                        type: integer
+                      slug:
+                        type: string
+                      title:
+                        type: string
+                      sharing_scope:
+                        type: string
+                      shared_with_tenants:
+                        type: array
+                        items:
+                          type: object
+                      published_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                      current_version:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          doc_id:
+                            type: string
+                          version_number:
+                            type: integer
+                          markdown_source:
+                            type: string
+                          html_cache:
+                            type: string
+                          author_user_id:
+                            type: integer
+                          editor_message:
+                            type: string
+                          created_at:
+                            type: string
+                        required:
+                          - id
+                          - doc_id
+                          - version_number
+                          - markdown_source
+                          - html_cache
+                          - author_user_id
+                          - editor_message
+                          - created_at
+                    required:
+                      - id
+                      - tenant_id
+                      - project_id
+                      - course_id
+                      - owner_user_id
+                      - slug
+                      - title
+                      - sharing_scope
+                      - shared_with_tenants
+                      - published_at
+                      - created_at
+                      - updated_at
+                      - current_version
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZDOC00000000000000000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      project_id: 01HZPROJECT000000000000000
+                      course_id: null
+                      owner_user_id: 17
+                      slug: lab-1-building-the-network
+                      title: 'Lab 1: Building the network'
+                      sharing_scope: tenant_local
+                      shared_with_tenants: []
+                      published_at: null
+                      created_at: '2026-05-28T15:00:00+00:00'
+                      updated_at: '2026-05-28T15:00:00+00:00'
+                      current_version:
+                        id: 01HZDOCVERSION000000000000
+                        doc_id: 01HZDOC00000000000000000000
+                        version_number: 1
+                        markdown_source: "# Lab 1\n\nIntroductory exercise."
+                        html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                        author_user_id: 17
+                        editor_message: 'initial version'
+                        created_at: '2026-05-28T15:00:00+00:00'
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: 'Human-readable title shown in navigation and search. Must be at least 1 character. Must not be greater than 200 characters.'
+                  examples:
+                    - 'Lab 1: Building the network'
+                markdown:
+                  type: string
+                  description: 'Markdown source for the new version. Append-only: the prior version is retained. Must not be greater than 524288 characters.'
+                  examples:
+                    - "# Lab 1\n\nRevised wording."
+                editor_message:
+                  type:
+                    - string
+                    - 'null'
+                  description: 'Optional commit-message style note describing this revision. Must not be greater than 280 characters.'
+                  examples:
+                    - 'clarify section 2'
+              required:
+                - title
+                - markdown
+    parameters:
+      -
+        in: path
+        name: id
+        description: 'The ID of the doc.'
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
+  '/api/v1/docs/{doc_id}/publish':
+    post:
+      summary: 'Publish doc'
+      operationId: postApiV1DocsDoc_idPublish
+      description: 'Stamps the doc as published, making it visible to all docs.view holders in scope. Idempotent — already-published docs are returned unchanged.'
+      parameters: []
+      responses:
+        200:
+          description: 'Resource representation after the toggle.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZDOC00000000000000000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  project_id: 01HZPROJECT000000000000000
+                  course_id: null
+                  owner_user_id: 17
+                  slug: lab-1-building-the-network
+                  title: 'Lab 1: Building the network'
+                  sharing_scope: tenant_local
+                  shared_with_tenants: []
+                  published_at: null
+                  created_at: '2026-05-28T15:00:00+00:00'
+                  updated_at: '2026-05-28T15:00:00+00:00'
+                  current_version:
+                    id: 01HZDOCVERSION000000000000
+                    doc_id: 01HZDOC00000000000000000000
+                    version_number: 1
+                    markdown_source: "# Lab 1\n\nIntroductory exercise."
+                    html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                    author_user_id: 17
+                    editor_message: 'initial version'
+                    created_at: '2026-05-28T15:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      project_id:
+                        type: string
+                      course_id:
+                        type: 'null'
+                      owner_user_id:
+                        type: integer
+                      slug:
+                        type: string
+                      title:
+                        type: string
+                      sharing_scope:
+                        type: string
+                      shared_with_tenants:
+                        type: array
+                        items:
+                          type: object
+                      published_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                      updated_at:
+                        type: string
+                      current_version:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          doc_id:
+                            type: string
+                          version_number:
+                            type: integer
+                          markdown_source:
+                            type: string
+                          html_cache:
+                            type: string
+                          author_user_id:
+                            type: integer
+                          editor_message:
+                            type: string
+                          created_at:
+                            type: string
+                        required:
+                          - id
+                          - doc_id
+                          - version_number
+                          - markdown_source
+                          - html_cache
+                          - author_user_id
+                          - editor_message
+                          - created_at
+                    required:
+                      - id
+                      - tenant_id
+                      - project_id
+                      - course_id
+                      - owner_user_id
+                      - slug
+                      - title
+                      - sharing_scope
+                      - shared_with_tenants
+                      - published_at
+                      - created_at
+                      - updated_at
+                      - current_version
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZDOC00000000000000000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      project_id: 01HZPROJECT000000000000000
+                      course_id: null
+                      owner_user_id: 17
+                      slug: lab-1-building-the-network
+                      title: 'Lab 1: Building the network'
+                      sharing_scope: tenant_local
+                      shared_with_tenants: []
+                      published_at: null
+                      created_at: '2026-05-28T15:00:00+00:00'
+                      updated_at: '2026-05-28T15:00:00+00:00'
+                      current_version:
+                        id: 01HZDOCVERSION000000000000
+                        doc_id: 01HZDOC00000000000000000000
+                        version_number: 1
+                        markdown_source: "# Lab 1\n\nIntroductory exercise."
+                        html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                        author_user_id: 17
+                        editor_message: 'initial version'
+                        created_at: '2026-05-28T15:00:00+00:00'
+      tags:
+        - Endpoints
+    parameters:
+      -
+        in: path
+        name: doc_id
+        description: 'The ID of the doc.'
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
+  '/api/v1/docs/{doc_id}/versions':
+    get:
+      summary: 'List doc revisions'
+      operationId: getApiV1DocsDoc_idVersions
+      description: 'Returns the immutable revision ledger for a doc, ordered newest-first.'
+      parameters: []
+      responses:
+        200:
+          description: 'Resource collection.'
+          content:
+            application/json:
+              example:
+                data:
+                  -
+                    id: 01HZDOCVERSION000000000000
+                    doc_id: 01HZDOC00000000000000000000
+                    version_number: 1
+                    markdown_source: "# Lab 1\n\nIntroductory exercise."
+                    html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                    author_user_id: 17
+                    editor_message: 'initial version'
+                    created_at: '2026-05-28T15:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        doc_id:
+                          type: string
+                        version_number:
+                          type: integer
+                        markdown_source:
+                          type: string
+                        html_cache:
+                          type: string
+                        author_user_id:
+                          type: integer
+                        editor_message:
+                          type: string
+                        created_at:
+                          type: string
+                      required:
+                        - id
+                        - doc_id
+                        - version_number
+                        - markdown_source
+                        - html_cache
+                        - author_user_id
+                        - editor_message
+                        - created_at
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      -
+                        id: 01HZDOCVERSION000000000000
+                        doc_id: 01HZDOC00000000000000000000
+                        version_number: 1
+                        markdown_source: "# Lab 1\n\nIntroductory exercise."
+                        html_cache: "<p># Lab 1</p>\n<p>Introductory exercise.</p>"
+                        author_user_id: 17
+                        editor_message: 'initial version'
+                        created_at: '2026-05-28T15:00:00+00:00'
+      tags:
+        - Endpoints
+    parameters:
+      -
+        in: path
+        name: doc_id
+        description: 'The ID of the doc.'
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
   /api/v1/scripts:
     post:
       summary: 'Create script'

@@ -1529,6 +1529,111 @@ material (S4), session ledger + Filament admin + Livewire panel
 (S5), and the plugin package + capability gate + group-project
 end-to-end coverage (S6).
 
+### M8 docs plugin S1+S2 — data model + Markdown + CRUD API (2026-05-28)
+
+The M8 sub-slice 1 + 2 increment lands the docs-plugin foundation
+and the first usable API:
+
+- **Data model** — three new tables in
+  `database/migrations/2026_05_28_000002_create_docs_plugin_tables.php`:
+  `docs` (tenant_id, project_id nullable, course_id nullable,
+  owner_user_id, slug+title with `(tenant_id, slug)` unique,
+  current_version_id pointer, sharing_scope, shared_with_tenants
+  JSONB, published_at), `doc_versions` (doc_id, version_number with
+  `(doc_id, version_number)` unique, markdown_source, html_cache,
+  author_user_id, editor_message), `doc_images` (doc_id, artifact_id
+  nullable, content_type, sha256, uploaded_by_id). Three Eloquent
+  models (`Doc`, `DocVersion`, `DocImage`) all implement
+  `TenantScopedResource` via `BelongsToTenant`.
+- **Markdown renderer** — `App\Docs\MarkdownRenderer` ships a tiny
+  paragraph-wrap renderer with full HTML escaping as the safe S1
+  default. M8 S3 swaps in `league/commonmark` for full GFM support
+  plus the `racklabRef` cross-link parser; the
+  `render(string): string` contract stays the same so the API
+  layer is unaffected.
+- **`App\Docs\DocService`** — owns Doc lifecycle (`create`,
+  `update`, `publish`) with hash-chained audit emission on every
+  state change, transactional version creation, deterministic
+  unique slugging per tenant.
+- **`App\Docs\DocPayload`** — JSON resource transformer for Doc +
+  DocVersion. Used by the API controllers and OpenAPI examples.
+- **RBAC** — six `docs.*` permissions added to
+  `DefaultRoleCatalog`: admin/support get all six; instructor gets
+  five (no admin); ta + student get view/create/edit only. The
+  `roles.json` snapshot regenerated and the snapshot test passes.
+- **API** — six new endpoints under `/api/v1/docs` (index/show/
+  store/update/publish/versions). Gating composition is
+  AccessResolver-against-parent-Project, the same pattern as
+  `ScriptUpdateController`: docs in v1 inherit a project's role
+  bindings, so any tenant member who can administer/edit/view a
+  project can correspondingly act on its docs. All routes are
+  Sanctum + Track-A JWT gated and respect token abilities.
+- **Audit emission** — every create/update/publish (both allow and
+  deny) emits a `docs.page` event with `actor_tenant`,
+  `resource_tenant`, denormalized `target_tenant_set`, and reason
+  metadata. Added to the `audit-events.json` snapshot.
+- **OpenAPI** — Scribe regenerated. The drift gate
+  (`OpenApiSchemaTest`) covers the six new operations; example
+  payloads for Doc + DocVersion contribute to the contract.
+- **Tests** — `tests/Tiny/Docs/MarkdownRendererTest.php` covers
+  the renderer (paragraph splitting, escaping, normalization,
+  empty input). `tests/Contract/DocsApiTest.php` exercises the
+  full HTTP path: create → version 1, update → version 2 +
+  revision-history list, publish → published_at stamped, show
+  responds 404 for outsiders, cross-tenant access returns 404,
+  role downgrade to `student` blocks publish with a `denied`
+  audit row, and the index lists tenant-scoped docs.
+
+The 404-on-read-deny rule (vs 403) is preserved — leaking doc
+existence to outsiders is the kind of bug that bites in a
+multi-tenant lab platform. Soft-isolation: the show endpoint
+short-circuits with 404 before AccessResolver is even consulted
+on a tenant mismatch.
+
+Codex M8 S1+S2 findings folded before commit:
+
+- **P1 — Draft/publish gating.** Codex flagged that any project
+  member with `docs.view` could read another user's unpublished
+  draft. Introduced `App\Docs\DocVisibilityPolicy` as the single
+  source of truth: drafts are visible only to the owner or to
+  holders of `docs.publish` (admin/support/instructor). Wired into
+  show, index, versions, and update. New regression tests cover
+  both read-hiding and edit-blocking.
+- **P1 — Denied read paths unaudited.** Show + versions now emit
+  `docs.page` action=`read` result=`denied` rows (with `reason`
+  metadata: `permission_or_token_scope` vs `draft_hidden`) before
+  returning 404. A probing attacker can no longer grind doc IDs
+  without trace.
+- **P1 — Index token-ability inconsistency.** `GET /api/v1/docs`
+  previously returned 200 + empty data on a token lacking
+  `docs.view`. Now throws `AuthorizationException` → 403, matching
+  every other index endpoint.
+- **P1 — Cross-tenant project leak.** `StoreDocRequest` dropped the
+  global `exists:projects,id` rule that distinguished
+  non-existent (422) vs cross-tenant (404) project IDs. Both now
+  return 404 from the tenant-scoped controller lookup.
+- **P1 — `sharing_scope` deferral.** Documented in code that v1
+  docs are tenant-local-only; cross-tenant sharing lands via the
+  share-link primitive in a later slice. Columns remain for
+  forward compat.
+- **P2 — Publish atomicity.** Publish now runs inside a
+  `DB::transaction` so a failing audit append rolls back the
+  `published_at` stamp instead of leaving a hash-chain gap.
+- **P2 — Concurrent edit race.** `DocService::update` takes
+  `Doc::lockForUpdate()` at the top of the transaction so two
+  concurrent updates serialize cleanly through the
+  `(doc_id, version_number)` unique constraint instead of one
+  hitting a 500.
+- **P2 — Publish OpenAPI 200 vs 201.** Taught
+  `RackLabResponseDefaultsGenerator` about the
+  `isIdempotentTogglePost` shape; publish now documents only 200.
+  Added human-readable summaries + descriptions for all six
+  `/api/v1/docs` operations (drop-in for the auto-generated
+  "Create publish" / "Show docs" fallback strings).
+
+12 docs contract tests cover the fold; full Pest suite (Tiny +
+Contract + Integration + Snapshots) stays green.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker
