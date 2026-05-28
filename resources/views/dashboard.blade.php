@@ -309,6 +309,13 @@
         <section class="mt-8">
             <h2 class="text-lg font-semibold text-base-content">{{ __('racklab.dashboard.deployments') }}</h2>
 
+            @if ($labelFilter)
+                <div class="mt-2 flex items-center gap-2 text-sm">
+                    <span class="badge badge-primary">{{ $labelFilter }}</span>
+                    <a href="{{ route('dashboard') }}" wire:navigate class="link">{{ __('racklab.dashboard.clear_label_filter') }}</a>
+                </div>
+            @endif
+
             @if ($deployments === [])
                 <p class="mt-3 text-sm text-base-content/70">{{ __('racklab.dashboard.empty_deployments') }}</p>
             @else
@@ -335,6 +342,24 @@
                                             >{{ $deployment->name }}</a>
                                         </div>
                                         <div class="text-xs text-base-content/60">{{ $deployment->getKey() }}</div>
+                                        <div class="mt-1 flex flex-wrap items-center gap-1">
+                                            @foreach (($deployment->labels ?? []) as $label)
+                                                <a href="{{ route('dashboard', ['label' => $label]) }}" wire:navigate class="badge badge-sm badge-outline">{{ $label }}</a>
+                                            @endforeach
+                                        </div>
+                                        <form method="POST" action="{{ route('deployments.labels.update', ['deployment' => $deployment->getKey()]) }}" class="mt-1 flex items-center gap-1">
+                                            @csrf
+                                            <input
+                                                type="text"
+                                                name="labels"
+                                                value="{{ implode(', ', $deployment->labels ?? []) }}"
+                                                dusk="deployment-labels-{{ $deployment->getKey() }}"
+                                                class="input input-bordered input-xs w-44"
+                                                placeholder="{{ __('racklab.dashboard.labels_placeholder') }}"
+                                                aria-label="{{ __('racklab.dashboard.labels_aria') }}"
+                                            >
+                                            <button type="submit" class="btn btn-xs">{{ __('racklab.dashboard.labels_save') }}</button>
+                                        </form>
                                     </td>
                                     <td>{{ $deployment->state }}</td>
                                     <td>

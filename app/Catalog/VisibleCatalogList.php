@@ -49,11 +49,13 @@ final readonly class VisibleCatalogList
 
     private function currentVersion(CatalogItem $item): ?CatalogVersion
     {
+        // Same predicate as CatalogItemIndexController::currentVersion so the
+        // browser catalog and the JSON API surface the identical current
+        // version for an item.
         /** @var CatalogVersion|null $version */
         $version = CatalogVersion::query()
             ->where('catalog_item_id', $item->getKey())
             ->where('state', 'published')
-            ->whereNotNull('published_at')
             ->orderByDesc('published_at')
             ->orderByDesc('id')
             ->first();

@@ -51,13 +51,16 @@ final class DashboardController extends Controller
         }
 
         $visibleProjects = $projects->forUser($user, $context);
+        $labelFilter = trim($request->string('label')->toString());
+        $labelFilter = $labelFilter === '' ? null : $labelFilter;
 
         return view('dashboard', [
             'activeTenant' => $tenant,
             'courses' => $courses->forUser($user, $context),
             'projects' => $visibleProjects,
             'quotaSummaries' => $quotaSummary->forProjects($user, $context, $visibleProjects),
-            'deployments' => $deployments->forUser($user, $context),
+            'deployments' => $deployments->forUser($user, $context, $labelFilter),
+            'labelFilter' => $labelFilter,
             'scriptRuns' => $scriptRuns->forUser($user, $context),
             'tokenGrants' => TokenGrant::query()
                 ->where('owner_user_id', $user->id)

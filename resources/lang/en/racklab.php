@@ -58,6 +58,11 @@ return [
         'vms' => 'Virtual machines',
     ],
     'dashboard' => [
+        'clear_label_filter' => 'Clear filter',
+        'labels_aria' => 'Deployment labels',
+        'labels_placeholder' => 'labels, comma-separated',
+        'labels_save' => 'Label',
+        'labels_saved' => 'Labels updated.',
         'active_tenant' => 'Tenant',
         'ability_deployment_read' => 'Deployment read',
         'ability_project_read' => 'Project read',

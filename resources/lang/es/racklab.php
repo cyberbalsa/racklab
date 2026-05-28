@@ -58,6 +58,11 @@ return [
         'vms' => 'Maquinas virtuales',
     ],
     'dashboard' => [
+        'clear_label_filter' => 'Quitar filtro',
+        'labels_aria' => 'Etiquetas del despliegue',
+        'labels_placeholder' => 'etiquetas, separadas por comas',
+        'labels_save' => 'Etiquetar',
+        'labels_saved' => 'Etiquetas actualizadas.',
         'active_tenant' => 'Inquilino',
         'ability_deployment_read' => 'Leer despliegues',
         'ability_project_read' => 'Leer proyecto',

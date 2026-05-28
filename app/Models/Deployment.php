@@ -24,6 +24,7 @@ use Override;
  * @property string $provider
  * @property \Illuminate\Support\Carbon|null $lease_expires_at
  * @property array<string, mixed>|null $metadata
+ * @property list<string>|null $labels
  * @property string $sharing_scope
  * @property list<string>|null $shared_with_tenants
  */
@@ -37,6 +38,7 @@ use Override;
     'provider',
     'lease_expires_at',
     'metadata',
+    'labels',
     'sharing_scope',
     'shared_with_tenants',
 ])]
@@ -109,6 +111,7 @@ class Deployment extends Model implements TenantScopedResource
         return [
             'lease_expires_at' => 'datetime',
             'metadata' => 'array',
+            'labels' => 'array',
             'shared_with_tenants' => 'array',
         ];
     }
