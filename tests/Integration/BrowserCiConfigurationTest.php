@@ -10,6 +10,8 @@ it('configures the browser CI job with a shared database and persistent sessions
     $env = $browser['env'];
     $steps = array_column($browser['steps'], 'name');
     $runs = array_column($browser['steps'], 'run', 'name');
+    $prepareIndex = array_search('Prepare browser database', $steps, true);
+    $composerInstallIndex = array_search('Install Composer dependencies', $steps, true);
 
     expect($env['APP_URL'])->toBe('http://127.0.0.1:8000')
         ->and($env['DB_CONNECTION'])->toBe('sqlite')
@@ -17,6 +19,7 @@ it('configures the browser CI job with a shared database and persistent sessions
         ->and($env['SESSION_DRIVER'])->toBe('file')
         ->and($env['RACKLAB_CONTAINER_RUNTIME'])->toBe('fake')
         ->and($steps)->toContain('Prepare browser database')
+        ->and($prepareIndex)->toBeLessThan($composerInstallIndex)
         ->and($runs['Run browser migrations'])->toBe('php artisan racklab:migrate --skip-plugins')
         ->and($steps)->toContain('Pest browser')
         ->and($steps)->toContain('Pa11y CI')

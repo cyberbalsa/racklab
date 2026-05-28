@@ -25,7 +25,7 @@
         "racklab/plugin-hello": "dev-main",
         "spatie/laravel-multitenancy": "^4.1",
         "spatie/laravel-permission": "^7.4",
-        "symfony/yaml": "^8.0"
+        "symfony/yaml": "^7.4 || ^8.0"
     },
     "require-dev": {
         "diglabby/laravel-find-missing-translations": "^1.7",
@@ -137,6 +137,9 @@
     },
     "config": {
         "optimize-autoloader": true,
+        "platform": {
+            "php": "8.3.0"
+        },
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {

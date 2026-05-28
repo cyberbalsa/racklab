@@ -48,6 +48,26 @@ final class UpdateSecurityGroupRequest extends FormRequest
                     ['direction' => 'egress', 'protocol' => 'any', 'remote_cidr' => '0.0.0.0/0'],
                 ],
             ],
+            'rules.*.direction' => [
+                'description' => 'Rule traffic direction.',
+                'example' => 'egress',
+            ],
+            'rules.*.protocol' => [
+                'description' => 'Rule protocol.',
+                'example' => 'any',
+            ],
+            'rules.*.port_min' => [
+                'description' => 'Minimum destination port for TCP/UDP rules.',
+                'example' => null,
+            ],
+            'rules.*.port_max' => [
+                'description' => 'Maximum destination port for TCP/UDP rules.',
+                'example' => null,
+            ],
+            'rules.*.remote_cidr' => [
+                'description' => 'Remote IPv4 CIDR allowed by this rule.',
+                'example' => '0.0.0.0/0',
+            ],
         ];
     }
 }

@@ -243,6 +243,11 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Prepare browser database
+        run: |
+          rm -f database/dusk.sqlite
+          touch database/dusk.sqlite
+
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 
@@ -254,11 +259,6 @@ jobs:
 
       - name: Match ChromeDriver to runner Chrome
         run: php artisan dusk:chrome-driver --detect
-
-      - name: Prepare browser database
-        run: |
-          rm -f database/dusk.sqlite
-          touch database/dusk.sqlite
 
       - name: Run browser migrations
         run: php artisan racklab:migrate --skip-plugins

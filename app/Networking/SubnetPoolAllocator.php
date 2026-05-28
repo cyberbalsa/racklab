@@ -161,6 +161,12 @@ final readonly class SubnetPoolAllocator
 
     private function intToIp(int $value): string
     {
-        return long2ip($value);
+        $ip = long2ip($value);
+
+        if ($ip === false) {
+            throw new InvalidArgumentException('Invalid IPv4 integer: '.$value);
+        }
+
+        return $ip;
     }
 }

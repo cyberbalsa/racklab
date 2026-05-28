@@ -75,6 +75,62 @@ final class StoreNetworkRequest extends FormRequest
                 'description' => 'Initial IPv4 subnet attached to the network. Provide cidr directly, or provide subnet_pool_id/subnet_pool_slug plus optional prefix_length for RackLab allocation.',
                 'example' => ['subnet_pool_slug' => 'student-private-pool', 'prefix_length' => 24, 'gateway_ip' => '10.42.0.1'],
             ],
+            'subnet.cidr' => [
+                'description' => 'Explicit IPv4 CIDR for the initial subnet.',
+                'example' => '10.42.0.0/24',
+            ],
+            'subnet.subnet_pool_id' => [
+                'description' => 'Subnet pool id to allocate from when cidr is omitted.',
+                'example' => '01HZSUBNETPOOL000000000',
+            ],
+            'subnet.subnet_pool_slug' => [
+                'description' => 'Subnet pool slug to allocate from when cidr is omitted.',
+                'example' => 'student-private-pool',
+            ],
+            'subnet.prefix_length' => [
+                'description' => 'Requested prefix length for pool-backed allocation.',
+                'example' => 24,
+            ],
+            'subnet.gateway_ip' => [
+                'description' => 'Optional subnet gateway address.',
+                'example' => '10.42.0.1',
+            ],
+            'subnet.dhcp_enabled' => [
+                'description' => 'Whether DHCP should be enabled for the subnet.',
+                'example' => true,
+            ],
+            'subnet.allocation_pools' => [
+                'description' => 'Optional DHCP allocation pools.',
+                'example' => [['start' => '10.42.0.20', 'end' => '10.42.0.200']],
+            ],
+            'subnet.allocation_pools.*.start' => [
+                'description' => 'Allocation pool start address.',
+                'example' => '10.42.0.20',
+            ],
+            'subnet.allocation_pools.*.end' => [
+                'description' => 'Allocation pool end address.',
+                'example' => '10.42.0.200',
+            ],
+            'subnet.dns_nameservers' => [
+                'description' => 'Optional DNS resolvers for guests on this subnet.',
+                'example' => ['1.1.1.1', '8.8.8.8'],
+            ],
+            'subnet.dns_nameservers.*' => [
+                'description' => 'DNS resolver IP address.',
+                'example' => '1.1.1.1',
+            ],
+            'subnet.host_routes' => [
+                'description' => 'Optional static routes advertised to guests.',
+                'example' => [['destination' => '10.50.0.0/16', 'nexthop' => '10.42.0.1']],
+            ],
+            'subnet.host_routes.*.destination' => [
+                'description' => 'Static route destination CIDR.',
+                'example' => '10.50.0.0/16',
+            ],
+            'subnet.host_routes.*.nexthop' => [
+                'description' => 'Static route next-hop address.',
+                'example' => '10.42.0.1',
+            ],
             'metadata' => [
                 'description' => 'Optional network metadata.',
                 'example' => ['purpose' => 'lab'],

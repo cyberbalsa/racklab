@@ -58,6 +58,26 @@ final class StoreSecurityGroupRequest extends FormRequest
                     ['direction' => 'ingress', 'protocol' => 'tcp', 'port_min' => 443, 'port_max' => 443, 'remote_cidr' => '0.0.0.0/0'],
                 ],
             ],
+            'rules.*.direction' => [
+                'description' => 'Rule traffic direction.',
+                'example' => 'ingress',
+            ],
+            'rules.*.protocol' => [
+                'description' => 'Rule protocol.',
+                'example' => 'tcp',
+            ],
+            'rules.*.port_min' => [
+                'description' => 'Minimum destination port for TCP/UDP rules.',
+                'example' => 443,
+            ],
+            'rules.*.port_max' => [
+                'description' => 'Maximum destination port for TCP/UDP rules.',
+                'example' => 443,
+            ],
+            'rules.*.remote_cidr' => [
+                'description' => 'Remote IPv4 CIDR allowed by this rule.',
+                'example' => '0.0.0.0/0',
+            ],
         ];
     }
 }

@@ -1322,47 +1322,47 @@ paths:
                       type:
                         - string
                         - 'null'
-                      description: 'This field is required when none of <code>subnet.subnet_pool_id</code> and <code>subnet.subnet_pool_slug</code> are present. Must match the regex /^([0-9]{1,3}\.){3}[0-9]{1,3}\/([0-9]|[12][0-9]|3[0-2])$/.'
+                      description: 'Explicit IPv4 CIDR for the initial subnet. This field is required when none of <code>subnet.subnet_pool_id</code> and <code>subnet.subnet_pool_slug</code> are present. Must match the regex /^([0-9]{1,3}\.){3}[0-9]{1,3}\/([0-9]|[12][0-9]|3[0-2])$/.'
                       examples:
-                        - 9.3.1.423/16
+                        - 10.42.0.0/24
                     subnet_pool_id:
                       type:
                         - string
                         - 'null'
-                      description: 'This field is required when none of <code>subnet.cidr</code> and <code>subnet.subnet_pool_slug</code> are present.'
+                      description: 'Subnet pool id to allocate from when cidr is omitted. This field is required when none of <code>subnet.cidr</code> and <code>subnet.subnet_pool_slug</code> are present.'
                       examples:
-                        - architecto
+                        - 01HZSUBNETPOOL000000000
                     subnet_pool_slug:
                       type:
                         - string
                         - 'null'
-                      description: 'This field is required when none of <code>subnet.cidr</code> and <code>subnet.subnet_pool_id</code> are present.'
+                      description: 'Subnet pool slug to allocate from when cidr is omitted. This field is required when none of <code>subnet.cidr</code> and <code>subnet.subnet_pool_id</code> are present.'
                       examples:
                         - student-private-pool
                     prefix_length:
                       type:
                         - integer
                         - 'null'
-                      description: 'Must be between 1 and 32.'
+                      description: 'Requested prefix length for pool-backed allocation. Must be between 1 and 32.'
                       examples:
                         - 24
                     gateway_ip:
                       type:
                         - string
                         - 'null'
-                      description: 'Must be a valid IP address.'
+                      description: 'Optional subnet gateway address. Must be a valid IP address.'
                       examples:
                         - 10.42.0.1
                     dhcp_enabled:
                       type:
                         - boolean
                         - 'null'
-                      description: ''
+                      description: 'Whether DHCP should be enabled for the subnet.'
                       examples:
                         - true
                     allocation_pools:
                       type: array
-                      description: ''
+                      description: 'Optional DHCP allocation pools.'
                       items:
                         type:
                           - object
@@ -1370,27 +1370,30 @@ paths:
                         properties:
                           start:
                             type: string
-                            description: 'This field is required when <code>subnet.allocation_pools</code> is present. Must be a valid IP address.'
+                            description: 'Allocation pool start address. This field is required when <code>subnet.allocation_pools</code> is present. Must be a valid IP address.'
                             examples:
-                              - 1.102.226.211
+                              - 10.42.0.20
                           end:
                             type: string
-                            description: 'This field is required when <code>subnet.allocation_pools</code> is present. Must be a valid IP address.'
+                            description: 'Allocation pool end address. This field is required when <code>subnet.allocation_pools</code> is present. Must be a valid IP address.'
                             examples:
-                              - 1.102.226.211
+                              - 10.42.0.200
                       examples:
-                        - null
+                        -
+                          -
+                            start: 10.42.0.20
+                            end: 10.42.0.200
                     dns_nameservers:
                       type: array
-                      description: 'Must be a valid IP address.'
+                      description: 'DNS resolver IP address. Must be a valid IP address.'
                       items:
                         type: string
                       examples:
                         -
-                          - 1.102.226.211
+                          - 1.1.1.1
                     host_routes:
                       type: array
-                      description: ''
+                      description: 'Optional static routes advertised to guests.'
                       items:
                         type:
                           - object
@@ -1398,16 +1401,19 @@ paths:
                         properties:
                           destination:
                             type: string
-                            description: 'This field is required when <code>subnet.host_routes</code> is present. Must match the regex /^([0-9]{1,3}\.){3}[0-9]{1,3}\/([0-9]|[12][0-9]|3[0-2])$/.'
+                            description: 'Static route destination CIDR. This field is required when <code>subnet.host_routes</code> is present. Must match the regex /^([0-9]{1,3}\.){3}[0-9]{1,3}\/([0-9]|[12][0-9]|3[0-2])$/.'
                             examples:
-                              - 9.3.1.423/16
+                              - 10.50.0.0/16
                           nexthop:
                             type: string
-                            description: 'This field is required when <code>subnet.host_routes</code> is present. Must be a valid IP address.'
+                            description: 'Static route next-hop address. This field is required when <code>subnet.host_routes</code> is present. Must be a valid IP address.'
                             examples:
-                              - 1.102.226.211
+                              - 10.42.0.1
                       examples:
-                        - null
+                        -
+                          -
+                            destination: 10.50.0.0/16
+                            nexthop: 10.42.0.1
                   examples:
                     -
                       subnet_pool_slug: student-private-pool
@@ -2373,7 +2379,7 @@ paths:
                     properties:
                       direction:
                         type: string
-                        description: ''
+                        description: 'Rule traffic direction.'
                         enum:
                           - ingress
                           - egress
@@ -2381,7 +2387,7 @@ paths:
                           - ingress
                       protocol:
                         type: string
-                        description: ''
+                        description: 'Rule protocol.'
                         enum:
                           - tcp
                           - udp
@@ -2393,23 +2399,23 @@ paths:
                         type:
                           - integer
                           - 'null'
-                        description: 'Must be between 1 and 65535.'
+                        description: 'Minimum destination port for TCP/UDP rules. Must be between 1 and 65535.'
                         examples:
-                          - 2
+                          - 443
                       port_max:
                         type:
                           - integer
                           - 'null'
-                        description: 'Must be between 1 and 65535.'
+                        description: 'Maximum destination port for TCP/UDP rules. Must be between 1 and 65535.'
                         examples:
-                          - 2
+                          - 443
                       remote_cidr:
                         type:
                           - string
                           - 'null'
-                        description: 'Must match the regex /^([0-9]{1,3}\.){3}[0-9]{1,3}\/([0-9]|[12][0-9]|3[0-2])$/.'
+                        description: 'Remote IPv4 CIDR allowed by this rule. Must match the regex /^([0-9]{1,3}\.){3}[0-9]{1,3}\/([0-9]|[12][0-9]|3[0-2])$/.'
                         examples:
-                          - 9.3.1.423/16
+                          - 0.0.0.0/0
                     required:
                       - direction
                       - protocol
@@ -2613,15 +2619,15 @@ paths:
                     properties:
                       direction:
                         type: string
-                        description: ''
+                        description: 'Rule traffic direction.'
                         enum:
                           - ingress
                           - egress
                         examples:
-                          - ingress
+                          - egress
                       protocol:
                         type: string
-                        description: ''
+                        description: 'Rule protocol.'
                         enum:
                           - tcp
                           - udp
@@ -2633,23 +2639,23 @@ paths:
                         type:
                           - integer
                           - 'null'
-                        description: 'Must be between 1 and 65535.'
+                        description: 'Minimum destination port for TCP/UDP rules. Must be between 1 and 65535.'
                         examples:
-                          - 2
+                          - null
                       port_max:
                         type:
                           - integer
                           - 'null'
-                        description: 'Must be between 1 and 65535.'
+                        description: 'Maximum destination port for TCP/UDP rules. Must be between 1 and 65535.'
                         examples:
-                          - 2
+                          - null
                       remote_cidr:
                         type:
                           - string
                           - 'null'
-                        description: 'Must match the regex /^([0-9]{1,3}\.){3}[0-9]{1,3}\/([0-9]|[12][0-9]|3[0-2])$/.'
+                        description: 'Remote IPv4 CIDR allowed by this rule. Must match the regex /^([0-9]{1,3}\.){3}[0-9]{1,3}\/([0-9]|[12][0-9]|3[0-2])$/.'
                         examples:
-                          - 9.3.1.423/16
+                          - 0.0.0.0/0
                     required:
                       - direction
                       - protocol
