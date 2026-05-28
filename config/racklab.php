@@ -29,5 +29,6 @@ return [
     ],
     'console' => [
         'grant_ttl_seconds' => (int) env('RACKLAB_CONSOLE_GRANT_TTL_SECONDS', 300),
+        'proxy' => env('RACKLAB_CONSOLE_PROXY', 'unavailable'),
     ],
 ];

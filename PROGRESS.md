@@ -961,6 +961,46 @@ The M4 sub-slice 2 console-grant API endpoint increment is in place:
   pass with 320 tests / 1982 assertions; the same four integration
   tests are skipped in the default SQLite/Toolbx profile.
 
+The M4 sub-slice 3 ProviderConsoleProxy seam increment is in place:
+
+- `App\Console\Proxy\ProviderConsoleProxy` interface defines the two
+  ticket-issuance methods M4 needs:
+  `requestVncTicket(ConsoleAccessGrant, Deployment)` and
+  `requestTerminalProxy(ConsoleAccessGrant, Deployment)`, both
+  returning a typed `ProviderConsoleTicket` (ticket string, websocket
+  URL, console kind, expiry, optional metadata).
+- `App\Console\Proxy\InMemoryProviderConsoleProxy` is the deterministic
+  in-memory fake used by tests + dev. It rejects expired grants,
+  console-kind mismatches, deployment mismatches, and tenant
+  mismatches, emitting a hash-chained `console.proxy.request` audit row
+  with `result=denied` and a typed reason on every rejection. Allowed
+  requests emit a `result=allowed` audit row and return a SHA-256-based
+  deterministic ticket string.
+- `App\Console\Proxy\UnavailableProviderConsoleProxy` is the
+  production-safe default binding. It throws
+  `ProviderConsoleProxyException` so a misconfigured deployment cannot
+  hand out tickets silently.
+- `App\Providers\Proxmox\ProxmoxConsoleProxy` is the skeleton that M4
+  sub-slice 5 will fill in with real Proxmox `vncproxy` / `termproxy`
+  + WebSocket forwarding. It fails closed for now.
+- `AppServiceProvider::register()` binds `ProviderConsoleProxy` based
+  on `RACKLAB_CONSOLE_PROXY` (`in-memory` / `proxmox` / anything else
+  → unavailable). `config/racklab.php` exposes the new
+  `racklab.console.proxy` key.
+- `audit-events.json` snapshot picks up `console.proxy.request`.
+- Coverage: 7 contract tests cover container binding (in-memory vs
+  unavailable), allowed VNC + terminal ticket issuance with audit,
+  console-kind mismatch, expired grant, and deployment mismatch — all
+  with the matching `console.proxy.request` denial-reason audit rows.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`, `composer audit`,
+  `composer security:semgrep`, `composer pest:snapshots`,
+  `composer i18n:missing`, `composer check-platform-reqs --no-interaction`,
+  and `composer test` pass with 329 tests / 2015 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

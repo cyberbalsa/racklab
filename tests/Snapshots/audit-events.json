@@ -6,6 +6,7 @@
     "auth.signup",
     "cloud_init.render",
     "console.access.denied",
+    "console.proxy.request",
     "console.session.start",
     "deployment.lifecycle",
     "deployment.request",

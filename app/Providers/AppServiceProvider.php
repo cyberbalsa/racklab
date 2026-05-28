@@ -8,12 +8,16 @@ use App\Backup\BackupProcessRunner;
 use App\Backup\NativeBackupProcessRunner;
 use App\Backup\NativeRedisBackupClient;
 use App\Backup\RedisBackupClient;
+use App\Console\Proxy\InMemoryProviderConsoleProxy;
+use App\Console\Proxy\ProviderConsoleProxy;
+use App\Console\Proxy\UnavailableProviderConsoleProxy;
 use App\Contracts\ContainerRuntime;
 use App\Domain\Rbac\RolePermissionLookup;
 use App\Domain\Tenancy\RoleBindingRepository;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Providers\Proxmox\Contracts\ProxmoxClientContract;
 use App\Providers\Proxmox\GuzzleProxmoxClient;
+use App\Providers\Proxmox\ProxmoxConsoleProxy;
 use App\Providers\Proxmox\ProxmoxEndpointConfig;
 use App\Providers\Proxmox\UnavailableProxmoxClient;
 use App\Rbac\EloquentRolePermissionLookup;
@@ -64,6 +68,11 @@ class AppServiceProvider extends ServiceProvider
             'podman' => app(PodmanContainerRuntime::class),
             'fake' => app(FakeContainerRuntime::class),
             default => app(UnavailableContainerRuntime::class),
+        });
+        $this->app->bind(ProviderConsoleProxy::class, fn (): ProviderConsoleProxy => match (config('racklab.console.proxy')) {
+            'in-memory' => app(InMemoryProviderConsoleProxy::class),
+            'proxmox' => app(ProxmoxConsoleProxy::class),
+            default => app(UnavailableProviderConsoleProxy::class),
         });
     }
 
