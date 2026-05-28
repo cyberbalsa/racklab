@@ -1855,6 +1855,27 @@ authoring/export and labels) is now in place and browser-verified.
   real link to `/horizon`, gated by Horizon's own auth/asset serving under
   local `artisan serve`) — not an MVP button.
 
+### PRD §15 Key Screens — Project detail + Script library (2026-05-28)
+
+Two more student Key Screens from PRD §15 now exist as Livewire pages:
+
+- **Project detail** (`/projects/{project}`, `App\Livewire\Projects\ProjectDetail`):
+  project header + quota bars, the project's deployments (linked to the
+  deployment detail page), its project-local stacks (with export), and its SSH
+  keys. Gated by `project.read` (404 on denial, no existence leak); SSH keys are
+  shown only when the actor also holds `project.ssh_key.read`. Project names on
+  the dashboard link here. `VisibleDeploymentList` gained an optional
+  `projectId` filter (reused, not duplicated).
+- **Script library** (`/projects/{project}/scripts`,
+  `App\Livewire\Scripts\ScriptLibrary`): the project's scripts with runner kind,
+  current version, and approval state. Authorized at the project level —
+  `project.read` gates the page, `script.read` on the project gates whether
+  scripts are listed (scripts are authorized through their project, not
+  per-script bindings). Linked from the project detail page.
+- Covered by contract tests (owner sees content; outsider 404; approved vs
+  not-approved rendering) plus a Dusk nav smoke (dashboard → project detail →
+  script library by clicking).
+
 ### reconciler-as-jobs — scheduled maintenance via Horizon (2026-05-28)
 
 Replaced the scheduler Quadlet's `while true` shell loop with Horizon-dispatched
