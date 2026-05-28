@@ -4,31 +4,58 @@ declare(strict_types=1);
 
 namespace App\Docs;
 
+use App\Docs\Refs\CommonMark\RackLabRefExtension;
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\CommonMark\Extension\GithubFlavoredMarkdownExtension;
+use League\CommonMark\MarkdownConverter;
+
 /**
- * Minimal Markdown → HTML renderer for the S1/S2 docs slice.
+ * Renders authored Markdown to the HTML cache that's persisted in
+ * `doc_versions.html_cache` and served to readers.
  *
- * M8 S3 swaps this in for `league/commonmark` per PRD §15: full GFM
- * support, `racklabRef` cross-link parsing, and HTML sanitization. The
- * S1 implementation only handles paragraph wrapping + escapes so the
- * data model + API can ship without pulling commonmark before the
- * TipTap spike.
+ * Pipeline: CommonMark core + GFM (tables, strikethrough,
+ * task lists, autolinks) + the `[[kind:id]]` extension that emits
+ * `<racklab-ref>` custom elements. HTML in the source is escaped
+ * via the `html_input: 'escape'` environment setting, so authored
+ * Markdown cannot inject scripts even before the editor's
+ * sanitization pass. `allow_unsafe_links: false` blocks the
+ * `javascript:` / `data:` protocols inside links.
  *
- * Stable contract: render(string) → string. Callers must treat the
- * output as already-HTML-escaped; the upgrade in S3 keeps the same
- * signature so the API layer is unaffected.
+ * Configuration is immutable per render — the converter is built
+ * lazily on first render and cached for the lifetime of the
+ * service instance.
  */
-final readonly class MarkdownRenderer
+class MarkdownRenderer
 {
+    private ?MarkdownConverter $converter = null;
+
     public function render(string $markdown): string
     {
-        $normalized = preg_replace("/\r\n?|\r/", "\n", $markdown) ?? $markdown;
-        $paragraphs = array_filter(array_map(trim(...), explode("\n\n", $normalized)));
+        $converter = $this->converter ??= $this->buildConverter();
 
-        $html = [];
-        foreach ($paragraphs as $paragraph) {
-            $html[] = '<p>'.htmlspecialchars(str_replace("\n", ' ', $paragraph), ENT_QUOTES | ENT_HTML5, 'UTF-8').'</p>';
-        }
+        return (string) $converter->convert($markdown);
+    }
 
-        return implode("\n", $html);
+    protected function buildEnvironment(): Environment
+    {
+        $environment = new Environment([
+            'html_input' => 'escape',
+            'allow_unsafe_links' => false,
+            'renderer' => [
+                'soft_break' => "\n",
+            ],
+        ]);
+
+        $environment->addExtension(new CommonMarkCoreExtension);
+        $environment->addExtension(new GithubFlavoredMarkdownExtension);
+        $environment->addExtension(new RackLabRefExtension);
+
+        return $environment;
+    }
+
+    private function buildConverter(): MarkdownConverter
+    {
+        return new MarkdownConverter($this->buildEnvironment());
     }
 }

@@ -24,6 +24,7 @@
         "laravel/reverb": "^1.10",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
+        "league/commonmark": "^2.8.1",
         "livewire/livewire": "^4.3.0",
         "racklab/console-proxmox": "dev-main",
         "racklab/network-vpnaas-openvpn": "dev-main",

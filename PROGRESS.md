@@ -1634,6 +1634,58 @@ Codex M8 S1+S2 findings folded before commit:
 12 docs contract tests cover the fold; full Pest suite (Tiny +
 Contract + Integration + Snapshots) stays green.
 
+### M8 docs plugin S3 — CommonMark renderer + RackLabRef parser (2026-05-28)
+
+The M8 sub-slice 3 increment swaps the placeholder paragraph-wrap
+Markdown renderer for a full CommonMark + GFM pipeline and adds
+the `[[kind:id]]` cross-link grammar:
+
+- **`App\Docs\MarkdownRenderer`** rewritten on top of
+  `league/commonmark@2.8.2`: CommonMark core + GFM (tables,
+  strikethrough, task lists, autolinks) + the new
+  `RackLabRefExtension`. Environment is configured for safety:
+  `html_input: 'escape'` blocks raw HTML in the source,
+  `allow_unsafe_links: false` blocks `javascript:` / `data:`
+  protocols, and the converter is lazily cached per-service-
+  instance.
+- **`App\Docs\Refs\RackLabRef`** is the readonly DTO for an
+  authored cross-link reference with structural validation
+  (`kind` is `^[a-z][a-z0-9_]{1,31}$`, `id` is
+  `^[A-Za-z0-9_\-]{1,64}$`). `toSourceSyntax()` round-trips back
+  to `[[kind:id]]`.
+- **`App\Docs\Refs\RackLabRefParser`** is the pure-string
+  utility that extracts refs from a Markdown source for audit /
+  cross-link-index use (separate from the CommonMark inline
+  parser that handles per-paragraph rendering). Ships
+  `extractAll` and `extractUnique`.
+- **`App\Docs\Refs\CommonMark\*`**: the CommonMark integration —
+  `RackLabRefInline` extends `AbstractInline` (carries the
+  parsed `RackLabRef`), `RackLabRefInlineParser` is wired with
+  priority 100 so it consumes `[[…]]` before CommonMark's
+  link grammar (priority 30/20) interprets the brackets as a
+  broken link, `RackLabRefRenderer` emits
+  `<racklab-ref data-kind="…" data-id="…" class="racklab-ref
+  racklab-ref--pending">[[kind:id]]</racklab-ref>` (the JS
+  island in M8 S5 upgrades the element to a status pill via the
+  resolver endpoint), and `RackLabRefExtension` registers the
+  pair into the environment.
+- **Tests** — 11 renderer tiny tests cover GFM tables / task
+  lists, HTML escaping, javascript-link blocking, single +
+  multiple refs in a paragraph, code-fence + inline-code
+  passthrough, and rejection of malformed refs. 8 parser tiny
+  tests cover empty input, single + multi extraction,
+  `extractUnique` deduplication, malformed-ref rejection,
+  plugin-contributed kinds with no allowlist, and a
+  toSourceSyntax round-trip.
+
+Out of scope for S3 (deferred to S4): the `Docs\RefResolving`
+hookspec event, RefResolver interface, six built-in resolvers
+(deployment/project/course/network/script/plugin), the
+RBAC-checked resolver endpoint with cross-link audit, and the
+TipTap editor island (which itself blocks on the M8
+Markdown-round-trip spike memo per `docs/roadmap/M08-docs-
+plugin.md`).
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker
