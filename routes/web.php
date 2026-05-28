@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentNewVmController;
 use App\Http\Controllers\DeploymentReleaseController;
 use App\Http\Controllers\DeploymentShowController;
+use App\Http\Controllers\Docs\RefResolveController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\JwksController;
 use App\Http\Controllers\ScriptFakeRunnerController;
@@ -64,3 +65,7 @@ Route::post('/scripts/fake-runner', ScriptFakeRunnerController::class)
 Route::get('/artifacts/{artifact}', ArtifactShowController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('artifacts.show');
+
+Route::get('/plugins/docs/refs/resolve/{kind}/{id}', RefResolveController::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('plugins.docs.refs.resolve');

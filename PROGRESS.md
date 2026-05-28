@@ -1686,6 +1686,67 @@ TipTap editor island (which itself blocks on the M8
 Markdown-round-trip spike memo per `docs/roadmap/M08-docs-
 plugin.md`).
 
+### M8 docs plugin S4 — RefResolving hookspec + 6 core resolvers + RBAC resolver endpoint (2026-05-28)
+
+The M8 sub-slice 4 increment lands the cross-link resolution
+half of the docs plugin: the hookspec that makes docs an
+extension *point*, the six built-in resolvers, and the
+RBAC-checked, audited resolver endpoint the status-pill island
+will poll.
+
+- **`App\Events\Hookspecs\Docs\RefResolvingEvent`** — the
+  readonly, typed hookspec (Resolver style — first non-null
+  wins) that plugins implement to contribute resolvers for their
+  own object kinds. Passes the `HookspecEventTypedRule` gate.
+- **Pure resolver layer** under `app/Docs/Refs/Resolving/`:
+  `RefResolver` interface (`kind()` + `resolve()`), `ResolvedRef`
+  result (private ctor + `resolved`/`redacted`/`notFound`/
+  `unsupported` factories, `toArray()` with `rbac_visible`),
+  `RefResolutionStatus` enum, `RefResolutionContext` (actor +
+  tenant, HTTP-free so resolvers stay unit-testable), and
+  `RefResolverRegistry` — core resolvers take precedence, then
+  the `RefResolvingEvent` hookspec is dispatched for
+  plugin-contributed kinds. A plugin cannot hijack a core kind.
+- **Six core resolvers** (`app/Docs/Refs/Resolving/Core/`):
+  deployment / project / course / network / script gate on the
+  matching `*.read` permission through `AccessResolver` and
+  redact (never leak label or state) when denied; lookups are
+  tenant-scoped so cross-tenant targets read as `not_found`. The
+  plugin resolver reads `PluginInstallation` (`#[Untenanted]`,
+  non-sensitive lifecycle metadata) for any docs reader and
+  matches a vendor-prefixed slug by its trailing short name
+  (`[[plugin:docs-plugin]]` → `racklab/docs-plugin`).
+- **New RBAC permissions** `network.read` (all five roles) and
+  `script.read` (admin/support/instructor/ta — students have no
+  script involvement, so script refs correctly redact for them).
+  `roles.json` regenerated; the snapshot gate passes.
+- **Endpoint** `GET /plugins/docs/refs/resolve/{kind}/{id}`
+  (`RefResolveController`, web/session auth + tenant binding):
+  validates the ref against the `RackLabRef` grammar (malformed →
+  404), resolves through the registry, and returns
+  `{kind,id,status,label,url,detail,rbac_visible}`.
+- **Sampled cross-link audit** — `docs.ref_resolve` is emitted
+  through `RefResolveAuditSampler`. The default
+  `ProbabilityRefResolveAuditSampler` always records the
+  security-relevant outcomes (redacted/not-found/unsupported) and
+  samples the high-volume successful resolutions at
+  `config('docs.ref_resolve_audit_sample_rate')` (default 0.1).
+  Added to the `audit-events.json` snapshot with contract
+  coverage.
+- **Tests** — 10 tiny tests (ResolvedRef factories + array shape,
+  registry core-precedence / hookspec fall-through / non-resolver
+  guard, context construction) and 9 contract tests (resolved,
+  redacted + denied audit, not-found, unsupported, project
+  resolve, plugin resolve, plugin-contributed `cluster` kind via
+  the hookspec, malformed-ref 404, guest redirect). Full suite is
+  green at 457 tests / 4 skipped (Podman-host integration).
+
+Out of scope for S4 (deferred to S5): Postgres `tsvector`
+full-text search, the "Related docs" panel, the image-upload
+endpoint (`Artifact(kind=docs_image)`), packaging the docs
+surface into `packages/racklab/docs-plugin/`, and the TipTap +
+`racklab-ref` status-pill JS island that consumes this endpoint.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

@@ -34,6 +34,7 @@
         "network.create_private",
         "network.create_router",
         "network.manage_security_group",
+        "network.read",
         "network.vpnaas.endpoint.create",
         "network.vpnaas.endpoint.delete",
         "network.vpnaas.endpoint.read",
@@ -61,6 +62,7 @@
         "script.network.create",
         "script.openqa.create",
         "script.publish",
+        "script.read",
         "script.run_unapproved",
         "tenant.manage",
         "token.create",
@@ -99,6 +101,7 @@
         "network.create_private",
         "network.create_router",
         "network.manage_security_group",
+        "network.read",
         "network.vpnaas.endpoint.create",
         "network.vpnaas.endpoint.delete",
         "network.vpnaas.endpoint.read",
@@ -126,6 +129,7 @@
         "script.network.create",
         "script.openqa.create",
         "script.publish",
+        "script.read",
         "script.run_unapproved",
         "token.create"
     ],
@@ -157,6 +161,7 @@
         "network.create_private",
         "network.create_router",
         "network.manage_security_group",
+        "network.read",
         "network.vpnaas.endpoint.create",
         "network.vpnaas.endpoint.delete",
         "network.vpnaas.endpoint.read",
@@ -182,6 +187,7 @@
         "script.network.create",
         "script.openqa.create",
         "script.publish",
+        "script.read",
         "token.create"
     ],
     "ta": [
@@ -206,6 +212,7 @@
         "network.create_private",
         "network.create_router",
         "network.manage_security_group",
+        "network.read",
         "network.vpnaas.endpoint.read",
         "network.vpnaas.profile.create",
         "network.vpnaas.profile.download",
@@ -223,6 +230,7 @@
         "script.cloudinit.create",
         "script.network.create",
         "script.openqa.create",
+        "script.read",
         "token.create"
     ],
     "student": [
@@ -243,6 +251,7 @@
         "network.create_private",
         "network.create_router",
         "network.manage_security_group",
+        "network.read",
         "network.vpnaas.endpoint.read",
         "network.vpnaas.profile.create",
         "network.vpnaas.profile.download",

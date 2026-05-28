@@ -13,6 +13,7 @@
     "deployment.request",
     "deployment.scheduled",
     "docs.page",
+    "docs.ref_resolve",
     "horizon.access",
     "horizon.access.denied",
     "host_key.phone_home",

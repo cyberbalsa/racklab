@@ -12,11 +12,21 @@ use App\Console\Proxy\InMemoryProviderConsoleProxy;
 use App\Console\Proxy\ProviderConsoleProxy;
 use App\Console\Proxy\UnavailableProviderConsoleProxy;
 use App\Contracts\ContainerRuntime;
+use App\Docs\Refs\Resolving\Core\CourseRefResolver;
+use App\Docs\Refs\Resolving\Core\DeploymentRefResolver;
+use App\Docs\Refs\Resolving\Core\NetworkRefResolver;
+use App\Docs\Refs\Resolving\Core\PluginRefResolver;
+use App\Docs\Refs\Resolving\Core\ProjectRefResolver;
+use App\Docs\Refs\Resolving\Core\ScriptRefResolver;
+use App\Docs\Refs\Resolving\ProbabilityRefResolveAuditSampler;
+use App\Docs\Refs\Resolving\RefResolveAuditSampler;
+use App\Docs\Refs\Resolving\RefResolverRegistry;
 use App\Domain\Rbac\RolePermissionLookup;
 use App\Domain\Tenancy\RoleBindingRepository;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Networking\PlaceholderVpnClientProfileGenerator;
 use App\Networking\VpnClientProfileGenerator;
+use App\Plugins\HookDispatcher;
 use App\Plugins\PluginRegistry;
 use App\Providers\Proxmox\Contracts\ProxmoxClientContract;
 use App\Providers\Proxmox\GuzzleProxmoxClient;
@@ -45,6 +55,23 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantContextStore::class);
+        $this->app->singleton(HookDispatcher::class);
+        $this->app->singleton(RefResolverRegistry::class, fn (): RefResolverRegistry => new RefResolverRegistry(
+            $this->app->make(HookDispatcher::class),
+            [
+                $this->app->make(DeploymentRefResolver::class),
+                $this->app->make(ProjectRefResolver::class),
+                $this->app->make(CourseRefResolver::class),
+                $this->app->make(NetworkRefResolver::class),
+                $this->app->make(ScriptRefResolver::class),
+                $this->app->make(PluginRefResolver::class),
+            ],
+        ));
+        $this->app->bind(RefResolveAuditSampler::class, function (): RefResolveAuditSampler {
+            $rate = config('docs.ref_resolve_audit_sample_rate', 0.1);
+
+            return new ProbabilityRefResolveAuditSampler(is_numeric($rate) ? (float) $rate : 0.1);
+        });
         $this->app->bind(RoleBindingRepository::class, EloquentRoleBindingRepository::class);
         $this->app->bind(RolePermissionLookup::class, EloquentRolePermissionLookup::class);
         $this->app->bind(ProxmoxClientContract::class, function (): ProxmoxClientContract {
