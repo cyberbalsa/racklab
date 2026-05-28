@@ -1791,6 +1791,56 @@ prior sessions.
   errors**. Write paths verified: created an API token and a deployment
   (`New VM`) through the live UI; both persisted and rendered.
 
+### Visible student MVP — catalog, stack builder, labels (2026-05-28)
+
+The user-facing MVP (login → dashboard → catalog → deploy VMs, plus stack
+authoring/export and labels) is now in place and browser-verified.
+
+- **Tenant-wide catalog read.** Catalog items published `tenant_local` were
+  unreadable without a per-item RoleBinding, so the catalog could never be
+  browsed. Added a minimal `tenant_member` role (`catalog.read` + later
+  `network.read` only) bound at **tenant scope** (`resource_type=tenant`);
+  `EloquentRoleBindingRepository::forActorAndResource` now also returns
+  tenant-scoped bindings, and `PersonalProjectProvisioner` grants every member
+  that binding (pre-existing members self-heal on next login). `AccessResolver`
+  remains the only gate; cross-tenant isolation is preserved and tested. Codex
+  reviewed the change — no over-authorization or isolation findings.
+- **Demo catalog.** Idempotent `CatalogDemoSeeder` (gated by
+  `RACKLAB_SEED_DEMO_CATALOG`, default on) publishes starter single-VM
+  fake-provider catalog items so a fresh install has a browsable catalog.
+- **Catalog page.** Livewire `CatalogBrowser` at `/catalog` lists readable
+  published items as daisyUI cards and deploys a version into a selected
+  project. Deploy-from-stack logic was extracted into a shared `CatalogDeployer`
+  (catalog.read + provider routing) that both the JSON API and the UI use, so
+  they cannot diverge; `VisibleCatalogList` lists readable items.
+- **App shell.** A shared daisyUI navbar (brand + Dashboard/Catalog/Stacks/Docs
+  + logout for members, Log in / Create account for guests) makes every surface
+  reachable; login/register pages cross-link.
+- **Livewire tenant-context fix.** `/livewire/update` requests don't re-run a
+  route's middleware, so authenticated Livewire actions lost tenant context
+  (the catalog deploy 404'd; `DocEditor` had the same latent gap).
+  `BindAuthenticatedTenant` + `SetUserLocale` are now Livewire persistent
+  middleware.
+- **Stack builder.** Livewire `StackBuilder` at `/stacks/build` composes a
+  project-local stack (name + VM components + attached tenant network
+  offerings) via `project.update`-gated `ProjectStackAuthoring`;
+  `VisibleNetworkOfferingList` powers the network picker.
+- **Stack Package export.** `StackPackageExporter` builds an OVA-style zip
+  (`racklab-stack.json` + checksum manifest) with provider-specific IDs stripped
+  to import hints and tenant/project/db identifiers and secrets never written;
+  download at `/stacks/{stack}/export` gated by `catalog.stack_package.export`
+  on the stack's project (404 hides denial).
+- **Deployment labels.** Owner-editable `labels` on deployments
+  (`LabelNormalizer` cleans free-text input; `deployment.update`-gated
+  `DeploymentLabelController`); the dashboard renders clickable label badges,
+  an inline editor, and a `?label=` filter so members can separate their stuff.
+- **Tests.** New tiny + contract coverage for every increment, plus Dusk E2Es
+  for login→catalog→deploy and the stack builder. Fixed a pre-existing WCAG AA
+  contrast failure on the resolved docs ref-pill. Full default suite green at
+  498 tests / 2835 assertions; browser suite passes except two
+  environment-only failures (a Dusk `Browser::source()` API gap in the console
+  test and `/horizon` assets in the Filament test) that predate this work.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker
