@@ -114,7 +114,7 @@
                                         <form method="POST" action="{{ route('deployments.new-vm.store') }}">
                                             @csrf
                                             <input type="hidden" name="project_id" value="{{ $project->getKey() }}">
-                                            <button type="submit" class="btn btn-sm btn-primary">{{ __('racklab.dashboard.new_vm') }}</button>
+                                            <button type="submit" dusk="new-vm-{{ $project->getKey() }}" class="btn btn-sm btn-primary">{{ __('racklab.dashboard.new_vm') }}</button>
                                         </form>
                                     </td>
                                 </tr>
@@ -358,7 +358,7 @@
                                                 placeholder="{{ __('racklab.dashboard.labels_placeholder') }}"
                                                 aria-label="{{ __('racklab.dashboard.labels_aria') }}"
                                             >
-                                            <button type="submit" class="btn btn-xs">{{ __('racklab.dashboard.labels_save') }}</button>
+                                            <button type="submit" dusk="save-labels-{{ $deployment->getKey() }}" class="btn btn-xs">{{ __('racklab.dashboard.labels_save') }}</button>
                                         </form>
                                     </td>
                                     <td>{{ $deployment->state }}</td>
@@ -390,7 +390,7 @@
                                         @if (! in_array($deployment->state, ['released', 'expired'], true))
                                             <form method="POST" action="{{ route('deployments.release', ['deployment' => $deployment->getKey()]) }}">
                                                 @csrf
-                                                <button type="submit" class="btn btn-sm btn-outline">{{ __('racklab.dashboard.release_deployment') }}</button>
+                                                <button type="submit" dusk="release-{{ $deployment->getKey() }}" class="btn btn-sm btn-outline">{{ __('racklab.dashboard.release_deployment') }}</button>
                                             </form>
                                         @endif
                                     </td>
