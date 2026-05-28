@@ -30,6 +30,9 @@ return [
         'target_project' => 'Deploy into project',
         'title' => 'Catalog',
     ],
+    'nav' => [
+        'primary' => 'Primary',
+    ],
     'dashboard' => [
         'active_tenant' => 'Tenant',
         'ability_deployment_read' => 'Deployment read',

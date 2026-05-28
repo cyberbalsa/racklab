@@ -38,5 +38,9 @@
 
             <button type="submit" class="btn btn-primary w-full">{{ __('racklab.auth.register') }}</button>
         </form>
+
+        <p class="mt-4 text-sm text-base-content/70">
+            <a href="{{ route('login') }}" class="link" wire:navigate>{{ __('racklab.auth.login_title') }}</a>
+        </p>
     </section>
 @endsection

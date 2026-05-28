@@ -30,6 +30,9 @@ return [
         'target_project' => 'Desplegar en el proyecto',
         'title' => 'Catalogo',
     ],
+    'nav' => [
+        'primary' => 'Principal',
+    ],
     'dashboard' => [
         'active_tenant' => 'Inquilino',
         'ability_deployment_read' => 'Leer despliegues',
