@@ -25,6 +25,7 @@ use App\Livewire\Docs\DocEditor;
 use App\Livewire\Docs\DocIndex;
 use App\Livewire\Hello;
 use App\Livewire\Projects\ProjectDetail;
+use App\Livewire\Scripts\ScriptLibrary;
 use App\Livewire\Stacks\StackBuilder;
 use Illuminate\Support\Facades\Route;
 
@@ -50,6 +51,10 @@ Route::get('/catalog', CatalogBrowser::class)
 Route::get('/projects/{project}', ProjectDetail::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('projects.show');
+
+Route::get('/projects/{project}/scripts', ScriptLibrary::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('projects.scripts');
 
 Route::get('/stacks/build', StackBuilder::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])

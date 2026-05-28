@@ -12,6 +12,9 @@
                 {{ __('racklab.projects.scope', ['scope' => $project->sharing_scope]) }}
             @endif
         </p>
+        <div class="pt-2">
+            <a href="{{ route('projects.scripts', ['project' => $project->getKey()]) }}" wire:navigate class="btn btn-xs btn-ghost" dusk="project-scripts-link">{{ __('racklab.scripts_lib.title') }}</a>
+        </div>
     </header>
 
     <section>

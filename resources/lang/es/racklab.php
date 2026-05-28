@@ -52,6 +52,18 @@ return [
         'stack_name' => 'Stack',
         'stacks' => 'Stacks',
     ],
+    'scripts_lib' => [
+        'approval' => 'Aprobacion',
+        'approved' => 'Aprobado',
+        'back_to_project' => 'Volver al proyecto',
+        'empty' => 'Aun no se han definido scripts en este proyecto.',
+        'name' => 'Nombre',
+        'no_access' => 'No tienes permiso para ver scripts en este proyecto.',
+        'not_approved' => 'No aprobado',
+        'runner' => 'Ejecutor',
+        'state' => 'Estado',
+        'title' => 'Biblioteca de scripts',
+    ],
     'stacks' => [
         'available_networks' => 'Redes disponibles',
         'actions' => 'Acciones',
