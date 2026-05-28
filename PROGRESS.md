@@ -1839,10 +1839,21 @@ authoring/export and labels) is now in place and browser-verified.
   an inline editor, and a `?label=` filter so members can separate their stuff.
 - **Tests.** New tiny + contract coverage for every increment, plus Dusk E2Es
   for login→catalog→deploy and the stack builder. Fixed a pre-existing WCAG AA
-  contrast failure on the resolved docs ref-pill. Full default suite green at
-  498 tests / 2835 assertions; browser suite passes except two
-  environment-only failures (a Dusk `Browser::source()` API gap in the console
-  test and `/horizon` assets in the Filament test) that predate this work.
+  contrast failure on the resolved docs ref-pill.
+- **Button audit / no stubs.** Swept every interactive control in the MVP
+  surfaces (login, dashboard, catalog, stack builder, deployment detail): no
+  dead `href="#"`, empty actions, or TODO stubs; every route + `wire:click`
+  handler resolves. Added an exhaustive Dusk smoke driving New VM, label
+  save + badge filter, Run Console, and Release. The one genuine no-op found —
+  the deployment console **Connect** button (xterm/noVNC islands were never
+  mounted) — is now wired: clicking it requests a real audited console grant
+  over a session web route and mounts the island seam (connecting→connected).
+  Raw pixel streaming over the console proxy WebSocket remains the documented
+  island work needing a live Proxmox console proxy to verify.
+- Full default suite green at 499 tests / 2847 assertions; browser suite 16/17,
+  the single remaining failure being the admin-only Filament→Horizon nav (a
+  real link to `/horizon`, gated by Horizon's own auth/asset serving under
+  local `artisan serve`) — not an MVP button.
 
 ## Next
 
