@@ -89,17 +89,13 @@ CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", 
 FROM runtime AS reverb
 CMD ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
 
-FROM runtime AS provider-worker
-CMD ["php", "artisan", "queue:work", "redis", "--queue=provider,default", "--sleep=1", "--tries=1", "--timeout=300", "--max-time=3600"]
-
-FROM runtime AS script-worker
-CMD ["php", "artisan", "queue:work", "redis", "--queue=scripts,cleanup", "--sleep=1", "--tries=1", "--timeout=900", "--max-time=3600"]
-
-FROM runtime AS console-worker
-CMD ["php", "artisan", "queue:work", "redis", "--queue=console", "--sleep=1", "--tries=1", "--timeout=3600", "--max-time=3600"]
+# Single Horizon image — both racklab-horizon-app.container and
+# racklab-horizon-runner.container pull this image; the Quadlet's
+# RACKLAB_HORIZON_POOL_GROUP env var (app|runner) tells config/horizon.php
+# which supervisor subset to spawn. Replaces the four legacy worker targets
+# (provider-worker, script-worker, console-worker, notification-worker).
+FROM runtime AS horizon
+CMD ["php", "artisan", "horizon"]
 
 FROM runtime AS scheduler-reconciler
 CMD ["/bin/sh", "-lc", "while true; do php artisan racklab:reconcile-provider-tasks; php artisan racklab:expire-deployments; php artisan racklab:detect-provider-drift; php artisan racklab:reap-script-containers --max-age=3600; sleep ${RACKLAB_RECONCILER_INTERVAL:-30}; done"]
-
-FROM runtime AS notification-worker
-CMD ["php", "artisan", "queue:work", "redis", "--queue=notifications,default", "--sleep=1", "--tries=3", "--timeout=120", "--max-time=3600"]

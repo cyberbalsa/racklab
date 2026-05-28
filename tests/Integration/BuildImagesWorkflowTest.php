@@ -17,11 +17,12 @@ it('defines one multi-target Containerfile for the Baseline image family', funct
         ->toContain('composer install --no-dev')
         ->toContain('FROM runtime AS web')
         ->toContain('FROM runtime AS reverb')
-        ->toContain('FROM runtime AS provider-worker')
-        ->toContain('FROM runtime AS script-worker')
-        ->toContain('FROM runtime AS console-worker')
+        ->toContain('FROM runtime AS horizon')
         ->toContain('FROM runtime AS scheduler-reconciler')
-        ->toContain('FROM runtime AS notification-worker');
+        ->not->toContain('FROM runtime AS provider-worker')
+        ->not->toContain('FROM runtime AS script-worker')
+        ->not->toContain('FROM runtime AS console-worker')
+        ->not->toContain('FROM runtime AS notification-worker');
 
     expect(strpos($containerfile, 'mkdir -p'))
         ->toBeLessThan(strpos($containerfile, 'php artisan package:discover --ansi'));
@@ -61,11 +62,8 @@ it('builds and publishes every Baseline image with SBOM and license gates', func
         ->and($images)->toBe([
             'web',
             'reverb',
-            'provider-worker',
-            'script-worker',
-            'console-worker',
+            'horizon',
             'scheduler-reconciler',
-            'notification-worker',
         ])
         ->and($targets)->toBe($images)
         ->and($uses['Checkout'])->toBe('actions/checkout@v6')
@@ -149,6 +147,23 @@ it('places .grype.yaml at repo root with an empty initial allowlist', function (
     $config = Yaml::parseFile(base_path('.grype.yaml'));
 
     expect($config['ignore'] ?? null)->toBe([]);
+});
+
+it('publishes legacy mirror tags from the horizon image for one release cycle', function (): void {
+    // The four legacy per-pool image names (provider-worker, script-worker,
+    // console-worker, notification-worker) must continue to publish from the
+    // horizon image so external consumers don't break instantly. The publish
+    // step gates on `matrix.image == 'horizon'` so it only fires once.
+    $workflow = Yaml::parseFile(base_path('.github/workflows/build-images.yml'));
+    $steps = $workflow['jobs']['build-images']['steps'];
+
+    $mirror = current(array_filter($steps, fn (array $s): bool => ($s['name'] ?? '') === 'Tag legacy aliases for one release cycle'));
+    expect($mirror)->not->toBeFalse();
+    expect($mirror['if'])->toContain("matrix.image == 'horizon'");
+
+    foreach (['provider-worker', 'script-worker', 'console-worker', 'notification-worker'] as $alias) {
+        expect($mirror['run'])->toContain($alias);
+    }
 });
 
 it('rejects unallowlisted forbidden runtime image licenses', function (): void {

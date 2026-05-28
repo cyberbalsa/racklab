@@ -33,16 +33,10 @@ jobs:
             target: web
           - image: reverb
             target: reverb
-          - image: provider-worker
-            target: provider-worker
-          - image: script-worker
-            target: script-worker
-          - image: console-worker
-            target: console-worker
+          - image: horizon
+            target: horizon
           - image: scheduler-reconciler
             target: scheduler-reconciler
-          - image: notification-worker
-            target: notification-worker
 
     steps:
       - name: Checkout
@@ -153,4 +147,29 @@ jobs:
           for tag in "${tags[@]}"; do
             docker tag "$LOCAL_IMAGE" "$tag"
             docker push "$tag"
+          done
+
+      - name: Tag legacy aliases for one release cycle
+        # The horizon image replaces four legacy per-pool images. Publish
+        # mirror tags so external integrators pulling the old names keep
+        # working through one release cycle. Drop this block once the
+        # consumers have been migrated.
+        if: github.event_name != 'pull_request' && matrix.image == 'horizon'
+        env:
+          SOURCE: ghcr.io/cyberbalsa/racklab/horizon
+        run: |
+          set -euo pipefail
+          for alias in provider-worker script-worker console-worker notification-worker; do
+            ALIAS_IMAGE="ghcr.io/cyberbalsa/racklab/${alias}"
+            tags=("${ALIAS_IMAGE}:sha-${GITHUB_SHA::12}")
+            if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+              tags+=("${ALIAS_IMAGE}:main")
+            fi
+            if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+              tags+=("${ALIAS_IMAGE}:${GITHUB_REF_NAME}")
+            fi
+            for tag in "${tags[@]}"; do
+              docker tag "$LOCAL_IMAGE" "$tag"
+              docker push "$tag"
+            done
           done
