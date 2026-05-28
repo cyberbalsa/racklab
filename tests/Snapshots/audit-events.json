@@ -22,6 +22,7 @@
     "network.router",
     "network.security_group",
     "network.vpnaas.endpoint",
+    "network.vpnaas.profile",
     "project.ssh_key",
     "provider.drift",
     "quota.consumed",

@@ -1337,6 +1337,76 @@ The M5c sub-slice 3 port + public-IP allocator increment is in place:
   four integration tests are skipped in the default SQLite/Toolbx
   profile.
 
+The M5c sub-slice 4 VPN client profile issuance + revocation
+increment is in place:
+
+- `App\Networking\VpnClientProfileService` owns the profile
+  lifecycle: `issue()` validates the endpoint is running, refuses
+  duplicate `(endpoint, user)` pairs, asserts the
+  `vpnaas_client_profiles` quota, generates material via the
+  pluggable `VpnClientProfileGenerator`, persists with
+  `Crypt::encryptString` of both `config_ciphertext` and
+  `private_key_ciphertext`, and emits a `network.vpnaas.profile`
+  audit row with action `issue`. `downloadConfig()` decrypts the
+  rendered .ovpn, stamps `downloaded_at`, and audits the download
+  (denying inactive/expired/revoked profiles).
+  `revoke()` flips state, closes any open `VpnSession` rows,
+  releases the profile quota, and is idempotent.
+- `App\Networking\PlaceholderVpnClientProfileGenerator` is the S4
+  default — opaque placeholder cert + key bytes plus a minimal
+  OpenVPN client config wrapping the binding's
+  `(public_ip, udp_port)`. M5c S6 swaps in an OpenSSL-backed
+  generator that produces a real X.509 client cert signed against
+  the pool's CA.
+- `POST /api/v1/vpn-client-profiles` issues a profile (defaults
+  owner to the authenticated user; admin/support/instructor can
+  specify another user).
+- `GET /api/v1/vpn-client-profiles/{profile}/download` enforces
+  owner-only (administrators cannot download other users private
+  key material per PRD §09) and returns the .ovpn bytes with
+  `application/x-openvpn-profile` content-type.
+- `POST /api/v1/vpn-client-profiles/{profile}/revoke` revokes the
+  profile. Owners can self-revoke; admin/support/instructor with
+  `network.vpnaas.profile.revoke` can revoke any profile.
+- `audit-events.json` snapshot picks up `network.vpnaas.profile`.
+  Scribe regenerates `docs/api/openapi.yaml` with bespoke examples
+  for create + revoke and a dedicated `application/x-openvpn-profile`
+  schema for the download response.
+- Coverage: 10 contract tests — issuance + audit + quota, duplicate
+  rejection, not-running endpoint rejection, permission denial,
+  owner download with `downloaded_at` stamping, owner-only denial
+  for an admin trying to download another user's profile (with
+  `download_denied` audit), the revoke flow that closes open
+  sessions + blocks subsequent downloads, plus three codex
+  regression tests (token-scope-required-for-owner-revoke,
+  cross-tenant-user-issuance-rejection, endpoint-release-revokes-
+  attached-profiles-and-blocks-downloads).
+- Codex P1 + P2 findings folded into this slice:
+  * P1: revocation now requires the
+    `network.vpnaas.profile.revoke` ability on the token as the
+    OUTER gate, even when the actor is the profile owner. A
+    download-only token cannot perform a destructive revoke.
+  * P2: cross-user issuance now verifies the target user is a
+    member of the active tenant; an external account cannot be
+    assigned a profile and occupy the unique `(endpoint, user)`
+    slot. Denials emit a `network.vpnaas.profile` audit row with
+    `target_user_not_tenant_member` reason.
+  * P2: endpoint release now revokes all attached client profiles
+    via `VpnClientProfileService::revokeAllForEndpoint()` before
+    flipping the endpoint state, and the download path also
+    inspects the endpoint state directly. After release, a
+    download attempt returns 422 + audit with
+    `endpoint_not_running` reason.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, and
+  `composer test` pass with 387 tests / 2344 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

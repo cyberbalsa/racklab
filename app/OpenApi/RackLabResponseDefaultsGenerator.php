@@ -270,6 +270,21 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             ];
         }
 
+        if ($method === 'get' && str_contains($uri, '/vpn-client-profiles/') && str_ends_with($uri, '/download')) {
+            return [
+                '200' => [
+                    'description' => 'Rendered OpenVPN client configuration. Owner-only.',
+                    'content' => [
+                        'application/x-openvpn-profile' => [
+                            'schema' => [
+                                'type' => 'string',
+                            ],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
         if ($method === 'get' && $uri === '/api/v1/replay') {
             return [
                 '200' => [
@@ -418,6 +433,8 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             'post /api/v1/routers' => $this->routerExample(),
             'post /api/v1/floating-ips' => $this->floatingIpExample(),
             'post /api/v1/network-vpn-endpoints' => $this->vpnEndpointExample(),
+            'post /api/v1/vpn-client-profiles' => $this->vpnClientProfileExample(),
+            'post /api/v1/vpn-client-profiles/{}/revoke' => $this->vpnClientProfileRevokeExample(),
             'post /api/v1/security-groups',
             'patch /api/v1/security-groups/{}' => $this->securityGroupExample(),
             'post /api/v1/provider-drifts/{}/repair',
@@ -802,6 +819,46 @@ final class RackLabResponseDefaultsGenerator extends OpenApiGenerator
             'capability' => 'network:vpnaas:openvpn:v1',
             'created_at' => '2026-05-28T16:00:00+00:00',
             'bindings' => [],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function vpnClientProfileExample(): array
+    {
+        return [
+            'id' => '01HZVPNPROFILE00000000',
+            'tenant_id' => '01HZTENANT0000000000000000',
+            'network_vpn_endpoint_id' => '01HZVPNENDPOINT00000000',
+            'user_id' => 42,
+            'common_name' => '01HZVPNENDPOINT00000000-42',
+            'state' => 'active',
+            'revoked_at' => null,
+            'revoked_reason' => null,
+            'expires_at' => null,
+            'downloaded_at' => null,
+            'created_at' => '2026-05-28T16:00:00+00:00',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function vpnClientProfileRevokeExample(): array
+    {
+        return [
+            'id' => '01HZVPNPROFILE00000000',
+            'tenant_id' => '01HZTENANT0000000000000000',
+            'network_vpn_endpoint_id' => '01HZVPNENDPOINT00000000',
+            'user_id' => 42,
+            'common_name' => '01HZVPNENDPOINT00000000-42',
+            'state' => 'revoked',
+            'revoked_at' => '2026-05-28T17:00:00+00:00',
+            'revoked_reason' => 'admin_revoked',
+            'expires_at' => null,
+            'downloaded_at' => null,
+            'created_at' => '2026-05-28T16:00:00+00:00',
         ];
     }
 

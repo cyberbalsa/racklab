@@ -1666,6 +1666,379 @@ paths:
           type: string
           examples:
             - architecto
+  /api/v1/vpn-client-profiles:
+    post:
+      summary: 'Create vpn client profiles'
+      operationId: postApiV1VpnClientProfiles
+      description: 'Executes the RackLab API operation with tenant, token, and RBAC enforcement.'
+      parameters: []
+      responses:
+        200:
+          description: 'Existing resource returned for an idempotent replay.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZVPNPROFILE00000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                  user_id: 42
+                  common_name: 01HZVPNENDPOINT00000000-42
+                  state: active
+                  revoked_at: null
+                  revoked_reason: null
+                  expires_at: null
+                  downloaded_at: null
+                  created_at: '2026-05-28T16:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      network_vpn_endpoint_id:
+                        type: string
+                      user_id:
+                        type: integer
+                      common_name:
+                        type: string
+                      state:
+                        type: string
+                      revoked_at:
+                        type: 'null'
+                      revoked_reason:
+                        type: 'null'
+                      expires_at:
+                        type: 'null'
+                      downloaded_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                    required:
+                      - id
+                      - tenant_id
+                      - network_vpn_endpoint_id
+                      - user_id
+                      - common_name
+                      - state
+                      - revoked_at
+                      - revoked_reason
+                      - expires_at
+                      - downloaded_at
+                      - created_at
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZVPNPROFILE00000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                      user_id: 42
+                      common_name: 01HZVPNENDPOINT00000000-42
+                      state: active
+                      revoked_at: null
+                      revoked_reason: null
+                      expires_at: null
+                      downloaded_at: null
+                      created_at: '2026-05-28T16:00:00+00:00'
+        201:
+          description: 'Resource created.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZVPNPROFILE00000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                  user_id: 42
+                  common_name: 01HZVPNENDPOINT00000000-42
+                  state: active
+                  revoked_at: null
+                  revoked_reason: null
+                  expires_at: null
+                  downloaded_at: null
+                  created_at: '2026-05-28T16:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      network_vpn_endpoint_id:
+                        type: string
+                      user_id:
+                        type: integer
+                      common_name:
+                        type: string
+                      state:
+                        type: string
+                      revoked_at:
+                        type: 'null'
+                      revoked_reason:
+                        type: 'null'
+                      expires_at:
+                        type: 'null'
+                      downloaded_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                    required:
+                      - id
+                      - tenant_id
+                      - network_vpn_endpoint_id
+                      - user_id
+                      - common_name
+                      - state
+                      - revoked_at
+                      - revoked_reason
+                      - expires_at
+                      - downloaded_at
+                      - created_at
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZVPNPROFILE00000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                      user_id: 42
+                      common_name: 01HZVPNENDPOINT00000000-42
+                      state: active
+                      revoked_at: null
+                      revoked_reason: null
+                      expires_at: null
+                      downloaded_at: null
+                      created_at: '2026-05-28T16:00:00+00:00'
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                network_vpn_endpoint_id:
+                  type: string
+                  description: 'VPN endpoint the profile attaches to.'
+                  examples:
+                    - 01HZVPNENDPOINT00000000
+                user_id:
+                  type:
+                    - integer
+                    - 'null'
+                  description: 'Owner of the profile. Defaults to the authenticated user. Admin/support/instructor may specify another tenant member; download remains owner-only.'
+                  examples:
+                    - 42
+                expires_at:
+                  type:
+                    - string
+                    - 'null'
+                  description: 'Optional expiry timestamp (RFC 3339). Profiles past expiry are not active and cannot be downloaded. Must be a valid date. Must be a date after <code>now</code>.'
+                  examples:
+                    - '2026-12-31T23:59:59Z'
+              required:
+                - network_vpn_endpoint_id
+  '/api/v1/vpn-client-profiles/{profile}/download':
+    get:
+      summary: 'Show download'
+      operationId: getApiV1VpnClientProfilesProfileDownload
+      description: 'Executes the RackLab API operation with tenant, token, and RBAC enforcement.'
+      parameters: []
+      responses:
+        200:
+          description: 'Rendered OpenVPN client configuration. Owner-only.'
+          content:
+            application/x-openvpn-profile:
+              schema:
+                type: string
+      tags:
+        - Endpoints
+    parameters:
+      -
+        in: path
+        name: profile
+        description: ''
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
+  '/api/v1/vpn-client-profiles/{profile}/revoke':
+    post:
+      summary: 'Create revoke'
+      operationId: postApiV1VpnClientProfilesProfileRevoke
+      description: 'Executes the RackLab API operation with tenant, token, and RBAC enforcement.'
+      parameters: []
+      responses:
+        200:
+          description: 'Existing resource returned for an idempotent replay.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZVPNPROFILE00000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                  user_id: 42
+                  common_name: 01HZVPNENDPOINT00000000-42
+                  state: revoked
+                  revoked_at: '2026-05-28T17:00:00+00:00'
+                  revoked_reason: admin_revoked
+                  expires_at: null
+                  downloaded_at: null
+                  created_at: '2026-05-28T16:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      network_vpn_endpoint_id:
+                        type: string
+                      user_id:
+                        type: integer
+                      common_name:
+                        type: string
+                      state:
+                        type: string
+                      revoked_at:
+                        type: string
+                      revoked_reason:
+                        type: string
+                      expires_at:
+                        type: 'null'
+                      downloaded_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                    required:
+                      - id
+                      - tenant_id
+                      - network_vpn_endpoint_id
+                      - user_id
+                      - common_name
+                      - state
+                      - revoked_at
+                      - revoked_reason
+                      - expires_at
+                      - downloaded_at
+                      - created_at
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZVPNPROFILE00000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                      user_id: 42
+                      common_name: 01HZVPNENDPOINT00000000-42
+                      state: revoked
+                      revoked_at: '2026-05-28T17:00:00+00:00'
+                      revoked_reason: admin_revoked
+                      expires_at: null
+                      downloaded_at: null
+                      created_at: '2026-05-28T16:00:00+00:00'
+        201:
+          description: 'Resource created.'
+          content:
+            application/json:
+              example:
+                data:
+                  id: 01HZVPNPROFILE00000000
+                  tenant_id: 01HZTENANT0000000000000000
+                  network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                  user_id: 42
+                  common_name: 01HZVPNENDPOINT00000000-42
+                  state: revoked
+                  revoked_at: '2026-05-28T17:00:00+00:00'
+                  revoked_reason: admin_revoked
+                  expires_at: null
+                  downloaded_at: null
+                  created_at: '2026-05-28T16:00:00+00:00'
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      tenant_id:
+                        type: string
+                      network_vpn_endpoint_id:
+                        type: string
+                      user_id:
+                        type: integer
+                      common_name:
+                        type: string
+                      state:
+                        type: string
+                      revoked_at:
+                        type: string
+                      revoked_reason:
+                        type: string
+                      expires_at:
+                        type: 'null'
+                      downloaded_at:
+                        type: 'null'
+                      created_at:
+                        type: string
+                    required:
+                      - id
+                      - tenant_id
+                      - network_vpn_endpoint_id
+                      - user_id
+                      - common_name
+                      - state
+                      - revoked_at
+                      - revoked_reason
+                      - expires_at
+                      - downloaded_at
+                      - created_at
+                required:
+                  - data
+                examples:
+                  -
+                    data:
+                      id: 01HZVPNPROFILE00000000
+                      tenant_id: 01HZTENANT0000000000000000
+                      network_vpn_endpoint_id: 01HZVPNENDPOINT00000000
+                      user_id: 42
+                      common_name: 01HZVPNENDPOINT00000000-42
+                      state: revoked
+                      revoked_at: '2026-05-28T17:00:00+00:00'
+                      revoked_reason: admin_revoked
+                      expires_at: null
+                      downloaded_at: null
+                      created_at: '2026-05-28T16:00:00+00:00'
+      tags:
+        - Endpoints
+    parameters:
+      -
+        in: path
+        name: profile
+        description: ''
+        required: true
+        schema:
+          type: string
+          examples:
+            - architecto
   /api/v1/routers:
     post:
       summary: 'Create project router'

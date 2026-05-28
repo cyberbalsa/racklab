@@ -17,6 +17,7 @@ use App\Models\NetworkVpnEndpointBinding;
 use App\Models\Project;
 use App\Models\User;
 use App\Networking\VpnaasQuotaService;
+use App\Networking\VpnClientProfileService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
@@ -36,6 +37,7 @@ final class NetworkVpnEndpointDestroyController extends Controller
         CurrentTokenAbilities $tokenAbilities,
         AuditEventWriter $auditEvents,
         VpnaasQuotaService $quota,
+        VpnClientProfileService $profiles,
     ): Response {
         $user = $request->user();
 
@@ -71,7 +73,13 @@ final class NetworkVpnEndpointDestroyController extends Controller
             throw new AuthorizationException('You are not allowed to release VPN endpoints in this project.');
         }
 
-        DB::transaction(function () use ($model, $user, $quota, $context, $project, $auditEvents): void {
+        DB::transaction(function () use ($model, $user, $quota, $context, $project, $auditEvents, $profiles): void {
+            // Codex M5c S4 P2: revoke attached client profiles BEFORE flipping
+            // the endpoint state so each profile's audit row captures the
+            // endpoint_release reason. revoke() closes any open VpnSessions
+            // and releases the profile quota.
+            $profiles->revokeAllForEndpoint($user, $context, $model, 'endpoint_release');
+
             $model->forceFill(['state' => NetworkVpnEndpoint::STATE_RELEASED])->save();
 
             /** @var list<NetworkVpnEndpointBinding> $bindings */

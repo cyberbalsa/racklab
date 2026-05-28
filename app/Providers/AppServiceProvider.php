@@ -15,6 +15,8 @@ use App\Contracts\ContainerRuntime;
 use App\Domain\Rbac\RolePermissionLookup;
 use App\Domain\Tenancy\RoleBindingRepository;
 use App\Domain\Tenancy\TenantContextStore;
+use App\Networking\PlaceholderVpnClientProfileGenerator;
+use App\Networking\VpnClientProfileGenerator;
 use App\Plugins\PluginRegistry;
 use App\Providers\Proxmox\Contracts\ProxmoxClientContract;
 use App\Providers\Proxmox\GuzzleProxmoxClient;
@@ -64,6 +66,7 @@ class AppServiceProvider extends ServiceProvider
         });
         $this->app->bind(BackupProcessRunner::class, NativeBackupProcessRunner::class);
         $this->app->bind(RedisBackupClient::class, NativeRedisBackupClient::class);
+        $this->app->bind(VpnClientProfileGenerator::class, PlaceholderVpnClientProfileGenerator::class);
         $this->app->bind(ContainerProcessRunner::class, NativeContainerProcessRunner::class);
         $this->app->bind(PodmanCommandBuilder::class, fn (): PodmanCommandBuilder => new PodmanCommandBuilder($this->podmanBinary()));
         $this->app->bind(ContainerRuntime::class, fn (): ContainerRuntime => match (config('racklab.container_runtime')) {
