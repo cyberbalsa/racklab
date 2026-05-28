@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Identity\PersonalProjectProvisioner;
+use App\Models\AuditEvent;
 use App\Models\Deployment;
 use App\Models\Tenant;
 use App\Models\User;
@@ -29,8 +30,37 @@ it('renders an authorized noVNC console pane on the deployment detail page', fun
             ->assertMissing('[data-testid="console-pane-unauthorized"]');
 
         // The Connect button must NOT leak the JWT into the rendered HTML.
-        expect($browser->source())->not->toContain('eyJ');
+        expect($browser->driver->getPageSource())->not->toContain('eyJ');
     });
+});
+
+it('connects the console pane through a real audited grant when Connect is clicked', function (): void {
+    [, $user, $deployment] = provisionDeploymentConsoleBrowserFixture();
+
+    $this->browse(function (Browser $browser) use ($user, $deployment): void {
+        $browser
+            ->loginAs($user)
+            ->visit('/deployments/'.$deployment->getKey())
+            ->waitFor('@console-connect-'.$deployment->resourceId())
+            ->click('@console-connect-'.$deployment->resourceId())
+            // The glue requests a grant, then mounts the island, which moves
+            // the pane to connecting → connected.
+            ->waitUsing(10, 200, fn (): bool => in_array(
+                $browser->attribute('[data-testid="novnc-viewer"]', 'data-connection-state'),
+                ['connecting', 'connected'],
+                true,
+            ));
+
+        // The grant JWT must never appear in the DOM.
+        expect($browser->driver->getPageSource())->not->toContain('eyJ');
+    });
+
+    // Clicking Connect issued a real, audited console grant.
+    expect(AuditEvent::query()
+        ->where('event_type', 'console.session.start')
+        ->where('result', 'allowed')
+        ->where('resource_id', $deployment->resourceId())
+        ->exists())->toBeTrue();
 });
 
 it('hides the deployment detail page entirely from a same-tenant actor without deployment.read', function (): void {

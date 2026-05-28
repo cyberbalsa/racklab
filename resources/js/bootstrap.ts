@@ -1,4 +1,5 @@
 import './bootstrap-livewire';
+import './islands/console-connect';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 

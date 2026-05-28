@@ -109,20 +109,7 @@ export function mountRackLabRefs(root: ParentNode = document): void {
     els.forEach(el => { void resolveOne(el); });
 }
 
-declare global {
-    interface Window {
-        RackLab?: {
-            console?: {
-                mountNoVncViewer?: (options: unknown) => unknown;
-                mountXtermConsole?: (options: unknown) => unknown;
-            };
-            docs?: {
-                mountRackLabRefs?: typeof mountRackLabRefs;
-            };
-        };
-    }
-}
-
+// The window.RackLab type lives in racklab-global.d.ts.
 if (typeof window !== 'undefined') {
     window.RackLab = window.RackLab ?? {};
     window.RackLab.docs = window.RackLab.docs ?? {};

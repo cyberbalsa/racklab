@@ -6,6 +6,7 @@ use App\Http\Controllers\AccountLocaleController;
 use App\Http\Controllers\AccountTokenRevokeController;
 use App\Http\Controllers\AccountTokenStoreController;
 use App\Http\Controllers\Api\ArtifactShowController;
+use App\Http\Controllers\Api\DeploymentConsoleGrantController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentLabelController;
 use App\Http\Controllers\DeploymentNewVmController;
@@ -76,6 +77,13 @@ Route::post('/deployments/{deployment}/release', DeploymentReleaseController::cl
 Route::post('/deployments/{deployment}/labels', DeploymentLabelController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('deployments.labels.update');
+
+// Session-authed console grant for the browser console pane. Reuses the same
+// controller/logic as the Sanctum API route; the /api/v1 grant stays for token
+// clients, while the browser session uses this web route (web guard + CSRF).
+Route::post('/deployments/{deployment}/console-grant', DeploymentConsoleGrantController::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('deployments.console-grant.store');
 
 Route::get('/deployments/{deployment}', DeploymentShowController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])

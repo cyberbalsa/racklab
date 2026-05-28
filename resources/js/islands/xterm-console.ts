@@ -60,21 +60,8 @@ function announce(target: HTMLElement | null | undefined, message: string): void
     }
 }
 
-// Self-register so the Vite entry bundle keeps mountXtermConsole through tree-shaking.
-declare global {
-    interface Window {
-        RackLab?: {
-            console?: {
-                mountNoVncViewer?: (options: unknown) => unknown;
-                mountXtermConsole?: typeof mountXtermConsole;
-            };
-            docs?: {
-                mountRackLabRefs?: (root?: ParentNode) => void;
-            };
-        };
-    }
-}
-
+// Self-register so the Vite entry bundle keeps mountXtermConsole through
+// tree-shaking. The window.RackLab type lives in racklab-global.d.ts.
 if (typeof window !== 'undefined') {
     window.RackLab = window.RackLab ?? {};
     window.RackLab.console = window.RackLab.console ?? {};
