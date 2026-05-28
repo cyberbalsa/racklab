@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Domain\Tenancy\PlatformResource;
+use App\Domain\Tenancy\RoleBindingScopeType;
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Identity\PersonalProjectProvisioner;
@@ -12,6 +14,7 @@ use App\Models\Project;
 use App\Models\ProviderDrift;
 use App\Models\ProviderNetwork;
 use App\Models\QuotaLimit;
+use App\Models\RoleBinding;
 use App\Models\SubnetPool;
 use App\Models\Tenant;
 use App\Models\User;
@@ -119,6 +122,34 @@ it('creates and edits a project through Filament in a real browser', function ()
     });
 
     expect($project->refresh()->name)->toBe('Dusk Edited Project');
+});
+
+it('navigates from the Filament admin panel to /horizon for a platform admin', function (): void {
+    [$tenant, $user] = provisionFilamentAdminBrowserResources();
+
+    // Promote the user to platform admin so the Horizon nav item is visible
+    // and the gate authorizes the request.
+    RoleBinding::query()->create([
+        'principal_type' => 'user',
+        'principal_id' => (string) $user->id,
+        'scope_type' => RoleBindingScopeType::Global,
+        'role' => 'admin',
+        'tenant_id' => null,
+        'tenant_set' => null,
+        'resource_type' => PlatformResource::RESOURCE_TYPE,
+        'resource_id' => PlatformResource::RACKLAB_ID,
+    ]);
+
+    $this->browse(function (Browser $browser) use ($tenant, $user): void {
+        $browser
+            ->loginAs($user)
+            ->visit('/admin/'.$tenant->slug)
+            ->waitForText('Dashboard')
+            ->assertSee('Horizon')
+            ->clickLink('Horizon')
+            ->waitForLocation('/horizon')
+            ->assertPathIs('/horizon');
+    });
 });
 
 /**
