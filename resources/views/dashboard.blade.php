@@ -83,7 +83,9 @@
                                 @php($projectQuota = $quotaSummaries[$project->getKey()] ?? [])
                                 <tr>
                                     <td>
-                                        <div class="font-medium">{{ $project->name }}</div>
+                                        <div class="font-medium">
+                                            <a href="{{ route('projects.show', ['project' => $project->getKey()]) }}" wire:navigate class="link link-hover" dusk="project-open-{{ $project->getKey() }}">{{ $project->name }}</a>
+                                        </div>
                                         <div class="text-xs text-base-content/60">{{ $project->slug }}</div>
                                     </td>
                                     <td>

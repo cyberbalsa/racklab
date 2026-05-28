@@ -18,15 +18,21 @@ final readonly class VisibleDeploymentList
     /**
      * @return list<Deployment>
      */
-    public function forUser(User $user, TenantContext $context, ?string $label = null): array
+    public function forUser(User $user, TenantContext $context, ?string $label = null, ?string $projectId = null): array
     {
         $actor = new ActorIdentity((string) $user->id);
         $permission = new Permission('deployment.read');
         $label = $label === null || trim($label) === '' ? null : mb_strtolower(trim($label));
         $visible = [];
 
+        $query = Deployment::query()->with('resources.networkBindings.networkOffering');
+
+        if ($projectId !== null && trim($projectId) !== '') {
+            $query->where('project_id', $projectId);
+        }
+
         /** @var Deployment $deployment */
-        foreach (Deployment::query()->with('resources.networkBindings.networkOffering')->latest('created_at')->latest('id')->get() as $deployment) {
+        foreach ($query->latest('created_at')->latest('id')->get() as $deployment) {
             if ($label !== null && ! in_array($label, $deployment->labels ?? [], strict: true)) {
                 continue;
             }
