@@ -78,6 +78,14 @@ return [
         'token_revoked_state' => 'Revoked',
         'token_state' => 'State',
     ],
+    'console' => [
+        'aria_label' => 'Deployment :kind console',
+        'connect' => 'Connect',
+        'focus_release_hint' => 'Press Ctrl+Alt+Shift+Q to release the console focus.',
+        'idle' => 'Console idle.',
+        'title' => 'Console for :name',
+        'unavailable' => 'You do not have access to this deployment console.',
+    ],
     'hello' => [
         'description' => 'RackLab scaffold smoke test page.',
         'greeting' => 'Hello, :subject',

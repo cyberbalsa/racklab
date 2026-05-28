@@ -1001,6 +1001,49 @@ The M4 sub-slice 3 ProviderConsoleProxy seam increment is in place:
   four integration tests are skipped in the default SQLite/Toolbx
   profile.
 
+The M4 sub-slice 4 Livewire console pane increment is in place:
+
+- `App\Livewire\Console\DeploymentConsolePane` mounts on a Deployment +
+  ConsoleKind (default `Vnc`), resolves the actor's
+  `deployment.console.connect` permission through `AccessResolver`
+  during `mount()`, and exposes `canConnect`, `consoleKindValue`, and
+  a `statusKey` translation key for the ARIA live region. Authorized
+  renders include the `Connect` button, a `wire:ignore` console
+  canvas div, and the focus-release shortcut text; unauthorized
+  renders show only the "no console access" status message.
+- `resources/views/livewire/console/deployment-console-pane.blade.php`
+  renders either an `id="novnc-viewer-<id>"` div (when console kind
+  is `vnc`) or an `id="xterm-console-<id>"` div (when `terminal`).
+  All test-driving hooks use `data-testid` selectors plus `dusk`
+  markers on the Connect button so M4 sub-slice 6 browser tests can
+  target them stably.
+- `resources/js/islands/novnc-viewer.ts` and
+  `resources/js/islands/xterm-console.ts` ship the strongly-typed
+  `mountNoVncViewer(...)` / `mountXtermConsole(...)` mount/disconnect
+  seam. The current implementation is a deterministic stub — M4
+  sub-slice 5 wires it to the real `@novnc/novnc` `RFB` and
+  `@xterm/xterm` `Terminal` against the localhost proxy socket. Both
+  islands are registered as Vite entry points so they ship as
+  separate bundles consumable by the dashboard. `npm run build`
+  emits both as `public/build/assets/novnc-viewer-*.js` and
+  `xterm-console-*.js`.
+- `resources/lang/{en,es}/racklab.php` gain a `console.*` block
+  (title, connect, focus_release_hint, aria_label, unavailable,
+  idle). `composer i18n:missing` stays green.
+- Coverage: 3 Tiny tests (ConsoleKind round-trip, default kind, idle
+  status key) and 3 Contract tests (`Livewire::test(...)` driving
+  authorized VNC render, authorized terminal render, and
+  unauthorized hidden render).
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, `composer test`,
+  and `npm run build` pass with 335 tests / 2039 assertions; the
+  same four integration tests are skipped in the default
+  SQLite/Toolbx profile.
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

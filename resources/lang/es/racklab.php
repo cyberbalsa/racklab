@@ -78,6 +78,14 @@ return [
         'token_revoked_state' => 'Revocado',
         'token_state' => 'Estado',
     ],
+    'console' => [
+        'aria_label' => 'Consola :kind del despliegue',
+        'connect' => 'Conectar',
+        'focus_release_hint' => 'Pulsa Ctrl+Alt+Shift+Q para liberar el foco de la consola.',
+        'idle' => 'Consola inactiva.',
+        'title' => 'Consola de :name',
+        'unavailable' => 'No tienes acceso a la consola de este despliegue.',
+    ],
     'hello' => [
         'description' => 'Pagina de prueba del andamiaje de RackLab.',
         'greeting' => 'Hola, :subject',
