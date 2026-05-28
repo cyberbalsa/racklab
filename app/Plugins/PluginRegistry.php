@@ -6,6 +6,7 @@ namespace App\Plugins;
 
 use App\Models\PluginInstallation;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
@@ -72,7 +73,11 @@ final class PluginRegistry
      */
     public function enabledPlugins(): array
     {
-        if (! Schema::hasTable('plugin_installations')) {
+        try {
+            if (! Schema::hasTable('plugin_installations')) {
+                return [];
+            }
+        } catch (QueryException) {
             return [];
         }
 
