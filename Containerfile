@@ -5,7 +5,7 @@ ARG NODE_VERSION=24
 FROM docker.io/library/node:${NODE_VERSION}-bookworm-slim AS assets
 WORKDIR /app
 
-COPY package.json package-lock.json vite.config.ts ./
+COPY package.json package-lock.json vite.config.js ./
 COPY resources ./resources
 COPY public ./public
 RUN npm ci --ignore-scripts && npm run build
