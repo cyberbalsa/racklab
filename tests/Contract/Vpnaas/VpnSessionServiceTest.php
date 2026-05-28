@@ -135,6 +135,7 @@ it('rejects session listing when the actor is not the owner and lacks session.re
 function provisionVpnSessionFixture(): array
 {
     app(RbacDefaultsSynchronizer::class)->sync();
+    enableVpnaasPluginForTests();
 
     $tenant = Tenant::query()->firstOrCreate(['slug' => 'default'], ['name' => 'Default Tenant']);
     $user = User::factory()->create(['name' => 'Session Owner', 'email' => 'session-owner@example.test']);

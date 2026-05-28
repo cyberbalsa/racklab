@@ -17,6 +17,7 @@ use App\Models\NetworkVpnEndpoint;
 use App\Models\Project;
 use App\Models\TenantMembership;
 use App\Models\User;
+use App\Networking\VpnaasCapabilityGate;
 use App\Networking\VpnClientProfilePayload;
 use App\Networking\VpnClientProfileService;
 use Carbon\CarbonImmutable;
@@ -24,6 +25,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 final class VpnClientProfileStoreController extends Controller
 {
@@ -36,6 +38,7 @@ final class VpnClientProfileStoreController extends Controller
         CurrentTokenAbilities $tokenAbilities,
         AuditEventWriter $auditEvents,
         VpnClientProfileService $profiles,
+        VpnaasCapabilityGate $gate,
     ): JsonResponse {
         $user = $request->user();
 
@@ -47,6 +50,12 @@ final class VpnClientProfileStoreController extends Controller
 
         if (! $context instanceof TenantContext) {
             throw new NotFoundHttpException('Tenant context not found.');
+        }
+
+        // Codex M5c S6 P2-1: capability gate. Refuse profile issuance when
+        // the racklab/network-vpnaas-openvpn plugin is not enabled.
+        if (! $gate->isEnabled()) {
+            throw new ServiceUnavailableHttpException(retryAfter: null, message: 'VPNaaS capability is not enabled. Run `racklab plugin enable racklab/network-vpnaas-openvpn`.');
         }
 
         $endpoint = $this->endpoint($request->string('network_vpn_endpoint_id')->toString(), $context);

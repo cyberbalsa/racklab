@@ -271,6 +271,7 @@ it('rejects VPN endpoint requests that omit both pool id and slug', function ():
 function provisionVpnaasFixture(): array
 {
     app(RbacDefaultsSynchronizer::class)->sync();
+    enableVpnaasPluginForTests();
 
     $tenant = Tenant::query()->firstOrCreate(
         ['slug' => 'default'],

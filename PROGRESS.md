@@ -1466,6 +1466,69 @@ place:
   four integration tests are skipped in the default SQLite/Toolbx
   profile.
 
+The M5c sub-slice 6 OpenVPN plugin package + end-to-end coverage
+increment closes M5c:
+
+- `packages/racklab/network-vpnaas-openvpn/` ships as an in-monorepo
+  Composer path package mirroring `racklab/console-proxmox`. The
+  plugin declares the `network:vpnaas:openvpn:v1` capability in
+  `composer.json` extra metadata and exposes a `Manifest` plus a
+  minimal `NetworkVpnaasOpenvpnServiceProvider`. It participates in
+  the standard `racklab plugin install|migrate|enable|disable|
+  uninstall` lifecycle.
+- `VpnClientProfileService::revoke()` now uses
+  `VpnSessionService::recordDisconnect()` for every open session
+  instead of a bulk UPDATE so revocation now emits one
+  `session_disconnect` audit row per closed session in addition to
+  the profile `revoke` audit.
+- New M5c sub-slice 6 contract coverage:
+  * `VpnaasOpenvpnPluginLifecycleTest` drives the full plugin
+    lifecycle (install / migrate / enable / disable / uninstall)
+    and verifies the manifest capability declaration.
+  * `VpnaasEndToEndTest` walks the full group-project journey: two
+    users on the same project each get their own profile,
+    owner-only download is enforced cross-user, sessions are
+    scoped, selective revocation closes only the revoked user's
+    sessions (with `session_disconnect` audit), download is
+    blocked after revoke, endpoint release converges remaining
+    profiles to `revoked`, releases bindings, and every lifecycle
+    event lands in the audit ledger.
+- Current default quality gate: `composer validate --strict --no-check-publish`,
+  `composer pint:test`, `composer larastan`, `composer rector:dry`,
+  `composer security:racklab`, `composer openapi:check`,
+  `composer audit`, `composer security:semgrep`,
+  `composer pest:snapshots`, `composer i18n:missing`,
+  `composer check-platform-reqs --no-interaction`, and
+  `composer test` pass with 405 tests / 2457 assertions; the same
+  four integration tests are skipped in the default SQLite/Toolbx
+  profile.
+
+Codex M5c S6 P2 findings folded into the slice before commit:
+
+- P2-1: a new `App\Networking\VpnaasCapabilityGate` consults the
+  `racklab/network-vpnaas-openvpn` plugin lifecycle state. Both the
+  endpoint create and profile create controllers refuse with
+  `503 Service Unavailable` when the plugin isn't enabled, even
+  when the actor has the right role + token ability. The
+  capability gate fails closed in pre-migration boot, matching
+  the console-proxmox model. `tests/Helpers/vpnaas.php` provides
+  an `enableVpnaasPluginForTests()` helper that all VPNaaS
+  contract fixtures invoke; the gate-disabled path is locked by
+  an additional regression test asserting the 503.
+- P2-2: `VpnClientProfileService::revoke()` now passes the
+  current `bytes_in` / `bytes_out` counters from each open
+  session into `VpnSessionService::recordDisconnect()` so the
+  ledger and disconnect audit metadata preserve accumulated
+  traffic counters rather than zeroing them.
+
+With the M5c sub-slice 6 codex folds in place, M5c is now closed:
+data models + permissions (S1), endpoint lifecycle API + quota
+dimensions (S2), port + public-IP allocator with binding quotas
+(S3), client profile issuance + revocation with encrypted
+material (S4), session ledger + Filament admin + Livewire panel
+(S5), and the plugin package + capability gate + group-project
+end-to-end coverage (S6).
+
 ## Next
 
 1. **`baseline-worker-host-soak`** — run the real systemd/worker

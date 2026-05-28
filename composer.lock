@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bff5dbd93aca0f022f2b17072ba40b6f",
+    "content-hash": "55bc9baf57ac903de5ed812cc2066fbd",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -6043,6 +6043,47 @@
                 "Apache-2.0"
             ],
             "description": "RackLab Proxmox console capability plugin (console:proxmox:v1).",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "racklab/network-vpnaas-openvpn",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "packages/racklab/network-vpnaas-openvpn",
+                "reference": "8c5034e538030949735a3d86229fdde905531d2b"
+            },
+            "require": {
+                "illuminate/support": "^13.0",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "extra": {
+                "racklab": {
+                    "plugin": true,
+                    "slug": "racklab/network-vpnaas-openvpn",
+                    "capabilities": [
+                        "network:vpnaas:openvpn:v1"
+                    ]
+                },
+                "laravel": {
+                    "dont-discover": [
+                        "racklab/network-vpnaas-openvpn"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Racklab\\NetworkVpnaasOpenvpn\\": "src/"
+                }
+            },
+            "license": [
+                "Apache-2.0"
+            ],
+            "description": "RackLab OpenVPN VPNaaS plugin (network:vpnaas:openvpn:v1).",
             "transport-options": {
                 "symlink": true,
                 "relative": true
@@ -16291,6 +16332,7 @@
     "minimum-stability": "stable",
     "stability-flags": {
         "racklab/console-proxmox": 20,
+        "racklab/network-vpnaas-openvpn": 20,
         "racklab/plugin-hello": 20,
         "roave/security-advisories": 20
     },

@@ -261,6 +261,7 @@ it('revokes the profile, closes open sessions, and refuses subsequent downloads'
 function provisionVpnaasProfileFixture(): array
 {
     app(RbacDefaultsSynchronizer::class)->sync();
+    enableVpnaasPluginForTests();
 
     $tenant = Tenant::query()->firstOrCreate(['slug' => 'default'], ['name' => 'Default Tenant']);
     $user = User::factory()->create(['name' => 'VPN Profile Owner', 'email' => 'vpn-profile@example.test']);

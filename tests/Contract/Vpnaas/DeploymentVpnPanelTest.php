@@ -111,6 +111,7 @@ function actingAsPanelUser(User $user): void
 function provisionDeploymentVpnPanelFixture(bool $attachEndpoint = true): array
 {
     app(RbacDefaultsSynchronizer::class)->sync();
+    enableVpnaasPluginForTests();
 
     $tenant = Tenant::query()->firstOrCreate(['slug' => 'default'], ['name' => 'Default Tenant']);
     $user = User::factory()->create(['name' => 'Panel Owner', 'email' => 'panel-owner@example.test']);

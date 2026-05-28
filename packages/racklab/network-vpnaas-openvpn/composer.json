@@ -1,0 +1,32 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "racklab/network-vpnaas-openvpn",
+    "type": "library",
+    "description": "RackLab OpenVPN VPNaaS plugin (network:vpnaas:openvpn:v1).",
+    "license": "Apache-2.0",
+    "require": {
+        "php": "^8.3",
+        "illuminate/support": "^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Racklab\\NetworkVpnaasOpenvpn\\": "src/"
+        }
+    },
+    "extra": {
+        "racklab": {
+            "plugin": true,
+            "slug": "racklab/network-vpnaas-openvpn",
+            "capabilities": [
+                "network:vpnaas:openvpn:v1"
+            ]
+        },
+        "laravel": {
+            "dont-discover": [
+                "racklab/network-vpnaas-openvpn"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

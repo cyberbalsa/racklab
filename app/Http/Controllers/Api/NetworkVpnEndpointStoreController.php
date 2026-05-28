@@ -19,6 +19,7 @@ use App\Models\NetworkVpnEndpoint;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\VpnPublicIpPool;
+use App\Networking\VpnaasCapabilityGate;
 use App\Networking\VpnaasQuotaService;
 use App\Networking\VpnEndpointAllocator;
 use App\Networking\VpnEndpointPayload;
@@ -28,6 +29,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 final class NetworkVpnEndpointStoreController extends Controller
 {
@@ -41,6 +43,7 @@ final class NetworkVpnEndpointStoreController extends Controller
         AuditEventWriter $auditEvents,
         VpnaasQuotaService $quota,
         VpnEndpointAllocator $allocator,
+        VpnaasCapabilityGate $gate,
     ): JsonResponse {
         $user = $request->user();
 
@@ -52,6 +55,14 @@ final class NetworkVpnEndpointStoreController extends Controller
 
         if (! $context instanceof TenantContext) {
             throw new NotFoundHttpException('Tenant context not found.');
+        }
+
+        // Codex M5c S6 P2-1: the racklab/network-vpnaas-openvpn plugin is the
+        // operator-facing capability gate. Refuse to create endpoints when the
+        // plugin is not enabled in the plugin lifecycle, even when the actor
+        // has the right role + token ability.
+        if (! $gate->isEnabled()) {
+            throw new ServiceUnavailableHttpException(retryAfter: null, message: 'VPNaaS capability is not enabled. Run `racklab plugin enable racklab/network-vpnaas-openvpn`.');
         }
 
         $project = $this->project($request->string('project_id')->toString());

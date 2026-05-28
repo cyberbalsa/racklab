@@ -41,6 +41,7 @@ final readonly class VpnClientProfileService
         private AuditEventWriter $auditEvents,
         private VpnaasQuotaService $quota,
         private VpnClientProfileGenerator $generator,
+        private VpnSessionService $sessions,
     ) {}
 
     /**
@@ -210,15 +211,31 @@ final readonly class VpnClientProfileService
                 'revoked_at' => now(),
             ])->save();
 
-            // Close open sessions, but keep them in the ledger for audit.
-            VpnSession::query()
+            // Close open sessions through the session service so each one
+            // gets a `session_disconnect` audit row alongside the profile
+            // `revoke` row.
+            /** @var list<VpnSession> $openSessions */
+            $openSessions = VpnSession::query()
                 ->where('vpn_client_profile_id', $profile->getKey())
                 ->where('state', VpnSession::STATE_ACTIVE)
-                ->update([
-                    'state' => VpnSession::STATE_CLOSED,
-                    'disconnected_at' => now(),
-                    'disconnect_reason' => 'profile_revoked',
-                ]);
+                ->get()
+                ->all();
+
+            foreach ($openSessions as $openSession) {
+                // Codex M5c S6 P2: preserve any accumulated byte counters from
+                // the open session rather than zeroing them out — the OpenVPN
+                // management interface stamps these in real time, and audit
+                // history relies on them. recordDisconnect defaults are only
+                // appropriate when the caller has fresh final counts.
+                $this->sessions->recordDisconnect(
+                    actor: $actor,
+                    context: $context,
+                    session: $openSession,
+                    reason: 'profile_revoked',
+                    bytesIn: $openSession->bytes_in,
+                    bytesOut: $openSession->bytes_out,
+                );
+            }
 
             $this->quota->releaseForProfile($profile, $actor);
 

@@ -26,6 +26,7 @@
         "laravel/tinker": "^3.0",
         "livewire/livewire": "^4.3.0",
         "racklab/console-proxmox": "dev-main",
+        "racklab/network-vpnaas-openvpn": "dev-main",
         "racklab/plugin-hello": "dev-main",
         "spatie/laravel-multitenancy": "^4.1",
         "spatie/laravel-permission": "^7.4",
@@ -63,7 +64,10 @@
             "Tests\\Integration\\": "tests/Integration/",
             "Tests\\Browser\\": "tests/Browser/",
             "Tests\\Larastan\\Rules\\": "tests/Larastan/Rules/"
-        }
+        },
+        "files": [
+            "tests/Helpers/vpnaas.php"
+        ]
     },
     "repositories": [
         {
@@ -77,6 +81,14 @@
         {
             "type": "path",
             "url": "packages/racklab/console-proxmox",
+            "options": {
+                "reference": "config",
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "packages/racklab/network-vpnaas-openvpn",
             "options": {
                 "reference": "config",
                 "symlink": true
@@ -144,7 +156,8 @@
         "laravel": {
             "dont-discover": [
                 "racklab/plugin-hello",
-                "racklab/console-proxmox"
+                "racklab/console-proxmox",
+                "racklab/network-vpnaas-openvpn"
             ]
         }
     },
