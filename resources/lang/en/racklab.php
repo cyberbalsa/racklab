@@ -35,6 +35,9 @@ return [
     ],
     'stacks' => [
         'available_networks' => 'Available networks',
+        'actions' => 'Actions',
+        'export' => 'Export',
+        'your_stacks' => 'Your stacks',
         'add_vm' => 'Add VM',
         'field_name' => 'Stack name',
         'field_project' => 'Project',

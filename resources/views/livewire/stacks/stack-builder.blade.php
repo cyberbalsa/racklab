@@ -107,4 +107,37 @@
     <div class="mt-8 flex justify-end">
         <button type="button" dusk="save-stack" wire:click="save" class="btn btn-primary">{{ __('racklab.stacks.save') }}</button>
     </div>
+
+    @if ($savedStacks !== [])
+        <section class="mt-10">
+            <h2 class="text-lg font-semibold text-base-content">{{ __('racklab.stacks.your_stacks') }}</h2>
+            <div class="mt-3 overflow-x-auto rounded border border-base-300">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>{{ __('racklab.stacks.field_name') }}</th>
+                            <th class="text-right">{{ __('racklab.stacks.actions') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($savedStacks as $saved)
+                            <tr wire:key="saved-{{ $saved->getKey() }}">
+                                <td>
+                                    <div class="font-medium">{{ $saved->name }}</div>
+                                    <div class="text-xs text-base-content/60">{{ $saved->slug }}</div>
+                                </td>
+                                <td class="text-right">
+                                    <a
+                                        href="{{ route('stacks.export', ['stack' => $saved->getKey()]) }}"
+                                        dusk="export-{{ $saved->slug }}"
+                                        class="btn btn-xs btn-outline"
+                                    >{{ __('racklab.stacks.export') }}</a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    @endif
 </div>

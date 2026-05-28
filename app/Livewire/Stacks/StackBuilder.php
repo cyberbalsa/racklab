@@ -7,6 +7,7 @@ namespace App\Livewire\Stacks;
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Models\Project;
+use App\Models\StackDefinition;
 use App\Models\User;
 use App\Networking\VisibleNetworkOfferingList;
 use App\Projects\VisibleProjectList;
@@ -136,9 +137,18 @@ final class StackBuilder extends Component
             }
         }
 
+        $projectIds = array_map(static fn (Project $project): string => $project->id, $projects);
+
         return view('livewire.stacks.stack-builder', [
             'projects' => $projects,
             'offerings' => app(VisibleNetworkOfferingList::class)->forUser($user, $context),
+            'savedStacks' => $projectIds === [] ? [] : StackDefinition::query()
+                ->whereIn('project_id', $projectIds)
+                ->where('scope', 'project_local')
+                ->where('is_reserved_default', false)
+                ->orderBy('name')
+                ->get()
+                ->all(),
         ]);
     }
 

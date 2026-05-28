@@ -15,6 +15,7 @@ use App\Http\Controllers\Docs\RefResolveController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\JwksController;
 use App\Http\Controllers\ScriptFakeRunnerController;
+use App\Http\Controllers\StackPackageExportController;
 use App\Http\Middleware\BindAuthenticatedTenant;
 use App\Http\Middleware\SetUserLocale;
 use App\Livewire\Catalog\CatalogBrowser;
@@ -46,6 +47,10 @@ Route::get('/catalog', CatalogBrowser::class)
 Route::get('/stacks/build', StackBuilder::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('stacks.build');
+
+Route::get('/stacks/{stack}/export', StackPackageExportController::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('stacks.export');
 
 Route::put('/account/locale', AccountLocaleController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
