@@ -8,7 +8,7 @@ it('defines one multi-target Containerfile for the Baseline image family', funct
     $containerfile = (string) file_get_contents(base_path('Containerfile'));
 
     expect($containerfile)
-        ->toContain('FROM dunglas/frankenphp:php8.3-bookworm AS runtime')
+        ->toContain('FROM docker.io/dunglas/frankenphp:php8.3-bookworm AS runtime')
         ->toContain('COPY --from=assets /app/public/build ./public/build')
         ->toContain('install-php-extensions')
         ->toContain('postgresql-client')

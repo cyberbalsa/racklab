@@ -94,6 +94,10 @@ return [
             'open' => 'Abrir despliegue',
         ],
     ],
+    'docs' => [
+        'back_to_dashboard' => 'Volver al panel',
+        'draft_badge' => 'Borrador',
+    ],
     'vpnaas' => [
         'panel' => [
             'title' => 'Acceso VPN',

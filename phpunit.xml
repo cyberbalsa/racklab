@@ -48,5 +48,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Keep tests hermetic: never bind the real Proxmox client from a
+             developer's local .env (RACKLAB_PROXMOX_ENABLED / creds). Tests
+             that exercise the provider bind a fake explicitly. -->
+        <env name="RACKLAB_PROXMOX_ENABLED" value="false"/>
     </php>
 </phpunit>

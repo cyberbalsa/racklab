@@ -70,6 +70,9 @@ declare global {
                 mountNoVncViewer?: typeof mountNoVncViewer;
                 mountXtermConsole?: (options: unknown) => unknown;
             };
+            docs?: {
+                mountRackLabRefs?: (root?: ParentNode) => void;
+            };
         };
     }
 }

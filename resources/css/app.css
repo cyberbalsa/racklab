@@ -6,3 +6,44 @@
 
 /* Public-facing styles go here. Tailwind v4 is CSS-first; there is no
    tailwind.config.js. daisyUI 5 is loaded via the @plugin directive. */
+
+/* Rendered docs body. Tailwind preflight strips default heading/list
+   styling, so the server-rendered Markdown HTML needs explicit typography. */
+.racklab-doc-body {
+    line-height: 1.7;
+    color: var(--color-base-content, currentColor);
+}
+.racklab-doc-body h1 { font-size: 1.875rem; font-weight: 700; margin: 1.5rem 0 0.75rem; }
+.racklab-doc-body h2 { font-size: 1.5rem; font-weight: 700; margin: 1.4rem 0 0.6rem; }
+.racklab-doc-body h3 { font-size: 1.25rem; font-weight: 600; margin: 1.2rem 0 0.5rem; }
+.racklab-doc-body p { margin: 0.75rem 0; }
+.racklab-doc-body ul { list-style: disc; margin: 0.75rem 0; padding-left: 1.5rem; }
+.racklab-doc-body ol { list-style: decimal; margin: 0.75rem 0; padding-left: 1.5rem; }
+.racklab-doc-body li { margin: 0.25rem 0; }
+.racklab-doc-body a { color: var(--color-primary, #4f46e5); text-decoration: underline; }
+.racklab-doc-body code { font-family: ui-monospace, monospace; font-size: 0.9em; padding: 0.1em 0.3em; border-radius: 0.25rem; background: color-mix(in oklab, currentColor 8%, transparent); }
+.racklab-doc-body pre { margin: 0.75rem 0; padding: 0.75rem 1rem; border-radius: 0.5rem; overflow-x: auto; background: color-mix(in oklab, currentColor 8%, transparent); }
+.racklab-doc-body pre code { background: none; padding: 0; }
+.racklab-doc-body blockquote { border-left: 3px solid color-mix(in oklab, currentColor 25%, transparent); padding-left: 1rem; margin: 0.75rem 0; opacity: 0.85; }
+.racklab-doc-body table { border-collapse: collapse; margin: 0.75rem 0; }
+.racklab-doc-body th, .racklab-doc-body td { border: 1px solid color-mix(in oklab, currentColor 20%, transparent); padding: 0.4rem 0.7rem; }
+
+/* `racklab-ref` cross-link status pills (upgraded by the racklab-ref island). */
+racklab-ref {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 9999px;
+    font-size: 0.85em;
+    font-weight: 500;
+    border: 1px solid transparent;
+    vertical-align: baseline;
+}
+racklab-ref .racklab-ref__link { color: inherit; text-decoration: none; }
+racklab-ref.racklab-ref--pending { background: color-mix(in oklab, currentColor 10%, transparent); color: inherit; }
+racklab-ref.racklab-ref--resolved { background: color-mix(in oklab, #16a34a 18%, transparent); border-color: color-mix(in oklab, #16a34a 40%, transparent); color: #15803d; }
+racklab-ref.racklab-ref--redacted { background: color-mix(in oklab, #6b7280 18%, transparent); border-color: color-mix(in oklab, #6b7280 40%, transparent); color: #4b5563; }
+racklab-ref.racklab-ref--missing { background: color-mix(in oklab, #dc2626 15%, transparent); border-color: color-mix(in oklab, #dc2626 40%, transparent); color: #b91c1c; }
+racklab-ref.racklab-ref--unsupported,
+racklab-ref.racklab-ref--error { background: color-mix(in oklab, #d97706 15%, transparent); border-color: color-mix(in oklab, #d97706 40%, transparent); color: #b45309; }

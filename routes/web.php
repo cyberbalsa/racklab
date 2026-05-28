@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeploymentNewVmController;
 use App\Http\Controllers\DeploymentReleaseController;
 use App\Http\Controllers\DeploymentShowController;
+use App\Http\Controllers\Docs\DocReaderController;
 use App\Http\Controllers\Docs\RefResolveController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\JwksController;
@@ -69,3 +70,7 @@ Route::get('/artifacts/{artifact}', ArtifactShowController::class)
 Route::get('/plugins/docs/refs/resolve/{kind}/{id}', RefResolveController::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('plugins.docs.refs.resolve');
+
+Route::get('/docs/{doc}', DocReaderController::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('docs.show');

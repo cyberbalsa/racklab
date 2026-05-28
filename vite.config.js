@@ -10,6 +10,7 @@ export default defineConfig({
                 'resources/css/filament.css',
                 'resources/js/bootstrap.ts',
                 'resources/js/islands/novnc-viewer.ts',
+                'resources/js/islands/racklab-ref.ts',
                 'resources/js/islands/xterm-console.ts',
             ],
             refresh: true,

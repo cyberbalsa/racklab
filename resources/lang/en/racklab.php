@@ -94,6 +94,10 @@ return [
             'open' => 'Open deployment',
         ],
     ],
+    'docs' => [
+        'back_to_dashboard' => 'Back to dashboard',
+        'draft_badge' => 'Draft',
+    ],
     'vpnaas' => [
         'panel' => [
             'title' => 'VPN access',
