@@ -3,14 +3,64 @@
 declare(strict_types=1);
 
 use App\OpenApi\RackLabResponseDefaultsGenerator;
-use Knuckles\Scribe\Config\AuthIn;
-use Knuckles\Scribe\Config\Defaults;
-
-use function Knuckles\Scribe\Config\removeStrategies;
-
-use Knuckles\Scribe\Extracting\Strategies;
 
 // Only the most common configs are shown. See the https://scribe.knuckles.wtf/laravel/reference/config for all.
+
+$scribeStrategy = static fn (string $strategy): string => 'Knuckles\\Scribe\\Extracting\\Strategies\\'.$strategy;
+
+$metadataStrategies = [
+    $scribeStrategy('Metadata\\GetFromDocBlocks'),
+    $scribeStrategy('Metadata\\GetFromMetadataAttributes'),
+];
+
+$headerStrategies = [
+    $scribeStrategy('Headers\\GetFromHeaderAttribute'),
+    $scribeStrategy('Headers\\GetFromHeaderTag'),
+    [
+        $scribeStrategy('StaticData'),
+        [
+            'only' => [],
+            'except' => [],
+            'data' => [
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ],
+        ],
+    ],
+];
+
+$urlParameterStrategies = [
+    $scribeStrategy('UrlParameters\\GetFromLaravelAPI'),
+    $scribeStrategy('UrlParameters\\GetFromUrlParamAttribute'),
+    $scribeStrategy('UrlParameters\\GetFromUrlParamTag'),
+];
+
+$queryParameterStrategies = [
+    $scribeStrategy('QueryParameters\\GetFromFormRequest'),
+    $scribeStrategy('QueryParameters\\GetFromInlineValidator'),
+    $scribeStrategy('QueryParameters\\GetFromQueryParamAttribute'),
+    $scribeStrategy('QueryParameters\\GetFromQueryParamTag'),
+];
+
+$bodyParameterStrategies = [
+    $scribeStrategy('BodyParameters\\GetFromFormRequest'),
+    $scribeStrategy('BodyParameters\\GetFromInlineValidator'),
+    $scribeStrategy('BodyParameters\\GetFromBodyParamAttribute'),
+    $scribeStrategy('BodyParameters\\GetFromBodyParamTag'),
+];
+
+$responseStrategies = [
+    $scribeStrategy('Responses\\UseResponseAttributes'),
+    $scribeStrategy('Responses\\UseTransformerTags'),
+    $scribeStrategy('Responses\\UseApiResourceTags'),
+    $scribeStrategy('Responses\\UseResponseTag'),
+    $scribeStrategy('Responses\\UseResponseFileTag'),
+];
+
+$responseFieldStrategies = [
+    $scribeStrategy('ResponseFields\\GetFromResponseFieldAttribute'),
+    $scribeStrategy('ResponseFields\\GetFromResponseFieldTag'),
+];
 
 return [
     // The HTML <title> for the generated documentation.
@@ -112,7 +162,7 @@ return [
         'default' => true,
 
         // Where is the auth value meant to be sent in a request?
-        'in' => AuthIn::HEADER->value,
+        'in' => 'header',
 
         // The name of the auth parameter (e.g. token, key, apiKey) or header (e.g. Authorization, Api-Key).
         'name' => 'Authorization',
@@ -215,32 +265,13 @@ return [
     // Use configureStrategy() to specify settings for a strategy in the list.
     // Use removeStrategies() to remove an included strategy.
     'strategies' => [
-        'metadata' => [
-            ...Defaults::METADATA_STRATEGIES,
-        ],
-        'headers' => [
-            ...Defaults::HEADERS_STRATEGIES,
-            Strategies\StaticData::withSettings(data: [
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json',
-            ]),
-        ],
-        'urlParameters' => [
-            ...Defaults::URL_PARAMETERS_STRATEGIES,
-        ],
-        'queryParameters' => [
-            ...Defaults::QUERY_PARAMETERS_STRATEGIES,
-        ],
-        'bodyParameters' => [
-            ...Defaults::BODY_PARAMETERS_STRATEGIES,
-        ],
-        'responses' => removeStrategies(
-            Defaults::RESPONSES_STRATEGIES,
-            [Strategies\Responses\ResponseCalls::class]
-        ),
-        'responseFields' => [
-            ...Defaults::RESPONSE_FIELDS_STRATEGIES,
-        ],
+        'metadata' => $metadataStrategies,
+        'headers' => $headerStrategies,
+        'urlParameters' => $urlParameterStrategies,
+        'queryParameters' => $queryParameterStrategies,
+        'bodyParameters' => $bodyParameterStrategies,
+        'responses' => $responseStrategies,
+        'responseFields' => $responseFieldStrategies,
     ],
 
     // For response calls, API resource responses and transformer responses,
