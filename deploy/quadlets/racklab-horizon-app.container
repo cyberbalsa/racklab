@@ -1,33 +1,29 @@
 [Unit]
-Description=RackLab script worker %i
+Description=RackLab Horizon (app pool: provider + notifications, no Podman socket)
 Documentation=https://github.com/cyberbalsa/racklab
 Requires=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
 After=racklab-postgres.service racklab-redis.service racklab-plugin-bootstrap.service
 PartOf=racklab-runtime.target
 
 [Container]
-Image=ghcr.io/cyberbalsa/racklab/script-worker:main
-ContainerName=racklab-script-worker-%i
+Image=ghcr.io/cyberbalsa/racklab/horizon:main
+ContainerName=racklab-horizon-app
 Network=racklab.network
 EnvironmentFile=/etc/racklab/racklab.env
-Environment=RACKLAB_WORKER_POOL=script
-Environment=RACKLAB_WORKER_REPLICA=%i
-Environment=CONTAINER_HOST=unix:///run/podman/podman.sock
+Environment=RACKLAB_HORIZON_POOL_GROUP=app
 Volume=/etc/racklab:/etc/racklab:ro,Z
 Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
-Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z
-Volume=/run/podman/podman.sock:/run/podman/podman.sock
-Exec=php artisan queue:work redis --queue=scripts,cleanup --sleep=1 --tries=1 --timeout=900 --max-time=3600
+Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z
+Exec=php artisan horizon
 StopSignal=SIGTERM
-StopTimeout=900
+StopTimeout=3700
 NoNewPrivileges=true
 Pull=newer
 
 [Service]
 Restart=always
 TimeoutStartSec=300
-TimeoutStopSec=930
+TimeoutStopSec=3730
 
 [Install]
 WantedBy=racklab-runtime.target
-DefaultInstance=1

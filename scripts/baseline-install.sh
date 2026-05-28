@@ -585,6 +585,35 @@ prepare_directories() {
         "$UNIT_DIR"
 }
 
+remove_legacy_quadlets() {
+    # Pre-Horizon installs (commits before fd3a576) shipped four per-pool
+    # `queue:work` Quadlets. We now run a single Horizon master in two
+    # split containers (app + runner). Remove the legacy units so upgrade
+    # paths don't leave stale services enabled.
+    local legacy_units=(
+        racklab-provider-worker@.container
+        racklab-script-worker@.container
+        racklab-console-worker@.container
+        racklab-notification-worker@.container
+    )
+    local unit instance
+    for unit in "${legacy_units[@]}"; do
+        if [[ ! -f "$UNIT_DIR/$unit" ]]; then
+            continue
+        fi
+        instance="${unit%.container}@1.service"
+        if [[ "$SKIP_SYSTEMD_ENABLE" != "true" && "$DRY_RUN" != "true" ]]; then
+            run systemctl disable --now "$instance" 2>/dev/null || true
+        fi
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log "DRY RUN: remove legacy $UNIT_DIR/$unit"
+        else
+            rm -f "$UNIT_DIR/$unit"
+            log "removed legacy $UNIT_DIR/$unit"
+        fi
+    done
+}
+
 copy_quadlets() {
     local config_escaped data_escaped registry_escaped web_publish reverb_publish
     config_escaped="$(sed_escape "$CONFIG_DIR")"
@@ -592,6 +621,8 @@ copy_quadlets() {
     registry_escaped="$(sed_escape "$IMAGE_REGISTRY")"
     web_publish="$(sed_escape "$LISTEN_ADDR:$LISTEN_PORT:8000")"
     reverb_publish="$(sed_escape "$LISTEN_ADDR:8080:8080")"
+
+    remove_legacy_quadlets
 
     local source destination relative
 
@@ -691,10 +722,14 @@ uninstall_runtime() {
         racklab-redis.container
         racklab-web.container
         racklab-reverb.container
+        racklab-horizon-app.container
+        racklab-horizon-runner.container
+        racklab-scheduler-reconciler@.container
+        # Legacy per-pool Quadlets (pre-Horizon installs); removed here for
+        # idempotent uninstall on hosts upgraded from before fd3a576.
         racklab-provider-worker@.container
         racklab-script-worker@.container
         racklab-console-worker@.container
-        racklab-scheduler-reconciler@.container
         racklab-notification-worker@.container
     )
 

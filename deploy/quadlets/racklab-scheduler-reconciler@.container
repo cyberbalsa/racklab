@@ -15,7 +15,7 @@ Environment=RACKLAB_WORKER_REPLICA=%i
 Environment=CONTAINER_HOST=unix:///run/podman/podman.sock
 Volume=/etc/racklab:/etc/racklab:ro,Z
 Volume=/var/lib/racklab/storage:/var/www/html/storage:Z
-Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:Z
+Volume=/var/lib/racklab/plugins:/var/lib/racklab/plugins:ro,Z
 Volume=/run/podman/podman.sock:/run/podman/podman.sock
 Exec=/bin/sh -lc "while true; do php artisan racklab:reconcile-provider-tasks; php artisan racklab:expire-deployments; php artisan racklab:detect-provider-drift; php artisan racklab:reap-script-containers --max-age=3600; sleep ${RACKLAB_RECONCILER_INTERVAL:-30}; done"
 StopSignal=SIGTERM
