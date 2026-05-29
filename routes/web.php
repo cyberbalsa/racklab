@@ -21,6 +21,7 @@ use App\Http\Controllers\StackPackageExportController;
 use App\Http\Middleware\BindAuthenticatedTenant;
 use App\Http\Middleware\SetUserLocale;
 use App\Livewire\Catalog\CatalogBrowser;
+use App\Livewire\Catalog\CatalogPublishing;
 use App\Livewire\Docs\DocEditor;
 use App\Livewire\Docs\DocIndex;
 use App\Livewire\Hello;
@@ -47,6 +48,10 @@ Route::get('/dashboard', DashboardController::class)
 Route::get('/catalog', CatalogBrowser::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('catalog');
+
+Route::get('/catalog/publish', CatalogPublishing::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('catalog.publish');
 
 Route::get('/projects/{project}', ProjectDetail::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])

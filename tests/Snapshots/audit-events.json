@@ -4,6 +4,7 @@
     "auth.logout",
     "auth.password_change",
     "auth.signup",
+    "catalog.publish",
     "catalog.stack_package.export",
     "cloud_init.render",
     "console.access.denied",

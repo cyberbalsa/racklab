@@ -1,7 +1,10 @@
 <div class="mx-auto max-w-5xl py-8">
-    <div class="flex flex-col gap-2">
-        <h1 class="text-2xl font-semibold text-base-content">{{ __('racklab.catalog.title') }}</h1>
-        <p class="text-base text-base-content/70">{{ __('racklab.catalog.summary') }}</p>
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div class="flex flex-col gap-2">
+            <h1 class="text-2xl font-semibold text-base-content">{{ __('racklab.catalog.title') }}</h1>
+            <p class="text-base text-base-content/70">{{ __('racklab.catalog.summary') }}</p>
+        </div>
+        <a href="{{ route('catalog.publish') }}" wire:navigate class="btn btn-sm btn-outline" dusk="nav-catalog-publish">{{ __('racklab.publish.title') }}</a>
     </div>
 
     @error('deploy')
