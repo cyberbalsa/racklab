@@ -50,8 +50,10 @@
                             </td>
                             @if ($canApprove)
                                 <td class="text-right">
-                                    @if ($row['approved'])
+                                    @if ($row['revocable'])
                                         <button type="button" wire:click="revoke('{{ $script->getKey() }}')" dusk="revoke-{{ $script->slug }}" class="btn btn-xs btn-outline">{{ __('racklab.scripts_lib.revoke') }}</button>
+                                    @elseif ($row['approved'])
+                                        <span class="text-xs text-base-content/60">{{ __('racklab.scripts_lib.inherited') }}</span>
                                     @else
                                         <button type="button" wire:click="approve('{{ $script->getKey() }}')" dusk="approve-{{ $script->slug }}" class="btn btn-xs btn-primary">{{ __('racklab.scripts_lib.approve') }}</button>
                                     @endif

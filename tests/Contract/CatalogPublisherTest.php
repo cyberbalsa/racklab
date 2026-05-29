@@ -101,6 +101,25 @@ it('publishes a project-local stack to the catalog as an immutable published ver
     Tenant::forgetCurrent();
 });
 
+it('rejects a duplicate version label for the same catalog item instead of a 500', function (): void {
+    [$tenant, $user, $project] = provisionPublisher();
+    $source = makeSourceStack($tenant, $project);
+
+    $context = new TenantContext(activeTenantId: $tenant->getKey());
+    app(TenantContextStore::class)->set($context);
+    $tenant->makeCurrent();
+
+    app(CatalogPublisher::class)->publish($user, $context, $source, 'Two-tier Lab', '1.0.0', null);
+
+    expect(fn () => app(CatalogPublisher::class)->publish($user, $context, $source, 'Two-tier Lab', '1.0.0', null))
+        ->toThrow(App\Catalog\DuplicateCatalogVersionException::class);
+
+    expect(CatalogVersion::query()->where('version', '1.0.0')->count())->toBe(1);
+
+    app(TenantContextStore::class)->forget();
+    Tenant::forgetCurrent();
+});
+
 it('refuses to publish for an actor without catalog.publish on the source project', function (): void {
     [$tenant, $owner, $project] = provisionPublisher('Owner');
     $source = makeSourceStack($tenant, $project);

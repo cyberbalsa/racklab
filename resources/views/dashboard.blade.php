@@ -50,7 +50,9 @@
                             @foreach ($courses as $course)
                                 <tr>
                                     <td>
-                                        <div class="font-medium">{{ $course->name }}</div>
+                                        <div class="font-medium">
+                                            <a href="{{ route('courses.show', ['course' => $course->getKey()]) }}" wire:navigate class="link link-hover" dusk="course-open-{{ $course->getKey() }}">{{ $course->name }}</a>
+                                        </div>
                                         <div class="text-xs text-base-content/60">{{ $course->slug }}</div>
                                     </td>
                                     <td>{{ $course->sharing_scope }}</td>

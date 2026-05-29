@@ -34,6 +34,7 @@ return [
         'primary' => 'Principal',
     ],
     'publish' => [
+        'duplicate_version' => 'Esa version ya existe para este elemento del catalogo.',
         'choose_stack' => 'Elige un stack…',
         'current_version' => 'Version actual',
         'denied' => 'No puedes publicar en el catalogo.',
@@ -71,6 +72,7 @@ return [
         'stacks' => 'Stacks',
     ],
     'scripts_lib' => [
+        'inherited' => 'Heredado (catalogo)',
         'actions' => 'Acciones',
         'approve' => 'Aprobar',
         'revoke' => 'Revocar',
@@ -112,6 +114,14 @@ return [
         'title' => 'Constructor de stacks',
         'unknown_offering' => 'Esa oferta de red no esta disponible.',
         'vms' => 'Maquinas virtuales',
+    ],
+    'courses' => [
+        'back_to_dashboard' => 'Volver al panel',
+        'email' => 'Correo',
+        'member' => 'Miembro',
+        'no_members' => 'Aun no hay miembros inscritos.',
+        'role' => 'Rol',
+        'roster' => 'Lista (:count)',
     ],
     'dashboard' => [
         'clear_label_filter' => 'Quitar filtro',

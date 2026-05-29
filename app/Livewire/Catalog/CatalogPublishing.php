@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Livewire\Catalog;
 
 use App\Catalog\CatalogPublisher;
+use App\Catalog\DuplicateCatalogVersionException;
+use App\Catalog\VisibleCatalogList;
 use App\Domain\Rbac\Permission;
 use App\Domain\Tenancy\AccessResolver;
 use App\Domain\Tenancy\ActorIdentity;
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
-use App\Models\CatalogItem;
-use App\Models\CatalogVersion;
 use App\Models\Project;
 use App\Models\StackDefinition;
 use App\Models\User;
@@ -69,6 +69,10 @@ final class CatalogPublishing extends Component
             $this->addError('publish', __('racklab.publish.denied'));
 
             return;
+        } catch (DuplicateCatalogVersionException) {
+            $this->addError('versionLabel', __('racklab.publish.duplicate_version'));
+
+            return;
         }
 
         session()->flash('status', __('racklab.publish.published', ['name' => $this->itemName]));
@@ -83,7 +87,9 @@ final class CatalogPublishing extends Component
 
         return view('livewire.catalog.catalog-publishing', [
             'stacks' => $this->publishableStacks($user, $context),
-            'publishedItems' => $this->publishedItems(),
+            // AccessResolver catalog.read-filtered, same as the catalog browser
+            // — never a raw enumeration of every catalog item.
+            'publishedItems' => app(VisibleCatalogList::class)->forUser($user, $context),
         ]);
     }
 
@@ -113,28 +119,6 @@ final class CatalogPublishing extends Component
         }
 
         return $stacks;
-    }
-
-    /**
-     * @return list<array{item: CatalogItem, version: CatalogVersion|null}>
-     */
-    private function publishedItems(): array
-    {
-        $items = [];
-        /** @var CatalogItem $item */
-        foreach (CatalogItem::query()->orderBy('name')->get() as $item) {
-            /** @var CatalogVersion|null $version */
-            $version = CatalogVersion::query()
-                ->where('catalog_item_id', $item->getKey())
-                ->where('state', 'published')
-                ->orderByDesc('published_at')
-                ->orderByDesc('id')
-                ->first();
-
-            $items[] = ['item' => $item, 'version' => $version];
-        }
-
-        return $items;
     }
 
     private function allows(User $user, string $permission, Project $project, TenantContext $context): bool

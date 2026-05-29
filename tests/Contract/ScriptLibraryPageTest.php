@@ -163,6 +163,21 @@ it('lets an approver approve and revoke the current script version from the libr
     Tenant::forgetCurrent();
 });
 
+it('shows a catalog_script-inherited approval as approved but not revocable', function (): void {
+    [$tenant, $user, $project] = provisionScriptLibraryActor();
+    seedProjectScript($tenant, $user, $project, approved: true, approvalScope: 'catalog_script');
+
+    app(TenantContextStore::class)->set(new TenantContext(activeTenantId: $tenant->getKey()));
+    $tenant->makeCurrent();
+    test()->actingAs($user);
+
+    Livewire::test(ScriptLibrary::class, ['project' => $project->getKey()])
+        ->assertOk()
+        ->assertSee('Approved')
+        ->assertSee('Inherited (catalog)')
+        ->assertDontSeeHtml('wire:click="revoke');
+});
+
 it('returns 404 for a user who cannot read the project', function (): void {
     [$tenant, $owner, $project] = provisionScriptLibraryActor('Owner');
     seedProjectScript($tenant, $owner, $project, approved: true);

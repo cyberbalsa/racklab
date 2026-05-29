@@ -22,6 +22,7 @@ use App\Http\Middleware\BindAuthenticatedTenant;
 use App\Http\Middleware\SetUserLocale;
 use App\Livewire\Catalog\CatalogBrowser;
 use App\Livewire\Catalog\CatalogPublishing;
+use App\Livewire\Courses\CourseDetail;
 use App\Livewire\Docs\DocEditor;
 use App\Livewire\Docs\DocIndex;
 use App\Livewire\Hello;
@@ -60,6 +61,10 @@ Route::get('/projects/{project}', ProjectDetail::class)
 Route::get('/projects/{project}/scripts', ScriptLibrary::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('projects.scripts');
+
+Route::get('/courses/{course}', CourseDetail::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('courses.show');
 
 Route::get('/stacks/build', StackBuilder::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])

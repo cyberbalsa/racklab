@@ -68,6 +68,28 @@ final readonly class CatalogPublisher
         $tenantId = $context->activeTenantId;
 
         $version = DB::transaction(function () use ($source, $itemName, $versionLabel, $description, $tenantId): CatalogVersion {
+            /** @var CatalogItem $item */
+            $item = CatalogItem::query()->firstOrCreate(
+                ['tenant_id' => $tenantId, 'slug' => Str::slug($itemName)],
+                [
+                    'name' => $itemName,
+                    'description' => $description,
+                    'sharing_scope' => 'tenant_local',
+                    'shared_with_tenants' => [],
+                ],
+            );
+
+            // Catalog versions are immutable: republishing the same label for an
+            // existing item is a user error, not a DB-level 500.
+            if (CatalogVersion::query()
+                ->where('catalog_item_id', $item->getKey())
+                ->where('version', $versionLabel)
+                ->exists()) {
+                throw new DuplicateCatalogVersionException(
+                    sprintf('Version "%s" already exists for this catalog item.', $versionLabel),
+                );
+            }
+
             /** @var StackDefinition $catalogStack */
             $catalogStack = StackDefinition::query()->create([
                 'tenant_id' => $tenantId,
@@ -80,17 +102,6 @@ final readonly class CatalogPublisher
                 'sharing_scope' => 'tenant_local',
                 'shared_with_tenants' => [],
             ]);
-
-            /** @var CatalogItem $item */
-            $item = CatalogItem::query()->firstOrCreate(
-                ['tenant_id' => $tenantId, 'slug' => Str::slug($itemName)],
-                [
-                    'name' => $itemName,
-                    'description' => $description,
-                    'sharing_scope' => 'tenant_local',
-                    'shared_with_tenants' => [],
-                ],
-            );
 
             /** @var CatalogVersion $version */
             $version = CatalogVersion::query()->create([

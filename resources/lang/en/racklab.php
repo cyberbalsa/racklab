@@ -34,6 +34,7 @@ return [
         'primary' => 'Primary',
     ],
     'publish' => [
+        'duplicate_version' => 'That version already exists for this catalog item.',
         'choose_stack' => 'Choose a stack…',
         'current_version' => 'Current version',
         'denied' => 'You cannot publish to the catalog.',
@@ -71,6 +72,7 @@ return [
         'stacks' => 'Stacks',
     ],
     'scripts_lib' => [
+        'inherited' => 'Inherited (catalog)',
         'actions' => 'Actions',
         'approve' => 'Approve',
         'revoke' => 'Revoke',
@@ -112,6 +114,14 @@ return [
         'title' => 'Stack builder',
         'unknown_offering' => 'That network offering is not available.',
         'vms' => 'Virtual machines',
+    ],
+    'courses' => [
+        'back_to_dashboard' => 'Back to dashboard',
+        'email' => 'Email',
+        'member' => 'Member',
+        'no_members' => 'No members enrolled yet.',
+        'role' => 'Role',
+        'roster' => 'Roster (:count)',
     ],
     'dashboard' => [
         'clear_label_filter' => 'Clear filter',

@@ -169,7 +169,7 @@ final class ScriptLibrary extends Component
     }
 
     /**
-     * @return list<array{model: Script, approved: bool, version: int|null}>
+     * @return list<array{model: Script, approved: bool, revocable: bool, version: int|null}>
      */
     private function scriptsFor(Project $project): array
     {
@@ -185,11 +185,28 @@ final class ScriptLibrary extends Component
                 'model' => $script,
                 'approved' => $currentVersion instanceof ScriptVersion
                     && $this->hasUsableApproval($script, $currentVersion, $project),
+                // Revoke only applies to an approval owned by this project; an
+                // inherited catalog_script approval is approved-but-not-revocable
+                // here (revoke() only touches project-scoped rows).
+                'revocable' => $currentVersion instanceof ScriptVersion
+                    && $this->hasActiveProjectApproval($script, $currentVersion, $project),
                 'version' => $currentVersion?->version_number,
             ];
         }
 
         return $rows;
+    }
+
+    private function hasActiveProjectApproval(Script $script, ScriptVersion $version, Project $project): bool
+    {
+        return ScriptApproval::query()
+            ->where('script_id', $script->getKey())
+            ->where('script_version_id', $version->getKey())
+            ->where('state', 'active')
+            ->whereNull('invalidated_at')
+            ->where('scope_type', 'project')
+            ->where('scope_id', $project->id)
+            ->exists();
     }
 
     /**
