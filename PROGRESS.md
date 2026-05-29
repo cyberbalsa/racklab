@@ -1855,6 +1855,25 @@ authoring/export and labels) is now in place and browser-verified.
   real link to `/horizon`, gated by Horizon's own auth/asset serving under
   local `artisan serve`) — not an MVP button.
 
+### PRD §15 Key Screens — instructor: catalog publishing + script approval (2026-05-28)
+
+Two instructor Key Screens from PRD §15:
+
+- **Catalog publishing** (`/catalog/publish`, `App\Livewire\Catalog\CatalogPublishing`
+  + `App\Catalog\CatalogPublisher`): publishes a project-local stack to the
+  tenant catalog as an immutable published `CatalogVersion` wrapping a
+  catalog-scoped *copy* of the stack definition (source edits never mutate a
+  published version). Gated by `catalog.publish` on the source project; emits a
+  `catalog.publish` audit row (added to the snapshot). The screen lists the
+  stacks the actor may publish + the tenant's published items; linked from the
+  catalog header. Published items become browsable + deployable through the
+  tenant-wide catalog read. Dusk smoke covers the browser publish.
+- **Script approval** (actions on the Script library): users holding
+  `script.approve` on a project get approve/revoke buttons. Approve creates an
+  active project-scoped `ScriptApproval` for the current version; revoke
+  invalidates it. Both emit `script.approval` audit rows, mirroring
+  `ScriptApprovalStoreController`.
+
 ### PRD §15 Key Screens — Project detail + Script library (2026-05-28)
 
 Two more student Key Screens from PRD §15 now exist as Livewire pages:
