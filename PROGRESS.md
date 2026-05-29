@@ -1855,6 +1855,25 @@ authoring/export and labels) is now in place and browser-verified.
   real link to `/horizon`, gated by Horizon's own auth/asset serving under
   local `artisan serve`) — not an MVP button.
 
+### Course-staff deployment access + bulk roster enrolment (2026-05-28)
+
+- **Course-staff deployment access (RBAC).** A course instructor/TA can read +
+  manage deployments owned by members of their course. Implemented as a
+  relationship-derived synthetic role binding (`App\Tenancy\CourseDeploymentAccess`)
+  contributed through `EloquentRoleBindingRepository`, so AccessResolver's three
+  predicates apply unchanged. Only grants to course staff over their own
+  course's members' deployments — students get nothing, non-members are never
+  covered, cross-tenant courses never match. The course detail page lists course
+  members' deployments the actor may read. Security contract tests cover the
+  grant + all three denials; full suite green across the resolver-wide change.
+- **Bulk roster enrolment.** `CourseRosterImporter` enrols newline/comma-
+  separated emails (course.update gated): registered users immediately;
+  unknown emails become `PendingCourseEnrollment` rows under SSO
+  (`RACKLAB_SSO_ENABLED`) — converted to memberships on first login by
+  `PersonalProjectProvisioner` — or are reported as missing in sign-in-only
+  mode. Import UI on the course detail page with a per-mode hint + enrolled/
+  pending/missing summary.
+
 ### PRD §15 Key Screens — instructor: catalog publishing + script approval (2026-05-28)
 
 Two instructor Key Screens from PRD §15:
