@@ -116,6 +116,9 @@ return [
         'vms' => 'Virtual machines',
     ],
     'courses' => [
+        'member_deployments' => 'Member deployments',
+        'no_member_deployments' => 'No member deployments are visible to you.',
+        'owner' => 'Owner',
         'back_to_dashboard' => 'Back to dashboard',
         'email' => 'Email',
         'member' => 'Member',

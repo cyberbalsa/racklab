@@ -39,4 +39,34 @@
             </div>
         @endif
     </section>
+
+    <section>
+        <h2 class="text-lg font-semibold text-base-content">{{ __('racklab.courses.member_deployments') }}</h2>
+        @if ($memberDeployments === [])
+            <p class="mt-2 text-sm text-base-content/70">{{ __('racklab.courses.no_member_deployments') }}</p>
+        @else
+            <div class="mt-3 overflow-x-auto rounded border border-base-300">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>{{ __('racklab.courses.owner') }}</th>
+                            <th>{{ __('racklab.dashboard.deployment_name') }}</th>
+                            <th>{{ __('racklab.dashboard.deployment_state') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($memberDeployments as $row)
+                            <tr wire:key="md-{{ $row['deployment']->getKey() }}">
+                                <td class="text-sm">{{ $row['owner'] }}</td>
+                                <td>
+                                    <a href="{{ route('deployments.show', ['deployment' => $row['deployment']->getKey()]) }}" wire:navigate class="link link-hover font-medium">{{ $row['deployment']->name }}</a>
+                                </td>
+                                <td>{{ $row['deployment']->state }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
 </div>

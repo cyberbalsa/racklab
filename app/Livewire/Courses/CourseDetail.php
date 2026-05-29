@@ -11,6 +11,7 @@ use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Models\Course;
 use App\Models\CourseMembership;
+use App\Models\Deployment;
 use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\View\View;
@@ -52,14 +53,62 @@ final class CourseDetail extends Component
             throw new NotFoundHttpException('Course not found.');
         }
 
+        $members = CourseMembership::query()
+            ->where('course_id', $course->id)
+            ->with('user')
+            ->get();
+
         return view('livewire.courses.course-detail', [
             'course' => $course,
-            'members' => CourseMembership::query()
-                ->where('course_id', $course->id)
-                ->with('user')
-                ->get()
-                ->all(),
+            'members' => $members->all(),
+            'memberDeployments' => $this->memberDeployments($user, $context, $members),
         ]);
+    }
+
+    /**
+     * Deployments owned by course members that the actor may read — for course
+     * staff this includes students' deployments via the course-derived grant;
+     * each row is still gated through AccessResolver, so a member with no
+     * derived access (e.g. a student viewing the roster) sees only their own.
+     *
+     * @param  \Illuminate\Support\Collection<int, CourseMembership>  $members
+     * @return list<array{deployment: Deployment, owner: string}>
+     */
+    private function memberDeployments(User $user, TenantContext $context, \Illuminate\Support\Collection $members): array
+    {
+        $names = [];
+
+        foreach ($members as $member) {
+            if ($member->user instanceof User) {
+                $names[$member->user_id] = $member->user->name;
+            }
+        }
+
+        if ($names === []) {
+            return [];
+        }
+
+        $actor = new ActorIdentity((string) $user->id);
+        $permission = new Permission('deployment.read');
+        $rows = [];
+
+        /** @var Deployment $deployment */
+        foreach (Deployment::query()
+            ->whereIn('requested_by_id', array_keys($names))
+            ->latest('created_at')
+            ->latest('id')
+            ->get() as $deployment) {
+            if (! app(AccessResolver::class)->permitted($actor, $permission, $deployment, $context)->allowed) {
+                continue;
+            }
+
+            $rows[] = [
+                'deployment' => $deployment,
+                'owner' => $names[$deployment->requested_by_id] ?? '—',
+            ];
+        }
+
+        return $rows;
     }
 
     private function canRead(User $user, Course $course, TenantContext $context): bool

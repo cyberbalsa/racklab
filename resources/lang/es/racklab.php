@@ -116,6 +116,9 @@ return [
         'vms' => 'Maquinas virtuales',
     ],
     'courses' => [
+        'member_deployments' => 'Despliegues de miembros',
+        'no_member_deployments' => 'No hay despliegues de miembros visibles para ti.',
+        'owner' => 'Propietario',
         'back_to_dashboard' => 'Volver al panel',
         'email' => 'Correo',
         'member' => 'Miembro',

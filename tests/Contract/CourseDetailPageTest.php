@@ -7,7 +7,10 @@ use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Models\Course;
 use App\Models\CourseMembership;
+use App\Models\Deployment;
+use App\Models\Project;
 use App\Models\RoleBinding;
+use App\Models\StackDefinition;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Rbac\RbacDefaultsSynchronizer;
@@ -67,6 +70,23 @@ function provisionCourseDetail(): array
         'role' => 'student',
     ]);
 
+    // A deployment owned by the student member — the instructor should see it
+    // on the course page via the course-derived deployment grant.
+    $project = Project::query()->create([
+        'tenant_id' => $tenant->getKey(), 'name' => 'Lab', 'slug' => 'lab',
+        'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
+    ]);
+    $stack = StackDefinition::query()->create([
+        'tenant_id' => $tenant->getKey(), 'project_id' => $project->getKey(), 'name' => 'S', 'slug' => 's',
+        'scope' => 'project_local', 'is_reserved_default' => false,
+        'definition' => ['provider' => 'fake', 'components' => []], 'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
+    ]);
+    Deployment::query()->create([
+        'tenant_id' => $tenant->getKey(), 'project_id' => $project->getKey(), 'stack_definition_id' => $stack->getKey(),
+        'requested_by_id' => $student->id, 'name' => 'student-lab-vm', 'state' => 'running', 'provider' => 'fake',
+        'metadata' => [], 'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
+    ]);
+
     app(TenantContextStore::class)->forget();
     Tenant::forgetCurrent();
 
@@ -82,7 +102,9 @@ it('shows an instructor their course with the roster', function (): void {
         ->assertSee('Intro to Networking')
         ->assertSee('Ada Instructor')
         ->assertSee('Bob Student')
-        ->assertSee('bob@example.test');
+        ->assertSee('bob@example.test')
+        // the instructor sees the student member's deployment (course grant)
+        ->assertSee('student-lab-vm');
 });
 
 it('returns 404 for a user who cannot read the course', function (): void {

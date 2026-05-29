@@ -12,6 +12,8 @@ use App\Models\RoleBinding;
 
 final readonly class EloquentRoleBindingRepository implements RoleBindingRepository
 {
+    public function __construct(private CourseDeploymentAccess $courseDeploymentAccess) {}
+
     /**
      * @return list<RoleBindingRecord>
      */
@@ -43,6 +45,12 @@ final readonly class EloquentRoleBindingRepository implements RoleBindingReposit
             ->where('resource_id', $resource->tenantId())
             ->get() as $binding) {
             $records[] = $binding->toRecord();
+        }
+
+        // Course-staff → course-member-deployment grants (relationship-based,
+        // synthesized as bindings on the deployment resource).
+        foreach ($this->courseDeploymentAccess->derivedBindings($actor, $resource) as $derived) {
+            $records[] = $derived;
         }
 
         return $records;
