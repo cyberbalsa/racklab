@@ -351,19 +351,21 @@
                                                 <a href="{{ route('dashboard', ['label' => $label]) }}" wire:navigate class="badge badge-sm badge-outline">{{ $label }}</a>
                                             @endforeach
                                         </div>
-                                        <form method="POST" action="{{ route('deployments.labels.update', ['deployment' => $deployment->getKey()]) }}" class="mt-1 flex items-center gap-1">
-                                            @csrf
-                                            <input
-                                                type="text"
-                                                name="labels"
-                                                value="{{ implode(', ', $deployment->labels ?? []) }}"
-                                                dusk="deployment-labels-{{ $deployment->getKey() }}"
-                                                class="input input-bordered input-xs w-44"
-                                                placeholder="{{ __('racklab.dashboard.labels_placeholder') }}"
-                                                aria-label="{{ __('racklab.dashboard.labels_aria') }}"
-                                            >
-                                            <button type="submit" dusk="save-labels-{{ $deployment->getKey() }}" class="btn btn-xs">{{ __('racklab.dashboard.labels_save') }}</button>
-                                        </form>
+                                        @if (in_array($deployment->getKey(), $manageableDeploymentIds, true))
+                                            <form method="POST" action="{{ route('deployments.labels.update', ['deployment' => $deployment->getKey()]) }}" class="mt-1 flex items-center gap-1">
+                                                @csrf
+                                                <input
+                                                    type="text"
+                                                    name="labels"
+                                                    value="{{ implode(', ', $deployment->labels ?? []) }}"
+                                                    dusk="deployment-labels-{{ $deployment->getKey() }}"
+                                                    class="input input-bordered input-xs w-44"
+                                                    placeholder="{{ __('racklab.dashboard.labels_placeholder') }}"
+                                                    aria-label="{{ __('racklab.dashboard.labels_aria') }}"
+                                                >
+                                                <button type="submit" dusk="save-labels-{{ $deployment->getKey() }}" class="btn btn-xs">{{ __('racklab.dashboard.labels_save') }}</button>
+                                            </form>
+                                        @endif
                                     </td>
                                     <td>{{ $deployment->state }}</td>
                                     <td>
@@ -391,7 +393,7 @@
                                         @endforeach
                                     </td>
                                     <td class="text-right">
-                                        @if (! in_array($deployment->state, ['released', 'expired'], true))
+                                        @if (in_array($deployment->getKey(), $manageableDeploymentIds, true) && ! in_array($deployment->state, ['released', 'expired'], true))
                                             <form method="POST" action="{{ route('deployments.release', ['deployment' => $deployment->getKey()]) }}">
                                                 @csrf
                                                 <button type="submit" dusk="release-{{ $deployment->getKey() }}" class="btn btn-sm btn-outline">{{ __('racklab.dashboard.release_deployment') }}</button>

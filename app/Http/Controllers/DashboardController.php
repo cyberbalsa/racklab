@@ -6,6 +6,9 @@ namespace App\Http\Controllers;
 
 use App\Courses\VisibleCourseList;
 use App\Deployments\VisibleDeploymentList;
+use App\Domain\Rbac\Permission;
+use App\Domain\Tenancy\AccessResolver;
+use App\Domain\Tenancy\ActorIdentity;
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Models\Tenant;
@@ -30,6 +33,7 @@ final class DashboardController extends Controller
         VisibleDeploymentList $deployments,
         VisibleScriptRunList $scriptRuns,
         DashboardQuotaSummary $quotaSummary,
+        AccessResolver $accessResolver,
     ): Factory|View {
         $user = $request->user();
 
@@ -54,12 +58,28 @@ final class DashboardController extends Controller
         $labelFilter = trim($request->string('label')->toString());
         $labelFilter = $labelFilter === '' ? null : $labelFilter;
 
+        $visibleDeployments = $deployments->forUser($user, $context, $labelFilter);
+
+        // Deployments the actor can manage (deployment.update) — only those get
+        // the release/label management controls. A console-shared deployment is
+        // visible (read) but read-only here, so no misleading controls show.
+        $actor = new ActorIdentity((string) $user->id);
+        $updatePermission = new Permission('deployment.update');
+        $manageableDeploymentIds = [];
+
+        foreach ($visibleDeployments as $deployment) {
+            if ($accessResolver->permitted($actor, $updatePermission, $deployment, $context)->allowed) {
+                $manageableDeploymentIds[] = $deployment->getKey();
+            }
+        }
+
         return view('dashboard', [
             'activeTenant' => $tenant,
             'courses' => $courses->forUser($user, $context),
             'projects' => $visibleProjects,
             'quotaSummaries' => $quotaSummary->forProjects($user, $context, $visibleProjects),
-            'deployments' => $deployments->forUser($user, $context, $labelFilter),
+            'deployments' => $visibleDeployments,
+            'manageableDeploymentIds' => $manageableDeploymentIds,
             'labelFilter' => $labelFilter,
             'scriptRuns' => $scriptRuns->forUser($user, $context),
             'tokenGrants' => TokenGrant::query()
