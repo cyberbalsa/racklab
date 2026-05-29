@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
 use App\Identity\PersonalProjectProvisioner;
+use App\Livewire\Scripts\ScriptLibrary;
+use App\Models\AuditEvent;
 use App\Models\Project;
 use App\Models\Script;
 use App\Models\ScriptApproval;
@@ -13,6 +15,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Rbac\RbacDefaultsSynchronizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -121,6 +124,43 @@ it('marks a script without an active approval as unapproved', function (): void 
         ->assertOk()
         ->assertSee('Bootstrap Web')
         ->assertSee('Not approved');
+});
+
+it('lets an approver approve and revoke the current script version from the library', function (): void {
+    [$tenant, $user, $project] = provisionScriptLibraryActor();
+    $script = seedProjectScript($tenant, $user, $project, approved: false);
+
+    app(TenantContextStore::class)->set(new TenantContext(activeTenantId: $tenant->getKey()));
+    $tenant->makeCurrent();
+    test()->actingAs($user);
+
+    // Approve: an active project-scoped approval is created + audited.
+    Livewire::test(ScriptLibrary::class, ['project' => $project->getKey()])
+        ->call('approve', $script->getKey())
+        ->assertHasNoErrors();
+
+    expect(ScriptApproval::query()
+        ->where('script_id', $script->getKey())
+        ->where('scope_type', 'project')
+        ->where('scope_id', $project->getKey())
+        ->where('state', 'active')
+        ->exists())->toBeTrue()
+        ->and(AuditEvent::query()->where('event_type', 'script.approval')->where('action', 'approve')->exists())->toBeTrue();
+
+    // Revoke: the active approval is invalidated.
+    Livewire::test(ScriptLibrary::class, ['project' => $project->getKey()])
+        ->call('revoke', $script->getKey())
+        ->assertHasNoErrors();
+
+    expect(ScriptApproval::query()
+        ->where('script_id', $script->getKey())
+        ->where('state', 'active')
+        ->whereNull('invalidated_at')
+        ->exists())->toBeFalse()
+        ->and(AuditEvent::query()->where('event_type', 'script.approval')->where('action', 'revoke')->exists())->toBeTrue();
+
+    app(TenantContextStore::class)->forget();
+    Tenant::forgetCurrent();
 });
 
 it('returns 404 for a user who cannot read the project', function (): void {

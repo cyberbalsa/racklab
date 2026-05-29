@@ -7,6 +7,10 @@
         <p class="text-sm text-base-content/70">{{ $project->name }}</p>
     </header>
 
+    @if (session('status'))
+        <div dusk="script-status" class="alert alert-success">{{ session('status') }}</div>
+    @endif
+
     @if (! $canViewScripts)
         <div class="alert alert-warning" role="status">{{ __('racklab.scripts_lib.no_access') }}</div>
     @elseif ($scripts === [])
@@ -21,6 +25,9 @@
                         <th>{{ __('racklab.scripts_lib.version') }}</th>
                         <th>{{ __('racklab.scripts_lib.state') }}</th>
                         <th>{{ __('racklab.scripts_lib.approval') }}</th>
+                        @if ($canApprove)
+                            <th class="text-right">{{ __('racklab.scripts_lib.actions') }}</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -41,6 +48,15 @@
                                     <span class="badge badge-ghost">{{ __('racklab.scripts_lib.not_approved') }}</span>
                                 @endif
                             </td>
+                            @if ($canApprove)
+                                <td class="text-right">
+                                    @if ($row['approved'])
+                                        <button type="button" wire:click="revoke('{{ $script->getKey() }}')" dusk="revoke-{{ $script->slug }}" class="btn btn-xs btn-outline">{{ __('racklab.scripts_lib.revoke') }}</button>
+                                    @else
+                                        <button type="button" wire:click="approve('{{ $script->getKey() }}')" dusk="approve-{{ $script->slug }}" class="btn btn-xs btn-primary">{{ __('racklab.scripts_lib.approve') }}</button>
+                                    @endif
+                                </td>
+                            @endif
                         </tr>
                     @endforeach
                 </tbody>

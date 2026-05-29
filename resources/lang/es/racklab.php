@@ -53,6 +53,11 @@ return [
         'stacks' => 'Stacks',
     ],
     'scripts_lib' => [
+        'actions' => 'Acciones',
+        'approve' => 'Aprobar',
+        'revoke' => 'Revocar',
+        'approved_flash' => 'Script aprobado.',
+        'revoked_flash' => 'Aprobacion revocada.',
         'approval' => 'Aprobacion',
         'approved' => 'Aprobado',
         'back_to_project' => 'Volver al proyecto',

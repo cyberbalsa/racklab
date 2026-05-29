@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Scripts;
 
+use App\Audit\AuditEventWriter;
 use App\Domain\Rbac\Permission;
 use App\Domain\Tenancy\AccessResolver;
 use App\Domain\Tenancy\ActorIdentity;
@@ -16,6 +17,7 @@ use App\Models\ScriptVersion;
 use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Livewire\Component;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -44,6 +46,63 @@ final class ScriptLibrary extends Component
         $this->projectId = $model->id;
     }
 
+    /**
+     * Approve the current version of a script for this project (script.approve
+     * gated). Mirrors ScriptApprovalStoreController: a project-scoped active
+     * approval + a `script.approval` audit row.
+     */
+    public function approve(string $scriptId): void
+    {
+        [$user, $context, $project, $script, $version] = $this->resolveForApproval($scriptId);
+
+        if ($script === null || $version === null) {
+            return;
+        }
+
+        ScriptApproval::query()->create([
+            'tenant_id' => $context->activeTenantId,
+            'script_id' => $script->getKey(),
+            'script_version_id' => $version->getKey(),
+            'approved_by_id' => $user->getKey(),
+            'scope_type' => 'project',
+            'scope_id' => $project->id,
+            'state' => 'active',
+            'metadata' => [],
+        ]);
+
+        $this->auditApproval($user, $context, $script, $version, 'approve', []);
+        session()->flash('status', __('racklab.scripts_lib.approved_flash'));
+    }
+
+    /**
+     * Revoke (invalidate) the active project-scoped approval for a script's
+     * current version (script.approve gated).
+     */
+    public function revoke(string $scriptId): void
+    {
+        [$user, $context, $project, $script, $version] = $this->resolveForApproval($scriptId);
+
+        if ($script === null || $version === null) {
+            return;
+        }
+
+        ScriptApproval::query()
+            ->where('script_id', $script->getKey())
+            ->where('script_version_id', $version->getKey())
+            ->where('scope_type', 'project')
+            ->where('scope_id', $project->id)
+            ->where('state', 'active')
+            ->whereNull('invalidated_at')
+            ->update([
+                'state' => 'revoked',
+                'invalidated_at' => Carbon::now(),
+                'invalidation_reason' => 'revoked_by_approver',
+            ]);
+
+        $this->auditApproval($user, $context, $script, $version, 'revoke', []);
+        session()->flash('status', __('racklab.scripts_lib.revoked_flash'));
+    }
+
     public function render(): View
     {
         $user = $this->currentUser();
@@ -60,7 +119,52 @@ final class ScriptLibrary extends Component
         return view('livewire.scripts.script-library', [
             'project' => $project,
             'canViewScripts' => $canViewScripts,
+            'canApprove' => $this->allows($user, 'script.approve', $project, $context),
             'scripts' => $canViewScripts ? $this->scriptsFor($project) : [],
+        ]);
+    }
+
+    /**
+     * @return array{0: User, 1: TenantContext, 2: Project, 3: Script|null, 4: ScriptVersion|null}
+     */
+    private function resolveForApproval(string $scriptId): array
+    {
+        $user = $this->currentUser();
+        $context = $this->currentContext();
+
+        $project = Project::query()->whereKey($this->projectId)->first();
+
+        if (! $project instanceof Project || ! $this->allows($user, 'script.approve', $project, $context)) {
+            throw new NotFoundHttpException('Project not found.');
+        }
+
+        /** @var Script|null $script */
+        $script = Script::query()->whereKey($scriptId)->where('project_id', $project->id)->first();
+        $version = $script?->current_version_id === null
+            ? null
+            : ScriptVersion::query()->whereKey($script->current_version_id)->first();
+
+        return [$user, $context, $project, $script, $version];
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function auditApproval(User $user, TenantContext $context, Script $script, ScriptVersion $version, string $action, array $metadata): void
+    {
+        app(AuditEventWriter::class)->append([
+            'event_type' => 'script.approval',
+            'action' => $action,
+            'result' => 'allowed',
+            'actor_type' => 'user',
+            'actor_id' => (string) $user->id,
+            'actor_tenant' => $context->activeTenantId,
+            'resource_type' => $script->resourceType(),
+            'resource_id' => $script->resourceId(),
+            'resource_tenant' => $script->tenant_id,
+            'target_tenant_set' => [$context->activeTenantId],
+            'effective_permissions' => ['script.approve'],
+            'metadata' => ['script_version_id' => $version->getKey(), 'scope_type' => 'project', ...$metadata],
         ]);
     }
 
