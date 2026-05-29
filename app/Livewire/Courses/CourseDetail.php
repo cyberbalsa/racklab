@@ -98,7 +98,7 @@ final class CourseDetail extends Component
         return view('livewire.courses.course-detail', [
             'course' => $course,
             'members' => $members->all(),
-            'memberDeployments' => $this->memberDeployments($user, $context, $members),
+            'memberDeployments' => $this->courseDeployments($user, $context, $course, $members),
             'canManageRoster' => $this->allows($user, 'course.update', $course, $context),
             'ssoEnabled' => (bool) config('racklab.sso_enabled', false),
         ]);
@@ -115,15 +115,15 @@ final class CourseDetail extends Component
     }
 
     /**
-     * Deployments owned by course members that the actor may read — for course
-     * staff this includes students' deployments via the course-derived grant;
-     * each row is still gated through AccessResolver, so a member with no
-     * derived access (e.g. a student viewing the roster) sees only their own.
+     * Deployments created for this course that the actor may read. Course staff
+     * see all of them via the course-derived grant; every row is still gated
+     * through AccessResolver, so a non-staff viewer sees only deployments they
+     * already had access to.
      *
      * @param  \Illuminate\Support\Collection<int, CourseMembership>  $members
      * @return list<array{deployment: Deployment, owner: string}>
      */
-    private function memberDeployments(User $user, TenantContext $context, \Illuminate\Support\Collection $members): array
+    private function courseDeployments(User $user, TenantContext $context, Course $course, \Illuminate\Support\Collection $members): array
     {
         $names = [];
 
@@ -133,17 +133,13 @@ final class CourseDetail extends Component
             }
         }
 
-        if ($names === []) {
-            return [];
-        }
-
         $actor = new ActorIdentity((string) $user->id);
         $permission = new Permission('deployment.read');
         $rows = [];
 
         /** @var Deployment $deployment */
         foreach (Deployment::query()
-            ->whereIn('requested_by_id', array_keys($names))
+            ->where('course_id', $course->id)
             ->latest('created_at')
             ->latest('id')
             ->get() as $deployment) {

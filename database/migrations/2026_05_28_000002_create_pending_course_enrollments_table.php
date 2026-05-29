@@ -20,6 +20,9 @@ return new class extends Migration
 
             $table->unique(['tenant_id', 'course_id', 'email']);
             $table->index(['tenant_id', 'email']);
+            // Delete pending rows with their course so first-login provisioning
+            // never tries to enrol into a deleted course.
+            $table->foreign('course_id')->references('id')->on('courses')->cascadeOnDelete();
         });
     }
 

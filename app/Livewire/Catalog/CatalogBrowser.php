@@ -8,6 +8,7 @@ use App\Catalog\CatalogDeployer;
 use App\Catalog\VisibleCatalogList;
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
+use App\Models\CourseMembership;
 use App\Models\Project;
 use App\Models\User;
 use App\Projects\VisibleProjectList;
@@ -27,6 +28,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class CatalogBrowser extends Component
 {
     public string $selectedProjectId = '';
+
+    public string $selectedCourseId = '';
 
     public function deploy(string $catalogVersionId, CatalogDeployer $deployer): mixed
     {
@@ -51,6 +54,7 @@ final class CatalogBrowser extends Component
                 operationKind: 'deploy',
                 idempotencyKey: 'catalog-deploy-'.Str::ulid()->toString(),
                 catalogVersionId: $catalogVersionId,
+                courseId: $this->selectedCourseId,
             );
         } catch (NotFoundHttpException|AuthorizationException) {
             $this->addError('deploy', __('racklab.catalog.deploy_denied'));
@@ -77,6 +81,14 @@ final class CatalogBrowser extends Component
         return view('livewire.catalog.catalog-browser', [
             'catalogItems' => app(VisibleCatalogList::class)->forUser($user, $context),
             'projects' => $projects,
+            // Courses the actor belongs to — deploying "for a course" lets that
+            // course's staff manage the resulting deployment.
+            'courses' => CourseMembership::query()
+                ->where('tenant_id', $context->activeTenantId)
+                ->where('user_id', $user->id)
+                ->with('course')
+                ->get()
+                ->all(),
         ]);
     }
 

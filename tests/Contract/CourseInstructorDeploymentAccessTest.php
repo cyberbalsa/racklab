@@ -20,11 +20,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 /**
- * Build a tenant with a course, an instructor + a student enrolled, and a
- * deployment owned by the student. Returns the actors + the student's
- * deployment + an unrelated deployment owned by a non-member.
+ * Build a tenant with a course, an instructor + a student enrolled, a
+ * course-associated deployment owned by the student, the student's personal
+ * (non-course) deployment, and an unrelated non-member deployment.
  *
- * @return array{Tenant, User, User, Deployment, Deployment}
+ * @return array{Tenant, User, User, Deployment, Deployment, Deployment}
  */
 function seedCourseDeploymentFixture(): array
 {
@@ -61,19 +61,20 @@ function seedCourseDeploymentFixture(): array
         'definition' => ['provider' => 'fake', 'components' => []], 'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
     ]);
 
-    $make = static fn (User $owner, string $name): Deployment => Deployment::query()->create([
-        'tenant_id' => $tenant->getKey(), 'project_id' => $project->getKey(), 'stack_definition_id' => $stack->getKey(),
+    $make = static fn (User $owner, string $name, ?string $courseId): Deployment => Deployment::query()->create([
+        'tenant_id' => $tenant->getKey(), 'project_id' => $project->getKey(), 'course_id' => $courseId, 'stack_definition_id' => $stack->getKey(),
         'requested_by_id' => $owner->id, 'name' => $name, 'state' => 'running', 'provider' => 'fake',
         'metadata' => [], 'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
     ]);
 
-    $studentDeployment = $make($student, 'student-vm');
-    $strangerDeployment = $make($stranger, 'stranger-vm');
+    $courseDeployment = $make($student, 'course-vm', $course->getKey());
+    $personalDeployment = $make($student, 'personal-vm', null);
+    $strangerDeployment = $make($stranger, 'stranger-vm', null);
 
     app(TenantContextStore::class)->forget();
     Tenant::forgetCurrent();
 
-    return [$tenant, $instructor, $student, $studentDeployment, $strangerDeployment];
+    return [$tenant, $instructor, $student, $courseDeployment, $personalDeployment, $strangerDeployment];
 }
 
 function permits(User $actor, string $permission, Deployment $deployment, Tenant $tenant): bool
@@ -95,22 +96,30 @@ function permits(User $actor, string $permission, Deployment $deployment, Tenant
     return $allowed;
 }
 
-it("lets a course instructor read and manage a course member's deployment", function (): void {
-    [$tenant, $instructor, , $studentDeployment] = seedCourseDeploymentFixture();
+it('lets a course instructor read and manage a deployment created for the course', function (): void {
+    [$tenant, $instructor, , $courseDeployment] = seedCourseDeploymentFixture();
 
-    expect(permits($instructor, 'deployment.read', $studentDeployment, $tenant))->toBeTrue()
-        ->and(permits($instructor, 'deployment.power', $studentDeployment, $tenant))->toBeTrue();
+    expect(permits($instructor, 'deployment.read', $courseDeployment, $tenant))->toBeTrue()
+        ->and(permits($instructor, 'deployment.power', $courseDeployment, $tenant))->toBeTrue();
 });
 
-it('does not let a course instructor read a deployment owned by a non-member', function (): void {
-    [$tenant, $instructor, , , $strangerDeployment] = seedCourseDeploymentFixture();
+it("does not let a course instructor read a member's personal (non-course) deployment", function (): void {
+    [$tenant, $instructor, , , $personalDeployment] = seedCourseDeploymentFixture();
+
+    // Over-grant guard: shared course membership alone must not expose a
+    // member's deployments that were not created for the course.
+    expect(permits($instructor, 'deployment.read', $personalDeployment, $tenant))->toBeFalse();
+});
+
+it('does not let a course instructor read a non-member, non-course deployment', function (): void {
+    [$tenant, $instructor, , , , $strangerDeployment] = seedCourseDeploymentFixture();
 
     expect(permits($instructor, 'deployment.read', $strangerDeployment, $tenant))->toBeFalse();
 });
 
-it("does not let a student read another member's deployment via the course", function (): void {
-    [$tenant, , $student, , $strangerDeployment] = seedCourseDeploymentFixture();
+it('does not let a student read a course deployment via the course', function (): void {
+    [$tenant, , $student, $courseDeployment] = seedCourseDeploymentFixture();
 
-    // The student is a course member but not staff — no derived access.
-    expect(permits($student, 'deployment.read', $strangerDeployment, $tenant))->toBeFalse();
+    // A plain student member is not staff — no derived management access.
+    expect(permits($student, 'deployment.read', $courseDeployment, $tenant))->toBeFalse();
 });

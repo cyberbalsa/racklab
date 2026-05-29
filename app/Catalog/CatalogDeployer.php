@@ -14,9 +14,11 @@ use App\Domain\Tenancy\ActorIdentity;
 use App\Domain\Tenancy\TenantContext;
 use App\Models\CatalogItem;
 use App\Models\CatalogVersion;
+use App\Models\CourseMembership;
 use App\Models\Project;
 use App\Models\StackDefinition;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -46,8 +48,10 @@ final readonly class CatalogDeployer
         string $catalogVersionId = '',
         string $stackDefinitionId = '',
         bool $simulateFailure = false,
+        string $courseId = '',
     ): DeploymentCreateResult {
         $this->authorizeCatalogVersionRead($catalogVersionId, $user, $context);
+        $this->authorizeCourseAssociation($courseId, $user, $context);
 
         $stack = $this->stacks->forProjectOrCatalogVersion(
             project: $project,
@@ -56,7 +60,7 @@ final readonly class CatalogDeployer
         );
 
         if ($this->stackProvider($stack) === 'proxmox') {
-            return $this->proxmoxDeployments->request(
+            $result = $this->proxmoxDeployments->request(
                 actor: $user,
                 context: $context,
                 project: $project,
@@ -65,18 +69,49 @@ final readonly class CatalogDeployer
                 idempotencyKey: $idempotencyKey,
                 request: $request,
             );
+        } else {
+            $result = $this->fakeDeployments->request(
+                actor: $user,
+                context: $context,
+                project: $project,
+                stack: $stack,
+                operationKind: $operationKind,
+                idempotencyKey: $idempotencyKey,
+                request: $request,
+                simulateFailure: $simulateFailure,
+            );
         }
 
-        return $this->fakeDeployments->request(
-            actor: $user,
-            context: $context,
-            project: $project,
-            stack: $stack,
-            operationKind: $operationKind,
-            idempotencyKey: $idempotencyKey,
-            request: $request,
-            simulateFailure: $simulateFailure,
-        );
+        // Tag the deployment with its course so course staff gain managed
+        // access (only after membership was validated above). Skip on
+        // idempotent replays so we never re-stamp a prior deployment.
+        if ($courseId !== '' && ! $result->idempotentReplay && $result->deployment->course_id === null) {
+            $result->deployment->forceFill(['course_id' => $courseId])->save();
+        }
+
+        return $result;
+    }
+
+    /**
+     * A deployment may only be associated with a course the actor actually
+     * belongs to — prevents tagging a deployment into an arbitrary course (which
+     * would otherwise expose it to that course's staff).
+     */
+    private function authorizeCourseAssociation(string $courseId, User $user, TenantContext $context): void
+    {
+        if ($courseId === '') {
+            return;
+        }
+
+        $isMember = CourseMembership::query()
+            ->where('tenant_id', $context->activeTenantId)
+            ->where('course_id', $courseId)
+            ->where('user_id', $user->id)
+            ->exists();
+
+        if (! $isMember) {
+            throw new AuthorizationException('You are not a member of that course.');
+        }
     }
 
     private function authorizeCatalogVersionRead(

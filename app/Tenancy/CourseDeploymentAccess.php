@@ -13,17 +13,18 @@ use App\Models\Deployment;
 
 /**
  * Derives RBAC bindings from course staffing: a user who is `instructor`/`ta`
- * in a course may read and manage the deployments owned by members of that same
- * course. This is a relationship-based grant (course-staff → member-deployment)
- * expressed as a synthetic role binding so AccessResolver's existing three
- * predicates apply unchanged — the synthetic binding carries the actor's course
- * role (instructor/ta), is tenant-local to the deployment's tenant, and targets
- * the deployment resource.
+ * in a course may read and manage the deployments **created for that course**
+ * (`deployment.course_id`). This is a relationship-based grant expressed as a
+ * synthetic role binding so AccessResolver's existing three predicates apply
+ * unchanged — the synthetic binding carries the actor's course role
+ * (instructor/ta), is tenant-local to the deployment's tenant, and targets the
+ * deployment resource.
  *
- * It only ever GRANTS to course staff over their own course's deployments:
- * a plain student member gets nothing here, cross-tenant courses never match
- * (membership is tenant-scoped and we pin the deployment tenant), and a
- * non-member's deployment is never covered.
+ * The grant is scoped to the deployment's explicit course association, NOT the
+ * owner's membership: a member's personal deployment, or a deployment for a
+ * different course, is never covered (no over-grant). Plain student members get
+ * nothing, and cross-tenant courses never match (membership is tenant-scoped
+ * and we pin the deployment tenant).
  */
 final readonly class CourseDeploymentAccess
 {
@@ -38,46 +39,27 @@ final readonly class CourseDeploymentAccess
             return [];
         }
 
-        $ownerId = $resource->requested_by_id;
+        $courseId = $resource->course_id;
 
-        if ($ownerId === null) {
+        if ($courseId === null) {
             return [];
         }
 
-        // Courses (in the deployment's tenant) the actor staffs, keyed by course
-        // id → the actor's managing role there.
-        $managed = CourseMembership::query()
+        // The actor's managing role (instructor/ta) in this deployment's course,
+        // within the deployment's tenant.
+        $role = CourseMembership::query()
             ->where('tenant_id', $resource->tenant_id)
+            ->where('course_id', $courseId)
             ->where('user_id', $actor->id)
             ->whereIn('role', self::MANAGING_ROLES)
-            ->pluck('role', 'course_id');
+            ->value('role');
 
-        if ($managed->isEmpty()) {
+        if (! is_string($role)) {
             return [];
         }
 
-        // Of those, the courses the deployment owner also belongs to.
-        $ownerCourseIds = CourseMembership::query()
-            ->where('tenant_id', $resource->tenant_id)
-            ->where('user_id', $ownerId)
-            ->whereIn('course_id', $managed->keys()->all())
-            ->pluck('course_id')
-            ->unique();
-
-        $records = [];
-
-        foreach ($ownerCourseIds as $courseId) {
-            if (! is_string($courseId)) {
-                continue;
-            }
-
-            $role = $managed->get($courseId);
-
-            if (! is_string($role)) {
-                continue;
-            }
-
-            $records[] = new RoleBindingRecord(
+        return [
+            new RoleBindingRecord(
                 id: 'course-staff:'.$courseId,
                 principalId: $actor->id,
                 role: $role,
@@ -86,9 +68,7 @@ final readonly class CourseDeploymentAccess
                 tenantSet: [],
                 resourceType: $resource->resourceType(),
                 resourceId: $resource->resourceId(),
-            );
-        }
-
-        return $records;
+            ),
+        ];
     }
 }

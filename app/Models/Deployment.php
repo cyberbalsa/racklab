@@ -17,6 +17,7 @@ use Override;
  * @property string $id
  * @property string $tenant_id
  * @property string $project_id
+ * @property string|null $course_id
  * @property string $stack_definition_id
  * @property int|null $requested_by_id
  * @property string $name
@@ -31,6 +32,7 @@ use Override;
 #[Fillable([
     'tenant_id',
     'project_id',
+    'course_id',
     'stack_definition_id',
     'requested_by_id',
     'name',

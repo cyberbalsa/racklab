@@ -143,6 +143,36 @@ it('deploys a selected catalog version into the chosen project', function (): vo
     Tenant::forgetCurrent();
 });
 
+it('tags the deployment with a course the member chose to deploy for', function (): void {
+    [$tenant, $user, $project] = provisionCatalogBrowserActor();
+    [, $version] = publishCatalogBrowserItem($tenant);
+
+    // The actor is enrolled in a course.
+    app(TenantContextStore::class)->set(new TenantContext(activeTenantId: $tenant->getKey()));
+    $tenant->makeCurrent();
+    $course = App\Models\Course::query()->create([
+        'tenant_id' => $tenant->getKey(), 'name' => 'Net', 'slug' => 'net',
+        'description' => null, 'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
+    ]);
+    App\Models\CourseMembership::query()->create([
+        'tenant_id' => $tenant->getKey(), 'course_id' => $course->getKey(), 'user_id' => $user->id, 'role' => 'student',
+    ]);
+
+    actAsCatalogBrowser($tenant, $user);
+
+    Livewire::test(CatalogBrowser::class)
+        ->set('selectedProjectId', $project->getKey())
+        ->set('selectedCourseId', $course->getKey())
+        ->call('deploy', $version->getKey())
+        ->assertHasNoErrors()
+        ->assertRedirect(route('dashboard'));
+
+    expect(Deployment::query()->where('project_id', $project->getKey())->first()?->course_id)->toBe($course->getKey());
+
+    app(TenantContextStore::class)->forget();
+    Tenant::forgetCurrent();
+});
+
 it('refuses to deploy a catalog version owned by another tenant', function (): void {
     [$tenant, $user, $project] = provisionCatalogBrowserActor();
     $otherTenant = Tenant::query()->create(['name' => 'Other', 'slug' => 'other']);

@@ -19,6 +19,8 @@ return [
         'register_title' => 'Create your RackLab account',
     ],
     'catalog' => [
+        'for_course' => 'Deploy for course (optional)',
+        'no_course' => 'No course',
         'deploy' => 'Deploy',
         'deploy_denied' => 'You cannot deploy that catalog item.',
         'deploy_started' => 'Deployment started. Track it on your dashboard.',

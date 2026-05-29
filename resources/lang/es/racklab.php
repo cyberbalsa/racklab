@@ -19,6 +19,8 @@ return [
         'register_title' => 'Crea tu cuenta de RackLab',
     ],
     'catalog' => [
+        'for_course' => 'Desplegar para un curso (opcional)',
+        'no_course' => 'Sin curso',
         'deploy' => 'Desplegar',
         'deploy_denied' => 'No puedes desplegar ese elemento del catalogo.',
         'deploy_started' => 'Despliegue iniciado. Siguelo en tu panel.',

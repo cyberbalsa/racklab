@@ -72,8 +72,8 @@ function provisionCourseDetail(): array
         'role' => 'student',
     ]);
 
-    // A deployment owned by the student member — the instructor should see it
-    // on the course page via the course-derived deployment grant.
+    // A deployment created for the course (owned by the student member) — the
+    // instructor should see it on the course page via the course-derived grant.
     $project = Project::query()->create([
         'tenant_id' => $tenant->getKey(), 'name' => 'Lab', 'slug' => 'lab',
         'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
@@ -84,7 +84,8 @@ function provisionCourseDetail(): array
         'definition' => ['provider' => 'fake', 'components' => []], 'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
     ]);
     Deployment::query()->create([
-        'tenant_id' => $tenant->getKey(), 'project_id' => $project->getKey(), 'stack_definition_id' => $stack->getKey(),
+        'tenant_id' => $tenant->getKey(), 'project_id' => $project->getKey(), 'course_id' => $course->getKey(),
+        'stack_definition_id' => $stack->getKey(),
         'requested_by_id' => $student->id, 'name' => 'student-lab-vm', 'state' => 'running', 'provider' => 'fake',
         'metadata' => [], 'sharing_scope' => 'tenant_local', 'shared_with_tenants' => [],
     ]);

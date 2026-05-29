@@ -25,6 +25,20 @@
                 <span class="mt-1 text-sm text-error">{{ $message }}</span>
             @enderror
         </label>
+
+        @if ($courses !== [])
+            <label class="form-control mt-3 max-w-sm">
+                <span class="label-text">{{ __('racklab.catalog.for_course') }}</span>
+                <select dusk="catalog-course" wire:model="selectedCourseId" class="select select-bordered">
+                    <option value="">{{ __('racklab.catalog.no_course') }}</option>
+                    @foreach ($courses as $membership)
+                        @if ($membership->course)
+                            <option value="{{ $membership->course_id }}">{{ $membership->course->name }}</option>
+                        @endif
+                    @endforeach
+                </select>
+            </label>
+        @endif
     @endif
 
     @if ($catalogItems === [])
