@@ -116,6 +116,15 @@ return [
         'vms' => 'Maquinas virtuales',
     ],
     'courses' => [
+        'import' => 'Inscribir',
+        'import_enrolled' => 'Inscritos :count miembro(s) nuevo(s); :already ya inscritos.',
+        'import_heading' => 'Agregar miembros',
+        'import_hint_local' => 'Un correo por linea. Los usuarios registrados se inscriben; los correos desconocidos se reportan.',
+        'import_hint_sso' => 'Un correo por linea. Los usuarios registrados se inscriben de inmediato; los correos desconocidos se inscriben al primer inicio de sesion SSO.',
+        'import_missing' => 'Sin cuenta',
+        'import_pending' => 'Pendiente de primer inicio',
+        'import_placeholder' => 'estudiante1@example.edu
+estudiante2@example.edu',
         'member_deployments' => 'Despliegues de miembros',
         'no_member_deployments' => 'No hay despliegues de miembros visibles para ti.',
         'owner' => 'Propietario',

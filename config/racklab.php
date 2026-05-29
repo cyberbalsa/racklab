@@ -5,6 +5,9 @@ declare(strict_types=1);
 return [
     'default_tenant_slug' => env('RACKLAB_DEFAULT_TENANT_SLUG', 'default'),
     'seed_demo_catalog' => env('RACKLAB_SEED_DEMO_CATALOG', true),
+    // When true, roster imports may enrol unknown emails as pending (an SSO
+    // login provisions them); when false, only registered users are enrolled.
+    'sso_enabled' => env('RACKLAB_SSO_ENABLED', false),
     'container_runtime' => env('RACKLAB_CONTAINER_RUNTIME', 'unavailable'),
     'podman' => [
         'binary' => env('RACKLAB_PODMAN_BINARY', 'podman'),

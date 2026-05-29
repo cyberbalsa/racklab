@@ -6,6 +6,8 @@ namespace App\Identity;
 
 use App\Domain\Tenancy\RoleBindingScopeType;
 use App\Domain\Tenancy\TenantContext;
+use App\Models\CourseMembership;
+use App\Models\PendingCourseEnrollment;
 use App\Models\Project;
 use App\Models\ProjectDefaultStack;
 use App\Models\ProjectMembership;
@@ -135,7 +137,40 @@ final readonly class PersonalProjectProvisioner
                 ],
             );
 
+            $this->resolvePendingCourseEnrollments($user, $context);
+
             return $project->refresh();
         });
+    }
+
+    /**
+     * Convert any roster enrolments recorded by email (before this user had an
+     * account — e.g. SSO bulk import) into real course memberships now that the
+     * account exists. Matched case-insensitively on email within the tenant.
+     */
+    private function resolvePendingCourseEnrollments(User $user, TenantContext $context): void
+    {
+        $email = mb_strtolower(trim((string) $user->email));
+
+        if ($email === '') {
+            return;
+        }
+
+        /** @var PendingCourseEnrollment $pending */
+        foreach (PendingCourseEnrollment::query()
+            ->where('tenant_id', $context->activeTenantId)
+            ->whereRaw('lower(email) = ?', [$email])
+            ->get() as $pending) {
+            CourseMembership::query()->firstOrCreate(
+                [
+                    'tenant_id' => $context->activeTenantId,
+                    'course_id' => $pending->course_id,
+                    'user_id' => $user->id,
+                ],
+                ['role' => $pending->role],
+            );
+
+            $pending->delete();
+        }
     }
 }

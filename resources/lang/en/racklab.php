@@ -116,6 +116,15 @@ return [
         'vms' => 'Virtual machines',
     ],
     'courses' => [
+        'import' => 'Enrol',
+        'import_enrolled' => 'Enrolled :count new member(s); :already already enrolled.',
+        'import_heading' => 'Add members',
+        'import_hint_local' => 'One email per line. Registered users are enrolled; unknown emails are reported.',
+        'import_hint_sso' => 'One email per line. Registered users are enrolled immediately; unknown emails are enrolled on first SSO login.',
+        'import_missing' => 'No account',
+        'import_pending' => 'Pending first login',
+        'import_placeholder' => 'student1@example.edu
+student2@example.edu',
         'member_deployments' => 'Member deployments',
         'no_member_deployments' => 'No member deployments are visible to you.',
         'owner' => 'Owner',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Courses;
 
+use App\Courses\CourseRosterImporter;
 use App\Domain\Rbac\Permission;
 use App\Domain\Tenancy\AccessResolver;
 use App\Domain\Tenancy\ActorIdentity;
@@ -27,6 +28,42 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class CourseDetail extends Component
 {
     public string $courseId = '';
+
+    public string $rosterInput = '';
+
+    /**
+     * @var array{enrolled: int, already: int, pending: list<string>, missing: list<string>}|null
+     */
+    public ?array $importSummary = null;
+
+    public function importRoster(CourseRosterImporter $importer): void
+    {
+        $user = $this->currentUser();
+        $context = $this->currentContext();
+
+        $course = Course::query()->whereKey($this->courseId)->first();
+
+        // Roster management requires course.update on the course (instructor/
+        // support/admin); course.read alone (e.g. a TA) cannot enrol.
+        if (! $course instanceof Course || ! $this->allows($user, 'course.update', $course, $context)) {
+            throw new NotFoundHttpException('Course not found.');
+        }
+
+        $result = $importer->import(
+            $course,
+            $context->activeTenantId,
+            $this->rosterInput,
+            (bool) config('racklab.sso_enabled', false),
+        );
+
+        $this->importSummary = [
+            'enrolled' => $result->enrolled,
+            'already' => $result->alreadyEnrolled,
+            'pending' => $result->pending,
+            'missing' => $result->missing,
+        ];
+        $this->rosterInput = '';
+    }
 
     public function mount(string $course): void
     {
@@ -62,7 +99,19 @@ final class CourseDetail extends Component
             'course' => $course,
             'members' => $members->all(),
             'memberDeployments' => $this->memberDeployments($user, $context, $members),
+            'canManageRoster' => $this->allows($user, 'course.update', $course, $context),
+            'ssoEnabled' => (bool) config('racklab.sso_enabled', false),
         ]);
+    }
+
+    private function allows(User $user, string $permission, Course $course, TenantContext $context): bool
+    {
+        return app(AccessResolver::class)->permitted(
+            new ActorIdentity((string) $user->id),
+            new Permission($permission),
+            $course,
+            $context,
+        )->allowed;
     }
 
     /**

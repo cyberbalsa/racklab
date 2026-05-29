@@ -10,6 +10,38 @@
         @endif
     </header>
 
+    @if ($canManageRoster)
+        <section class="rounded border border-base-300 p-4">
+            <h2 class="text-lg font-semibold text-base-content">{{ __('racklab.courses.import_heading') }}</h2>
+            <p class="mt-1 text-sm text-base-content/70">
+                {{ $ssoEnabled ? __('racklab.courses.import_hint_sso') : __('racklab.courses.import_hint_local') }}
+            </p>
+
+            @if ($importSummary !== null)
+                <div dusk="roster-import-summary" class="alert alert-success mt-3 block">
+                    <p>{{ __('racklab.courses.import_enrolled', ['count' => $importSummary['enrolled'], 'already' => $importSummary['already']]) }}</p>
+                    @if ($importSummary['pending'] !== [])
+                        <p class="mt-1 text-sm">{{ __('racklab.courses.import_pending') }}: {{ implode(', ', $importSummary['pending']) }}</p>
+                    @endif
+                    @if ($importSummary['missing'] !== [])
+                        <p class="mt-1 text-sm text-warning">{{ __('racklab.courses.import_missing') }}: {{ implode(', ', $importSummary['missing']) }}</p>
+                    @endif
+                </div>
+            @endif
+
+            <textarea
+                dusk="roster-input"
+                wire:model="rosterInput"
+                rows="4"
+                class="textarea textarea-bordered mt-3 w-full font-mono text-sm"
+                placeholder="{{ __('racklab.courses.import_placeholder') }}"
+            ></textarea>
+            <div class="mt-2 flex justify-end">
+                <button type="button" dusk="roster-import" wire:click="importRoster" class="btn btn-sm btn-primary">{{ __('racklab.courses.import') }}</button>
+            </div>
+        </section>
+    @endif
+
     <section>
         <h2 class="text-lg font-semibold text-base-content">
             {{ __('racklab.courses.roster', ['count' => count($members)]) }}

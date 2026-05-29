@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domain\Tenancy\RoleBindingScopeType;
 use App\Domain\Tenancy\TenantContext;
 use App\Domain\Tenancy\TenantContextStore;
+use App\Livewire\Courses\CourseDetail;
 use App\Models\Course;
 use App\Models\CourseMembership;
 use App\Models\Deployment;
@@ -15,6 +16,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Rbac\RbacDefaultsSynchronizer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -105,6 +107,30 @@ it('shows an instructor their course with the roster', function (): void {
         ->assertSee('bob@example.test')
         // the instructor sees the student member's deployment (course grant)
         ->assertSee('student-lab-vm');
+});
+
+it('lets an instructor bulk-enrol registered users from the roster importer', function (): void {
+    [$tenant, $instructor, $course] = provisionCourseDetail();
+    $newcomer = User::factory()->create(['email' => 'carol@example.test']);
+
+    app(TenantContextStore::class)->set(new TenantContext(activeTenantId: $tenant->getKey()));
+    $tenant->makeCurrent();
+    test()->actingAs($instructor);
+
+    Livewire::test(CourseDetail::class, ['course' => $course->getKey()])
+        ->set('rosterInput', "carol@example.test\nghost@example.test\n")
+        ->call('importRoster')
+        ->assertHasNoErrors()
+        ->assertSee('No account')        // sign-in-only mode reports the ghost
+        ->assertSee('ghost@example.test');
+
+    expect(CourseMembership::query()
+        ->where('course_id', $course->getKey())
+        ->where('user_id', $newcomer->id)
+        ->exists())->toBeTrue();
+
+    app(TenantContextStore::class)->forget();
+    Tenant::forgetCurrent();
 });
 
 it('returns 404 for a user who cannot read the course', function (): void {
