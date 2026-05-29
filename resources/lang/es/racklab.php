@@ -92,6 +92,20 @@ return [
         'state' => 'Estado',
         'title' => 'Biblioteca de scripts',
     ],
+    'sharing' => [
+        'add_guests' => 'Compartir con (correos de miembros del inquilino)',
+        'emails_placeholder' => 'companero1@example.edu
+companero2@example.edu',
+        'empty' => 'No tienes despliegues cuya consola puedas compartir.',
+        'nav' => 'Compartir',
+        'no_guests' => 'Aun no se ha compartido con nadie.',
+        'revoke' => 'Revocar acceso',
+        'revoked' => 'Acceso a consola revocado.',
+        'share' => 'Compartir consola',
+        'shared_summary' => 'Compartido con :shared invitado(s) nuevo(s); :already ya tenian acceso. Sin cuenta: :missing.',
+        'summary' => 'Da acceso a la consola de tus VMs de laboratorio a otros miembros del inquilino.',
+        'title' => 'Compartir consola',
+    ],
     'stacks' => [
         'available_networks' => 'Redes disponibles',
         'actions' => 'Acciones',

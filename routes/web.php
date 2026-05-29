@@ -28,6 +28,7 @@ use App\Livewire\Docs\DocIndex;
 use App\Livewire\Hello;
 use App\Livewire\Projects\ProjectDetail;
 use App\Livewire\Scripts\ScriptLibrary;
+use App\Livewire\Sharing\ConsoleSharing;
 use App\Livewire\Stacks\StackBuilder;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +66,10 @@ Route::get('/projects/{project}/scripts', ScriptLibrary::class)
 Route::get('/courses/{course}', CourseDetail::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
     ->name('courses.show');
+
+Route::get('/sharing', ConsoleSharing::class)
+    ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])
+    ->name('sharing');
 
 Route::get('/stacks/build', StackBuilder::class)
     ->middleware(['auth', BindAuthenticatedTenant::class, SetUserLocale::class])

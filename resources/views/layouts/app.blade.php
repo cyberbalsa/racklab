@@ -24,6 +24,7 @@
                         <li><a href="{{ route('dashboard') }}" wire:navigate dusk="navbar-dashboard">{{ __('racklab.dashboard.title') }}</a></li>
                         <li><a href="{{ route('catalog') }}" wire:navigate dusk="navbar-catalog">{{ __('racklab.catalog.nav') }}</a></li>
                         <li><a href="{{ route('stacks.build') }}" wire:navigate dusk="navbar-stacks">{{ __('racklab.stacks.nav') }}</a></li>
+                        <li><a href="{{ route('sharing') }}" wire:navigate dusk="navbar-sharing">{{ __('racklab.sharing.nav') }}</a></li>
                         <li><a href="{{ route('docs.index') }}" wire:navigate dusk="navbar-docs">{{ __('racklab.docs.nav') }}</a></li>
                     </ul>
                     <form method="POST" action="{{ route('logout') }}" class="ml-1">

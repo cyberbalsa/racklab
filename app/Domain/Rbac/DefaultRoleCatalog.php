@@ -277,6 +277,14 @@ final readonly class DefaultRoleCatalog implements RolePermissionLookup
             'project.update',
             'token.create',
         ],
+        // Granted per-deployment to a user the owner shares a VM console with.
+        // Read + console-connect only — a guest can view/use the console but
+        // never manage, power, or delete the deployment.
+        'console_guest' => [
+            'deployment.console',
+            'deployment.console.connect',
+            'deployment.read',
+        ],
         // Baseline role granted to every tenant member. Intentionally minimal:
         // it carries only the read capabilities that all members of a tenant
         // share regardless of project ownership. Bound at tenant scope

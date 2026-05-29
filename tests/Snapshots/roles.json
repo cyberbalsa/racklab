@@ -266,6 +266,11 @@
         "project.update",
         "token.create"
     ],
+    "console_guest": [
+        "deployment.console",
+        "deployment.console.connect",
+        "deployment.read"
+    ],
     "tenant_member": [
         "catalog.read",
         "network.offering.read"

@@ -92,6 +92,20 @@ return [
         'state' => 'State',
         'title' => 'Script library',
     ],
+    'sharing' => [
+        'add_guests' => 'Share with (tenant member emails)',
+        'emails_placeholder' => 'teammate1@example.edu
+teammate2@example.edu',
+        'empty' => 'You have no deployments whose console you can share.',
+        'nav' => 'Sharing',
+        'no_guests' => 'Not shared with anyone yet.',
+        'revoke' => 'Revoke access',
+        'revoked' => 'Console access revoked.',
+        'share' => 'Share console',
+        'shared_summary' => 'Shared with :shared new guest(s); :already already had access. No account: :missing.',
+        'summary' => 'Give other tenant members console access to your lab VMs.',
+        'title' => 'Console sharing',
+    ],
     'stacks' => [
         'available_networks' => 'Available networks',
         'actions' => 'Actions',

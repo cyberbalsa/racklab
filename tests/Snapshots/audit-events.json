@@ -11,6 +11,7 @@
     "console.proxy.request",
     "console.session.end",
     "console.session.start",
+    "deployment.console.share",
     "deployment.lifecycle",
     "deployment.request",
     "deployment.scheduled",
