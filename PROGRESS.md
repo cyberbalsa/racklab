@@ -1855,6 +1855,20 @@ authoring/export and labels) is now in place and browser-verified.
   real link to `/horizon`, gated by Horizon's own auth/asset serving under
   local `artisan serve`) — not an MVP button.
 
+### Student Sharing view — console sharing (2026-05-28)
+
+`Sharing view` Key Screen (PRD §15): a deployment owner shares the VM **console**
+with other tenant members (the use case: one group of students granting another
+group console access to a lab VM). A minimal `console_guest` role
+(`deployment.read` + `deployment.console` + `deployment.console.connect`, nothing
+more) is granted per-deployment via `ConsoleShareService` — `deployment.update`
+gated, tenant-members only (non-members reported, never cross-tenant), revocable,
+and `deployment.console.share` audited. The Livewire `/sharing` screen lists the
+deployments the actor can manage with per-VM guest lists, add-by-email, and
+revoke; the navbar links to it. Granted guests can open the console (read +
+connect) but cannot power/manage/delete the VM. Covered by role + service +
+Livewire tests.
+
 ### Course-staff deployment access + bulk roster enrolment (2026-05-28)
 
 - **Course-staff deployment access (RBAC).** A course instructor/TA can read +
